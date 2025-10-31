@@ -1,6 +1,7 @@
 import React from 'react';
 import ColorBends from '../Style-components/Colorbends';
 import LoginForm from '../components/LoginForm';
+import '../css-files/Login.css';
 
 const LoginPage: React.FC = () => {
     const handleLogin = (email: string, password: string) => {
@@ -14,7 +15,7 @@ const LoginPage: React.FC = () => {
         <div className="login-page">
             <ColorBends
                 className="background-animation"
-             colors={["#ff5c7a", "#8a5cff", "#00ffd1"]}
+           
                 speed={0.3}
                 frequency={1.2}
                 warpStrength={0.8}
