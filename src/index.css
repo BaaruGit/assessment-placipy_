@@ -11,6 +11,12 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* Primary color palette */
+  --primary-color: #9768E1;
+  --secondary-color: #523C48;
+  --light-bg: #FBFAFB;
+  --accent-color: #D0BFE7;
 }
 
 body {
@@ -19,7 +25,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #FBFAFB;
+  background-color: var(--light-bg);
 }
 
 #root {
@@ -38,14 +44,14 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #FBFAFB;
+  background: var(--light-bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D0BFE7;
+  background: var(--accent-color);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9768E1;
+  background: var(--primary-color);
 }
