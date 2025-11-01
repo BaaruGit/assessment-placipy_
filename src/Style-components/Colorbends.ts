@@ -41,7 +41,7 @@ void main() {
   float t = uTime * uSpeed;
   vec2 p = vUv * 2.0 - 1.0;
   p += uPointer * uParallax * 0.1;
-  vec2 rp = vec2(p.x * uRot.x - p.y * uRot.y, p.x * uRot.y + p.y);
+  vec2 rp = vec2(p.x * uRot.x - p.y * uRot.y, p.x * uRot.y + p.y * uRot.x);
   vec2 q = vec2(rp.x * (uCanvas.x / uCanvas.y), rp.y);
   q /= max(uScale, 0.0001);
   q /= 0.5 + 0.2 * dot(q, q);

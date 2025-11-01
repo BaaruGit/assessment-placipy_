@@ -18,14 +18,88 @@
   justify-content: center;
   align-items: center;
   position: relative;
+  overflow: hidden;
 }
 
+/* Custom background animation */
 .background-animation {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4edf9 100%);
+  overflow: hidden;
+}
+
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(151, 104, 225, 0.15) 0%, rgba(82, 60, 72, 0.05) 70%);
+  animation: float 15s infinite ease-in-out;
+  opacity: 0.7;
+}
+
+.bubble-1 {
+  width: 120px;
+  height: 120px;
+  top: 10%;
+  left: 15%;
+  animation-delay: 0s;
+}
+
+.bubble-2 {
+  width: 80px;
+  height: 80px;
+  top: 60%;
+  left: 10%;
+  animation-delay: -2s;
+}
+
+.bubble-3 {
+  width: 150px;
+  height: 150px;
+  top: 70%;
+  right: 15%;
+  animation-delay: -4s;
+}
+
+.bubble-4 {
+  width: 60px;
+  height: 60px;
+  top: 30%;
+  right: 20%;
+  animation-delay: -6s;
+}
+
+.bubble-5 {
+  width: 100px;
+  height: 100px;
+  bottom: 10%;
+  left: 40%;
+  animation-delay: -8s;
+}
+
+@keyframes float {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  25% {
+    transform: translate(20px, 20px) rotate(90deg);
+  }
+
+  50% {
+    transform: translate(0, 40px) rotate(180deg);
+  }
+
+  75% {
+    transform: translate(-20px, 20px) rotate(270deg);
+  }
+
+  100% {
+    transform: translate(0, 0) rotate(360deg);
+  }
 }
 
 .login-overlay {
@@ -64,22 +138,50 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  position: relative;
 }
 
 .login-form-label {
   color: #523C48;
   font-weight: 500;
   font-size: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.login-icon {
+  margin-right: 8px;
+  color: #9768E1;
+  width: 18px;
+  height: 18px;
+}
+
+.login-form-input-wrapper {
+  position: relative;
 }
 
 .login-form-input {
   color: black;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1rem 0.75rem 1.25rem;
   border: 2px solid #D0BFE7;
   border-radius: 8px;
   font-size: 1rem;
   transition: border-color 0.3s ease;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 1);
+  /* Keep white background */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Fix for autofill background */
+.login-form-input:-webkit-autofill,
+.login-form-input:-webkit-autofill:hover,
+.login-form-input:-webkit-autofill:focus,
+.login-form-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  -webkit-text-fill-color: black !important;
+  caret-color: black !important;
+  border: 2px solid #D0BFE7;
 }
 
 .login-form-input:focus {
@@ -90,6 +192,20 @@
 
 .login-form-input::placeholder {
   color: #A4878D;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9768E1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .login-button {
@@ -103,6 +219,9 @@
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   margin-top: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  /* required for inner animations */
 }
 
 .login-button:hover {
@@ -112,6 +231,88 @@
 
 .login-button:active {
   transform: translateY(0);
+}
+
+/* --- Inner hover shine --- */
+.login-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.0));
+  transform: skewX(-20deg) translateX(0);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.login-button:hover::before {
+  /* animate a shining bar across the button */
+  opacity: 1;
+  animation: shine 900ms linear infinite;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-200%) skewX(-20deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.9;
+  }
+
+  50% {
+    transform: translateX(200%) skewX(-20deg);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translateX(400%) skewX(-20deg);
+    opacity: 0;
+  }
+}
+
+/* --- Click / active ripple --- */
+.login-button::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.login-button:active::after {
+  /* expand a circular ripple from center while fading */
+  width: 220%;
+  height: 220%;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  animation: ripple 420ms ease-out forwards;
+}
+
+@keyframes ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.15);
+    opacity: 0.9;
+  }
+
+  60% {
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0;
+  }
 }
 
 /* Responsive design */
