@@ -7,7 +7,6 @@ A modern student assessment platform built with React, TypeScript, and Vite.
 This project follows a organized directory structure to maintain clean code separation and scalability:
 
 ```
-For Now ...
 src/
 ├── components/           # Reusable UI components
 │   └── LoginForm.tsx     # Login form component
@@ -15,6 +14,11 @@ src/
 │   └── LoginPage.tsx     # Login page using ColorBends background
 ├── Style-components/     # Custom styled components
 │   └── Colorbends.ts     # Animated background component
+├── student/             # Student portal dashboard
+│   ├── components/       # Student dashboard components
+│   ├── pages/            # Student dashboard pages
+│   ├── styles/           # Student dashboard styles
+│   └── README.md         # Student portal documentation
 ├── App.css              # Main application styles
 ├── App.tsx              # Main application component
 ├── index.css            # Global styles
@@ -32,6 +36,14 @@ Place all reusable UI components in this directory. These components should be s
 Place complete page components in this directory. Each page may compose multiple components and represent a complete view.
 
 **Example**: [LoginPage.tsx](file:///c:/Assesment%20placipy/Assesment-placipy/src/pages/LoginPage.tsx) - The complete login page view
+
+### Student Portal Directory (`src/student/`)
+Contains the complete student dashboard implementation with all requested features.
+
+**Subdirectories**:
+- `components/` - Individual feature components
+- `pages/` - Main dashboard page
+- `styles/` - Dashboard-specific CSS
 
 ### Style Components Directory (`src/Style-components/`)
 Place custom styled or animated components in this directory. These components typically have complex styling or animation logic.
@@ -81,6 +93,7 @@ This application follows the 4 principles of UI/UX design:
 ## Technologies Used
 
 - React 19
+- React Router DOM
 - TypeScript
 - Vite
 - Three.js (for animations)
@@ -102,3 +115,37 @@ This application follows the 4 principles of UI/UX design:
    ```bash
    npm run build
    ```
+
+## Student Portal Features
+
+The student portal includes all the requested features:
+
+### 🔹 Dashboard
+- Personalized welcome panel
+- Active, upcoming, and completed assessments list
+- Assessment progress tracker
+- Performance summary chart
+
+### 🔹 Assessments
+- View all active tests with start time, duration, and instructions
+- Attend test directly from dashboard
+- Auto-save during the test (simulated)
+- Result page (after completion or after staff publishes results)
+- Filter assessments by department or topic
+
+### 🔹 Results & Reports
+- View scores, ranks, and feedback
+- Detailed analysis: correct/incorrect answers, time spent
+- Department ranking board
+
+### 🔹 Profile
+- Manage student details (name, roll number, department, etc.)
+- Change password
+- View test history
+
+### 🔹 Notifications
+- Alerts for new assessments or results
+- College-wide announcements
+- Messages from placement officer or staff
+
+For detailed documentation on the student portal, see [src/student/README.md](src/student/README.md).
