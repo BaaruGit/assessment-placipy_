@@ -21,15 +21,13 @@
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
   background-color: var(--light-bg);
 }
 
 #root {
-  width: 100vw;
+  width: 100%;
   height: 100vh;
 }
 
