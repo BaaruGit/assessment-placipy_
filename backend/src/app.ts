@@ -42,38 +42,21 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/users', userRoutes);
-app.use('/api/assessments', authenticateToken, assessmentRoutes);
+app.use('/api/assessments', assessmentRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.status(200).json({
-        status: 'OK',
-        message: 'Server is running',
-        timestamp: new Date().toISOString(),
-        port: PORT
-    });
-});
-
-// Simple test endpoint
-app.get('/api/test', (req, res) => {
-    res.status(200).json({
-        message: 'API is working',
-        timestamp: new Date().toISOString()
-    });
-});
-
-// Root endpoint
-app.get('/', (req, res) => {
-    res.status(200).json({
-        message: 'PlaciPy Backend API',
-        version: '1.0.0',
-        documentation: '/api/docs (not implemented yet)'
-    });
+    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err.stack);
+    // Log error details in development only
+    if (process.env.NODE_ENV === 'development') {
+        console.error(err.stack);
+    }
+
+    // Send generic error response
     res.status(500).json({
         error: 'Internal Server Error',
         message: 'An unexpected error occurred'
@@ -81,10 +64,11 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler
-app.use('*', (req, res) => {
-    console.log('404 - Route not found:', req.originalUrl);
-    res.status(404).json({ error: 'Not Found', message: 'Route not found: ' + req.originalUrl });
+app.use((req, res) => {
+    res.status(404).json({
+        error: 'Not Found',
+        message: 'Route not found'
+    });
 });
 
-// Export app without starting server (server start is handled in index.ts)
 module.exports = app;

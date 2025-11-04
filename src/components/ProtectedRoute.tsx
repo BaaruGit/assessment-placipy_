@@ -28,8 +28,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
                     return;
                 }
 
-                // Get user role from backend
-                const userRole = await AuthService.getUserRole(token);
+                // Get user role from backend (uses caching and deduplication)
+                const userProfile = await AuthService.getUserProfile(token);
+                const userRole = userProfile.role;
 
                 // Check if user role is in allowed roles
                 if (allowedRoles.includes(userRole)) {

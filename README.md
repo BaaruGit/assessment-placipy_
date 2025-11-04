@@ -1,3 +1,81 @@
+# PlaciPy - Placement Management System
+
+PlaciPy is a comprehensive placement management system designed for educational institutions to streamline the placement process for students, training officers, and administrators.
+
+## Features
+
+- **Role-based Dashboards**: Separate interfaces for Students, Placement Training Officers (PTO), Placement Training Staff (PTS), and Administrators
+- **Assessment Management**: Create, schedule, and manage assessments for placement preparation
+- **Student Tracking**: Monitor student progress and placement statistics
+- **Reporting & Analytics**: Generate detailed reports on placement statistics and performance metrics
+- **Secure Authentication**: AWS Cognito integration for secure user authentication and authorization
+
+## Technology Stack
+
+### Frontend
+- React with TypeScript
+- React Router for navigation
+- CSS Modules for styling
+- React Icons for UI icons
+
+### Backend
+- Node.js with Express
+- AWS Cognito for authentication
+- DynamoDB for data storage
+- RESTful API architecture
+
+## Project Structure
+
+```
+.
+├── backend
+│   ├── src
+│   │   ├── auth
+│   │   ├── routes
+│   │   └── services
+│   └── scripts
+├── src
+│   ├── company-admin
+│   ├── components
+│   ├── css-files
+│   ├── pages
+│   ├── pto
+│   ├── pts
+│   ├── services
+│   ├── student
+│   └── Style-components
+└── ...
+```
+
+## Setup Instructions
+
+### Backend Setup
+1. Navigate to the backend directory: `cd backend`
+2. Install dependencies: `npm install`
+3. Configure environment variables (see backend README for details)
+4. Start the server: `npm run dev`
+
+### Frontend Setup
+1. Install dependencies: `npm install`
+2. Start the development server: `npm run dev`
+
+## Future Plans
+
+### Authentication Improvements
+- **Cookie-based Authentication**: Implementation of secure HTTP-only cookies for token storage as an alternative to localStorage
+- **First-party vs Third-party Cookie Decision**: Evaluation and decision on whether to use first-party or third-party cookies based on browser support and security considerations
+
+### UI/UX Enhancements
+- **Responsive Design Improvements**: Enhanced mobile experience across all dashboards
+- **Dark Mode Support**: Implementation of dark/light theme toggle
+- **Accessibility Improvements**: WCAG compliance and screen reader support
+
+### Feature Extensions
+- **Real-time Notifications**: WebSocket integration for instant notifications
+- **Advanced Analytics Dashboard**: Enhanced data visualization and reporting
+- **Mobile Application**: React Native mobile app for on-the-go access
+- **Integration Capabilities**: APIs for integration with external systems (LMS, HR systems, etc.)
+
 # Placipy - Student Assessment Platform
 
 A modern student assessment platform built with React, TypeScript, and Vite.

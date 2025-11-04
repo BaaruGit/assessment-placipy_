@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
+import {
   FaTachometerAlt,
   FaBuilding,
   FaUser,
@@ -20,16 +20,18 @@ import StudentManagement from '../components/StudentManagement';
 import ReportsAnalytics from '../components/ReportsAnalytics';
 import Profile from '../components/Profile';
 import '../styles/Dashboard.css';
+import { useUser } from '../../contexts/UserContext';
 
 const PTODashboard: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, loading } = useUser();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationsCount] = useState(3);
 
-  const navItems = [
+  const navItems = useMemo(() => [
     { id: 'dashboard', label: 'Dashboard', path: '/pto', icon: FaTachometerAlt },
     { id: 'departments', label: 'Departments', path: '/pto/departments', icon: FaBuilding },
     { id: 'staff', label: 'Staff Management', path: '/pto/staff', icon: FaUser },
@@ -37,7 +39,7 @@ const PTODashboard: React.FC = () => {
     { id: 'students', label: 'Students', path: '/pto/students', icon: FaUserGraduate },
     { id: 'reports', label: 'Reports & Analytics', path: '/pto/reports', icon: FaChartBar },
     { id: 'profile', label: 'Profile', path: '/pto/profile', icon: FaUserCircle },
-  ];
+  ], []);
 
   useEffect(() => {
     const currentPath = location.pathname;
@@ -51,7 +53,7 @@ const PTODashboard: React.FC = () => {
     } else {
       setActiveTab('dashboard');
     }
-  }, [location]);
+  }, [location, navItems]);
 
   const handleLogout = () => {
     navigate('/');
@@ -64,6 +66,39 @@ const PTODashboard: React.FC = () => {
   const closeSidebar = () => {
     setSidebarOpen(false);
   };
+
+  // Profile dropdown content with loading state
+  const profileDropdownContent = useMemo(() => {
+    if (loading) {
+      return (
+        <div className="profile-header">
+          <h3>Loading...</h3>
+          <p>Placement Training Officer</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="profile-header">
+          <h3>{user?.name || 'John Smith'}</h3>
+          <p>{user?.role || 'Placement Training Officer'}</p>
+        </div>
+        <div className="profile-content">
+          <Link
+            to="/pto/profile"
+            className="profile-link"
+            onClick={() => setProfileDropdownOpen(false)}
+          >
+            View Profile
+          </Link>
+          <button className="logout-btn-small" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      </>
+    );
+  }, [user, loading, handleLogout]);
 
   return (
     <div className="pto-dashboard">
@@ -131,30 +166,15 @@ const PTODashboard: React.FC = () => {
               )}
             </div>
             <div className="profile-dropdown-container">
-              <div 
-                className="user-avatar" 
+              <div
+                className="user-avatar"
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
               >
                 <FaUserCircle size={32} color="#9768E1" />
               </div>
               {profileDropdownOpen && (
                 <div className="profile-dropdown">
-                  <div className="profile-header">
-                    <h3>John Smith</h3>
-                    <p>Placement Training Officer</p>
-                  </div>
-                  <div className="profile-content">
-                    <Link 
-                      to="/pto/profile" 
-                      className="profile-link"
-                      onClick={() => setProfileDropdownOpen(false)}
-                    >
-                      View Profile
-                    </Link>
-                    <button className="logout-btn-small" onClick={handleLogout}>
-                      Logout
-                    </button>
-                  </div>
+                  {profileDropdownContent}
                 </div>
               )}
             </div>
@@ -177,5 +197,4 @@ const PTODashboard: React.FC = () => {
   );
 };
 
-export default PTODashboard;
-
+export default memo(PTODashboard);

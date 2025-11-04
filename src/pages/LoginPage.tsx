@@ -16,14 +16,12 @@ const LoginPage: React.FC = () => {
     const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
     const [challenge, setChallenge] = useState<ChallengeResponse | null>(null);
-    const [email, setEmail] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [sessionExpired, setSessionExpired] = useState<boolean>(false);
 
     const handleLogin = async (email: string, password: string) => {
         try {
             setError(null);
-            setEmail(email);
             setPassword(password);
             console.log('Attempting login with:', { email });
 
@@ -154,7 +152,7 @@ const LoginPage: React.FC = () => {
                                     </button>
                                     <button
                                         type="button"
-                                        className="login-button secondary"
+                                        className="login-button-secondary"
                                         onClick={() => setChallenge(null)}
                                     >
                                         Cancel

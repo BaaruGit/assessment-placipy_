@@ -354,6 +354,10 @@
   animation: ripple 420ms ease-out forwards;
 }
 
+.login-button-secondary{
+  margin-left: 55px;
+}
+
 @keyframes ripple {
   0% {
     transform: translate(-50%, -50%) scale(0.15);

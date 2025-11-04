@@ -6,8 +6,12 @@ export type UserRole = 'Student' | 'PTO' | 'PTS' | 'Admin';
 // Define user interface
 export interface User {
     email: string;
+    name: string;
     role: UserRole;
     accessToken: string;
+    department?: string;
+    year?: string;
+    joiningDate?: string;
 }
 
 // Define challenge response interface
@@ -20,6 +24,9 @@ export interface ChallengeResponse {
 // Authentication service
 class AuthService {
     private apiUrl = '/api/users'; // Backend API base URL (using proxy)
+    private userProfileCache: { data: Omit<User, 'accessToken'>; timestamp: number } | null = null;
+    private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+    private pendingProfileRequest: Promise<Omit<User, 'accessToken'>> | null = null;
 
     /**
      * Normalize role name to match expected UserRole type
@@ -88,16 +95,26 @@ class AuthService {
 
             const { accessToken } = response.data;
 
-            // Get user role from backend
-            const role = await this.getUserRole(accessToken);
+            // Get user profile from backend (bypass cache for fresh login)
+            const userProfile = await this.getUserProfile(accessToken, true);
 
             // Store token in localStorage for future requests
             localStorage.setItem('accessToken', accessToken);
 
+            // Cache the user profile
+            this.userProfileCache = {
+                data: userProfile,
+                timestamp: Date.now()
+            };
+
             return {
-                email,
-                role,
-                accessToken
+                email: userProfile.email,
+                name: userProfile.name,
+                role: userProfile.role,
+                accessToken,
+                department: userProfile.department,
+                year: userProfile.year,
+                joiningDate: userProfile.joiningDate
             };
         } catch (error: any) {
             console.error('Login error:', error);
@@ -119,9 +136,9 @@ class AuthService {
             } else if (error.request) {
                 // Request was made but no response received
                 console.error('No response received:', error.request);
-                throw new Error('Network error: Could not connect to the authentication server. Please ensure the backend is running on port 3001.');
+                throw new Error('Network error: Could not connect to the authentication server. Please ensure the backend is running on port 3000.');
             } else {
-                // Something else happened
+                // Something else happened 
                 console.error('Error message:', error.message);
                 throw new Error('Login failed: ' + error.message);
             }
@@ -145,7 +162,7 @@ class AuthService {
         try {
             console.log('Responding to NEW_PASSWORD_REQUIRED challenge for:', username);
 
-            // Call backend endpoint to respond to challenge
+            // Call backend endpoint to respond to challenge , yeah it's me kavin here , in case you reading then i am the one who developed it.
             const response = await axios.post(`${this.apiUrl}/respond-to-new-password-challenge`, {
                 username,
                 password: currentPassword,
@@ -159,17 +176,26 @@ class AuthService {
 
             const { accessToken } = response.data;
 
-            // Get user role from backend
-            const role = await this.getUserRole(accessToken);
+            // Get user profile from backend (bypass cache for fresh login)
+            const userProfile = await this.getUserProfile(accessToken, true);
 
             // Store token in localStorage for future requests
             localStorage.setItem('accessToken', accessToken);
 
-            // For the email, we'll use the username since that's what we have
+            // Cache the user profile
+            this.userProfileCache = {
+                data: userProfile,
+                timestamp: Date.now()
+            };
+
             return {
-                email: username,
-                role,
-                accessToken
+                email: userProfile.email,
+                name: userProfile.name,
+                role: userProfile.role,
+                accessToken,
+                department: userProfile.department,
+                year: userProfile.year,
+                joiningDate: userProfile.joiningDate
             };
         } catch (error: any) {
             console.error('Challenge response error:', error);
@@ -196,13 +222,56 @@ class AuthService {
     }
 
     /**
-     * Get user role from backend
+     * Get user profile from backend with caching and request deduplication
      * @param token Access token
-     * @returns User role
+     * @param bypassCache Whether to bypass the cache
+     * @returns User profile
      */
-    async getUserRole(token: string): Promise<UserRole> {
+    async getUserProfile(token: string, bypassCache: boolean = false): Promise<Omit<User, 'accessToken'>> {
+        // Check if we have a valid cached profile
+        if (!bypassCache && this.userProfileCache) {
+            const now = Date.now();
+            if (now - this.userProfileCache.timestamp < this.CACHE_DURATION) {
+                console.log('Returning cached user profile');
+                return this.userProfileCache.data;
+            }
+        }
+
+        // If there's already a pending request, return that promise
+        if (this.pendingProfileRequest && !bypassCache) {
+            console.log('Returning existing profile request promise');
+            return this.pendingProfileRequest;
+        }
+
+        // Create a new request promise
+        this.pendingProfileRequest = this.fetchUserProfile(token)
+            .then(profile => {
+                // Cache the result
+                this.userProfileCache = {
+                    data: profile,
+                    timestamp: Date.now()
+                };
+                // Clear the pending request
+                this.pendingProfileRequest = null;
+                return profile;
+            })
+            .catch(error => {
+                // Clear the pending request on error
+                this.pendingProfileRequest = null;
+                throw error;
+            });
+
+        return this.pendingProfileRequest;
+    }
+
+    /**
+     * Fetch user profile from backend
+     * @param token Access token
+     * @returns User profile
+     */
+    private async fetchUserProfile(token: string): Promise<Omit<User, 'accessToken'>> {
         try {
-            console.log('Fetching user role with token:', token ? 'Bearer ***' : 'No token');
+            console.log('Fetching user profile with token:', token ? 'Bearer ***' : 'No token');
 
             // Set authorization header
             const config = {
@@ -217,8 +286,8 @@ class AuthService {
 
             console.log('Profile response:', response.data);
 
-            // Extract role from response
-            const { role } = response.data.user;
+            // Extract user data from response
+            const { email, name, role, department, year, joiningDate } = response.data.user;
 
             // Normalize role name to match expected values
             const normalizedRole = this.normalizeRole(role);
@@ -229,13 +298,20 @@ class AuthService {
                 throw new Error(`Invalid user role: ${role}`);
             }
 
-            return normalizedRole;
+            return {
+                email,
+                name,
+                role: normalizedRole,
+                department,
+                year,
+                joiningDate
+            };
         } catch (error: any) {
-            console.error('Error getting user role:', error);
+            console.error('Error getting user profile:', error);
 
             if (error.response) {
-                console.error('Role check response data:', error.response.data);
-                console.error('Role check response status:', error.response.status);
+                console.error('Profile check response data:', error.response.data);
+                console.error('Profile check response status:', error.response.status);
 
                 const message = error.response.data?.message || error.response.statusText || 'Unknown server error';
 
@@ -248,13 +324,31 @@ class AuthService {
                     throw new Error('Access forbidden. Your token may be invalid or expired.');
                 }
 
-                throw new Error(`Role verification failed: ${message} (${error.response.status})`);
+                throw new Error(`Profile verification failed: ${message} (${error.response.status})`);
             } else if (error.request) {
-                throw new Error('Network error: Could not connect to the server for role verification. Please ensure the backend is running on port 3001.');
+                throw new Error('Network error: Could not connect to the server for profile verification. Please ensure the backend is running on port 3001.');
             } else {
-                throw new Error('Role verification failed: ' + error.message);
+                throw new Error('Profile verification failed: ' + error.message);
             }
         }
+    }
+
+    /**
+     * Get user role from backend (kept for backward compatibility)
+     * @param token Access token
+     * @returns User role
+     */
+    async getUserRole(token: string): Promise<UserRole> {
+        const userProfile = await this.getUserProfile(token);
+        return userProfile.role;
+    }
+
+    /**
+     * Clear user profile cache
+     */
+    clearCache(): void {
+        this.userProfileCache = null;
+        this.pendingProfileRequest = null;
     }
 
     /**
@@ -279,6 +373,7 @@ class AuthService {
      */
     logout(): void {
         localStorage.removeItem('accessToken');
+        this.clearCache();
     }
 
     /**
@@ -291,7 +386,7 @@ class AuthService {
             case 'Student':
                 return '/student';
             case 'PTO':
-                return '/pto-dashboard';
+                return '/pto';
             case 'PTS':
                 return '/pts';
             case 'Admin':

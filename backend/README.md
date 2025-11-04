@@ -64,29 +64,26 @@ npm start
 - `POST /api/users/forgot-password` - Initiate password reset
 - `POST /api/users/reset-password` - Confirm password reset
 
-## Security
+## Future Plans
 
-- All API endpoints (except login/register) require authentication
-- JWT tokens are validated using AWS Cognito JWKS
-- User roles are verified against DynamoDB data
-- Rate limiting is implemented to prevent abuse
+### Authentication Improvements
+- **Cookie-based Authentication**: Implementation of secure HTTP-only cookies for token storage as an alternative to localStorage
+- **First-party vs Third-party Cookie Decision**: Evaluation and decision on whether to use first-party or third-party cookies based on browser support and security considerations
+- **Refresh Token Mechanism**: Implementation of refresh tokens to extend user sessions beyond the default access token expiration
+- **Enhanced Session Management**: Improved session handling with better timeout controls and user activity tracking
 
-## Architecture
+### Security Enhancements
+- **Multi-factor Authentication (MFA)**: Adding support for SMS or TOTP-based MFA for enhanced security
+- **Rate Limiting Improvements**: More sophisticated rate limiting based on IP, user, and endpoint
+- **Security Headers**: Additional security headers and improved CORS configuration
 
-The backend follows a layered architecture:
-- Controllers handle HTTP requests
-- Services contain business logic
-- Middleware handles authentication and authorization
-- Models define data structures
+### Performance Optimizations
+- **Caching Layer**: Implementation of Redis or similar caching mechanism for frequently accessed data
+- **Database Query Optimization**: Optimized DynamoDB queries and potential migration to more efficient data structures
+- **Response Compression**: Implementation of gzip compression for API responses
 
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
-
-## License
-
-This project is licensed under the MIT License.
+### Feature Extensions
+- **Audit Logging**: Comprehensive logging of user actions for security and compliance
+- **Notification System**: Real-time notifications for important events and updates
+- **Advanced Analytics**: Enhanced reporting and analytics capabilities
+- **API Versioning**: Implementation of API versioning for backward compatibility
