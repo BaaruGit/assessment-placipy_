@@ -118,50 +118,67 @@ async function loginUser(username, password, newPassword = null, session = null)
             throw new Error('Username and password are required');
         }
 
-        // Prepare authentication parameters
-        const params = {
-            AuthFlow: 'USER_PASSWORD_AUTH',
-            ClientId: process.env.COGNITO_CLIENT_ID,
-            AuthParameters: {
-                USERNAME: username,
-                PASSWORD: password
-            }
-        };
-
-        // Add SECRET_HASH if client secret is configured
-        if (process.env.COGNITO_CLIENT_SECRET) {
-            params.AuthParameters.SECRET_HASH = calculateSecretHash(username, process.env.COGNITO_CLIENT_ID, process.env.COGNITO_CLIENT_SECRET);
-        }
-
         // Handle NEW_PASSWORD_REQUIRED challenge
         if (newPassword && session) {
-            params.AuthFlow = 'NEW_PASSWORD_AUTH';
-            params.ChallengeName = 'NEW_PASSWORD_REQUIRED';
-            params.ChallengeResponses = {
-                USERNAME: username,
-                NEW_PASSWORD: newPassword
+            // Use RespondToAuthChallengeCommand for challenge responses
+            const params = {
+                ClientId: process.env.COGNITO_CLIENT_ID,
+                ChallengeName: 'NEW_PASSWORD_REQUIRED',
+                Session: session,
+                ChallengeResponses: {
+                    USERNAME: username,
+                    NEW_PASSWORD: newPassword
+                }
             };
-            params.Session = session;
 
             // Add SECRET_HASH to challenge responses if client secret is configured
             if (process.env.COGNITO_CLIENT_SECRET) {
                 params.ChallengeResponses.SECRET_HASH = calculateSecretHash(username, process.env.COGNITO_CLIENT_ID, process.env.COGNITO_CLIENT_SECRET);
             }
+
+            // Execute challenge response command
+            const command = new RespondToAuthChallengeCommand(params);
+            const result = await cognitoClient.send(command);
+
+            // Return relevant information
+            return {
+                accessToken: result.AuthenticationResult?.AccessToken,
+                refreshToken: result.AuthenticationResult?.RefreshToken,
+                expiresIn: result.AuthenticationResult?.ExpiresIn,
+                tokenType: result.AuthenticationResult?.TokenType,
+                challenge: result.ChallengeName,
+                session: result.Session
+            };
+        } else {
+            // Prepare authentication parameters for initial login
+            const params = {
+                AuthFlow: 'USER_PASSWORD_AUTH',
+                ClientId: process.env.COGNITO_CLIENT_ID,
+                AuthParameters: {
+                    USERNAME: username,
+                    PASSWORD: password
+                }
+            };
+
+            // Add SECRET_HASH if client secret is configured
+            if (process.env.COGNITO_CLIENT_SECRET) {
+                params.AuthParameters.SECRET_HASH = calculateSecretHash(username, process.env.COGNITO_CLIENT_ID, process.env.COGNITO_CLIENT_SECRET);
+            }
+
+            // Execute authentication command
+            const command = new InitiateAuthCommand(params);
+            const result = await cognitoClient.send(command);
+
+            // Return relevant information
+            return {
+                accessToken: result.AuthenticationResult?.AccessToken,
+                refreshToken: result.AuthenticationResult?.RefreshToken,
+                expiresIn: result.AuthenticationResult?.ExpiresIn,
+                tokenType: result.AuthenticationResult?.TokenType,
+                challenge: result.ChallengeName,
+                session: result.Session
+            };
         }
-
-        // Execute authentication command
-        const command = new InitiateAuthCommand(params);
-        const result = await cognitoClient.send(command);
-
-        // Return relevant information
-        return {
-            accessToken: result.AuthenticationResult?.AccessToken,
-            refreshToken: result.AuthenticationResult?.RefreshToken,
-            expiresIn: result.AuthenticationResult?.ExpiresIn,
-            tokenType: result.AuthenticationResult?.TokenType,
-            challenge: result.ChallengeName,
-            session: result.Session
-        };
     } catch (error) {
         // Re-throw the error to be handled by the calling function
         throw error;
