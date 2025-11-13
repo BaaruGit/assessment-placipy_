@@ -249,14 +249,14 @@ const Officers: React.FC = () => {
       {/* Modal for Add/Edit Officer */}
       {isModalOpen && (
         <div className="admin-modal-overlay">
-          <div className="admin-modal">
+          <div className="admin-modal-content">
             <div className="admin-modal-header">
-              <h2>{editingOfficer ? 'Edit Officer' : 'Add New Officer'}</h2>
+              <h3>{editingOfficer ? 'Edit Officer' : 'Add New Officer'}</h3>
               <button className="admin-modal-close" onClick={handleClose}>
                 &times;
               </button>
             </div>
-            <div className="admin-modal-content">
+            <div className="admin-modal-body">
               <form>
                 <div className="admin-form-group">
                   <label>Name *</label>
