@@ -221,6 +221,8 @@ class AdminService {
       if (filters.collegeId) {
         // Get officers from specific college
         const pk = filters.collegeId.startsWith('CLIENT#') ? filters.collegeId : `CLIENT#${filters.collegeId}`;
+        
+        // Query for legacy PTO# prefixes
         params = {
           KeyConditionExpression: 'PK = :pk AND begins_with(SK, :ptoPrefix)',
           ExpressionAttributeValues: {
@@ -230,19 +232,34 @@ class AdminService {
         };
         const result1 = await this.queryTable(params);
         
-        // Also get PTS
+        // Query for legacy PTS# prefixes
         params.ExpressionAttributeValues[':ptoPrefix'] = 'PTS#';
         const result2 = await this.queryTable(params);
         
-        const officers = [...result1.Items, ...result2.Items];
+        // Query for new Placement Training Officer# prefixes
+        params.ExpressionAttributeValues[':ptoPrefix'] = 'Placement Training Officer#';
+        const result3 = await this.queryTable(params);
+        
+        // Query for new Placement Training Staff# prefixes
+        params.ExpressionAttributeValues[':ptoPrefix'] = 'Placement Training Staff#';
+        const result4 = await this.queryTable(params);
+        
+        // Query for Administrator# prefixes
+        params.ExpressionAttributeValues[':ptoPrefix'] = 'Administrator#';
+        const result5 = await this.queryTable(params);
+        
+        const officers = [...result1.Items, ...result2.Items, ...result3.Items, ...result4.Items, ...result5.Items];
         return officers.map(item => this.formatOfficerData(item));
       } else {
         // Get all officers from all colleges
         params = {
-          FilterExpression: 'begins_with(SK, :ptoPrefix) OR begins_with(SK, :ptsPrefix)',
+          FilterExpression: 'begins_with(SK, :ptoPrefix) OR begins_with(SK, :ptsPrefix) OR begins_with(SK, :newPtoPrefix) OR begins_with(SK, :newPtsPrefix) OR begins_with(SK, :adminPrefix)',
           ExpressionAttributeValues: {
             ':ptoPrefix': 'PTO#',
-            ':ptsPrefix': 'PTS#'
+            ':ptsPrefix': 'PTS#',
+            ':newPtoPrefix': 'Placement Training Officer#',
+            ':newPtsPrefix': 'Placement Training Staff#',
+            ':adminPrefix': 'Administrator#'
           }
         };
         
@@ -578,12 +595,29 @@ class AdminService {
     };
   }
 
+  // Helper method to normalize legacy role formats
+  normalizeRole(role) {
+    if (!role) return 'Placement Training Officer'; // Default for empty roles
+    
+    switch (role.toLowerCase()) {
+      case 'pto':
+        return 'Placement Training Officer';
+      case 'pts':
+        return 'Placement Training Staff';
+      case 'admin':
+        return 'Administrator';
+      default:
+        // If already in new format, return as-is
+        return role;
+    }
+  }
+
   formatOfficerData(item) {
     return {
       id: item.SK,
       name: item.name || '',
       email: item.email || '',
-      role: item.role || 'PTO',
+      role: this.normalizeRole(item.role),
       department: item.department || '',
       phone: item.phone || '',
       collegeId: item.PK,

@@ -14,7 +14,7 @@ const Officers: React.FC = () => {
     name: '',
     email: '',
     collegeId: '',
-    role: 'PTO' as Officer['role'],
+    role: 'Placement Training Officer' as Officer['role'],
     phone: '',
     department: '',
   });
@@ -49,7 +49,7 @@ const Officers: React.FC = () => {
       name: '',
       email: '',
       collegeId: '',
-      role: 'PTO',
+      role: 'Placement Training Officer',
       phone: '',
       department: '',
   });
@@ -168,10 +168,19 @@ const handleSave = async () => {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'ADMIN': return 'admin';
-      case 'PTO': return 'pto';
-      case 'COORDINATOR': return 'coordinator';
+      case 'Administrator': return 'admin';
+      case 'Placement Training Officer': return 'pto';
+      case 'Placement Training Staff': return 'coordinator';
       default: return 'coordinator';
+    }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'Placement Training Officer': return 'PTO';
+      case 'Placement Training Staff': return 'PTS';
+      case 'Administrator': return 'Admin';
+      default: return role;
     }
   };
 
@@ -220,7 +229,7 @@ const handleSave = async () => {
                 <td>{getCollegeName(officer.collegeId)}</td>
                 <td>
                   <span className={`admin-role-badge ${getRoleColor(officer.role)}`}>
-                    {officer.role}
+                    {getRoleDisplayName(officer.role)}
                   </span>
                 </td>
                 <td>{officer.department || 'N/A'}</td>
@@ -319,9 +328,9 @@ const handleSave = async () => {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as Officer['role'] })}
                     required
                   >
-                    <option value="PTO">Placement Training Officer (PTO)</option>
-                    <option value="ADMIN">Administrator</option>
-                    <option value="COORDINATOR">Coordinator</option>
+                    <option value="Placement Training Officer">Placement Training Officer</option>
+                    <option value="Placement Training Staff">Placement Training Staff</option>
+                    <option value="Administrator">Administrator</option>
                   </select>
                 </div>
                 <div className="admin-form-group">
