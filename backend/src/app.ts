@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 // Import routes
 const userRoutes = require('./routes/user.routes');
 const assessmentRoutes = require('./routes/assessment.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 // Import middleware
 const { authenticateToken, authorizeRole } = require('./auth/auth.middleware');
@@ -15,7 +16,7 @@ const { authenticateToken, authorizeRole } = require('./auth/auth.middleware');
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // Security middleware
 app.use(helmet());
@@ -43,6 +44,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/assessments', assessmentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -326,7 +326,7 @@ class AuthService {
 
                 throw new Error(`Profile verification failed: ${message} (${error.response.status})`);
             } else if (error.request) {
-                throw new Error('Network error: Could not connect to the server for profile verification. Please ensure the backend is running on port 3001.');
+                throw new Error('Network error: Could not connect to the server for profile verification. Please ensure the backend is running on port 3000.');
             } else {
                 throw new Error('Profile verification failed: ' + error.message);
             }

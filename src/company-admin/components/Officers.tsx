@@ -1,72 +1,12 @@
-import React, { useState } from 'react';
-
-interface Officer {
-  id: string;
-  name: string;
-  email: string;
-  collegeId: string;
-  collegeName?: string;
-  role: 'PTO' | 'ADMIN' | 'COORDINATOR';
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-  permissions?: string[];
-  phone?: string;
-  department?: string;
-  lastLogin?: string;
-  createdAt?: string;
-}
-
-interface College {
-  id: string;
-  name: string;
-}
+import React, { useState, useEffect } from 'react';
+import AdminService, { type Officer, type College } from '../../services/admin.service';
 
 const Officers: React.FC = () => {
-  // Mock data with new structure
-  const [officers, setOfficers] = useState<Officer[]>([
-    { 
-      id: '1', 
-      name: 'John Doe', 
-      email: 'john.doe@ksrit.edu.in', 
-      collegeId: '1',
-      collegeName: 'KSR College',
-      role: 'PTO',
-      status: 'ACTIVE',
-      permissions: ['MANAGE_STUDENTS', 'CREATE_ASSESSMENTS'],
-      phone: '+91 98765 43210',
-      department: 'Computer Science'
-    },
-    { 
-      id: '2', 
-      name: 'Jane Smith', 
-      email: 'jane.smith@snsct.org', 
-      collegeId: '2',
-      collegeName: 'SNS College',
-      role: 'ADMIN',
-      status: 'ACTIVE',
-      permissions: ['MANAGE_STUDENTS', 'CREATE_ASSESSMENTS', 'MANAGE_OFFICERS'],
-      phone: '+91 98765 43211',
-      department: 'Information Technology'
-    },
-    { 
-      id: '3', 
-      name: 'Robert Johnson', 
-      email: 'robert.j@psgtech.ac.in', 
-      collegeId: '3',
-      collegeName: 'PSG College',
-      role: 'COORDINATOR',
-      status: 'INACTIVE',
-      permissions: ['CREATE_ASSESSMENTS'],
-      phone: '+91 98765 43212',
-      department: 'Mechanical Engineering'
-    },
-  ]);
-
-  // Mock colleges for dropdown
-  const [colleges] = useState<College[]>([
-    { id: '1', name: 'KSR College' },
-    { id: '2', name: 'SNS College' },
-    { id: '3', name: 'PSG College' },
-  ]);
+  const [officers, setOfficers] = useState<Officer[]>([]);
+  const [colleges, setColleges] = useState<College[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOfficer, setEditingOfficer] = useState<Officer | null>(null);
@@ -79,6 +19,30 @@ const Officers: React.FC = () => {
     department: '',
   });
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [officersData, collegesData] = await Promise.all([
+        AdminService.getOfficers(),
+        AdminService.getColleges()
+      ]);
+      
+      setOfficers(officersData);
+      setColleges(collegesData);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load data');
+      console.error('Error loading officers data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreate = () => {
     setEditingOfficer(null);
     setFormData({
@@ -88,8 +52,44 @@ const Officers: React.FC = () => {
       role: 'PTO',
       phone: '',
       department: '',
+  });
+  setIsModalOpen(true);
+};
+
+const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      
+      if (editingOfficer) {
+        // Update existing officer
+        await AdminService.updateOfficer(editingOfficer.id, formData);
+      } else {
+        // Create new officer
+        await AdminService.createOfficer(formData);
+      }
+      
+      // Reload officers data
+      await loadData();
+      setIsModalOpen(false);
+      resetForm();
+    } catch (err: any) {
+      setError(err.message || 'Failed to save officer');
+      console.error('Error saving officer:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      email: '',
+      collegeId: '',
+      role: 'PTO' as Officer['role'],
+      phone: '',
+      department: '',
     });
-    setIsModalOpen(true);
   };
 
   const handleEdit = (officer: Officer) => {
@@ -105,51 +105,50 @@ const Officers: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingOfficer) {
-      // Update existing officer
-      setOfficers(officers.map(off =>
-        off.id === editingOfficer.id 
-          ? { 
-              ...off, 
-              ...formData,
-              collegeName: colleges.find(c => c.id === formData.collegeId)?.name
-            }
-          : off
-      ));
-    } else {
-      // Create new officer
-      const newOfficer: Officer = {
-        id: Date.now().toString(),
-        ...formData,
-        collegeName: colleges.find(c => c.id === formData.collegeId)?.name,
-        status: 'ACTIVE',
-        permissions: formData.role === 'ADMIN' 
-          ? ['MANAGE_STUDENTS', 'CREATE_ASSESSMENTS', 'MANAGE_OFFICERS']
-          : ['MANAGE_STUDENTS', 'CREATE_ASSESSMENTS'],
-        createdAt: new Date().toISOString(),
-      };
-      setOfficers([...officers, newOfficer]);
-    }
-    setIsModalOpen(false);
-  };
-
   const handleClose = () => {
     setIsModalOpen(false);
     setEditingOfficer(null);
+    resetForm();
   };
 
-  const handleToggleStatus = (id: string) => {
-    setOfficers(officers.map(off =>
-      off.id === id 
-        ? { ...off, status: off.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }
-        : off
-    ));
+  const handleToggleStatus = async (id: string) => {
+    const officer = officers.find(off => off.id === id);
+    if (!officer) return;
+    
+    const originalStatus = officer.status;
+    const newStatus = officer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    
+    try {
+      // Optimistic update: Update UI immediately
+      setOfficers(officers.map(off => 
+        off.id === id ? { ...off, status: newStatus } : off
+      ));
+      
+      // Then update backend
+      await AdminService.updateOfficer(id, { status: newStatus });
+      
+    } catch (err: any) {
+      // If backend fails, revert the optimistic update
+      setOfficers(officers.map(off => 
+        off.id === id ? { ...off, status: originalStatus } : off
+      ));
+      setError(err.message || 'Failed to update officer status');
+      console.error('Error updating officer status:', err);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this officer?')) {
-      setOfficers(officers.filter(off => off.id !== id));
+      try {
+        setError(null);
+        await AdminService.deleteOfficer(id);
+        
+        // Reload data to reflect changes
+        await loadData();
+      } catch (err: any) {
+        setError(err.message || 'Failed to delete officer');
+        console.error('Error deleting officer:', err);
+      }
     }
   };
 
@@ -179,6 +178,20 @@ const Officers: React.FC = () => {
           Add New Officer
         </button>
       </div>
+
+      {error && (
+        <div className="admin-error">
+          <p>{error}</p>
+          <button onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="admin-loading">
+          <div className="spinner"></div>
+          <p>Loading officers...</p>
+        </div>
+      ) : (
 
       <div className="admin-table-container">
         <table className="admin-table">
@@ -245,18 +258,19 @@ const Officers: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Modal for Add/Edit Officer */}
       {isModalOpen && (
         <div className="admin-modal-overlay">
-          <div className="admin-modal">
+          <div className="admin-modal-content">
             <div className="admin-modal-header">
-              <h2>{editingOfficer ? 'Edit Officer' : 'Add New Officer'}</h2>
+              <h3>{editingOfficer ? 'Edit Officer' : 'Add New Officer'}</h3>
               <button className="admin-modal-close" onClick={handleClose}>
                 &times;
               </button>
             </div>
-            <div className="admin-modal-content">
+            <div className="admin-modal-body">
               <form>
                 <div className="admin-form-group">
                   <label>Name *</label>
@@ -329,8 +343,8 @@ const Officers: React.FC = () => {
               <button className="admin-btn-secondary" onClick={handleClose}>
                 Cancel
               </button>
-              <button className="admin-btn-primary" onClick={handleSave}>
-                {editingOfficer ? 'Update Officer' : 'Add Officer'}
+              <button className="admin-btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : (editingOfficer ? 'Update Officer' : 'Add Officer')}
               </button>
             </div>
           </div>

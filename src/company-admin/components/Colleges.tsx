@@ -1,38 +1,41 @@
-import React, { useState } from 'react';
-
-interface College {
-  id: number;
-  name: string;
-  domain: string;
-  ptoName: string;
-  ptoEmail: string;
-  students: number;
-  assessments: number;
-  active: boolean;
-}
+import React, { useState, useEffect } from 'react';
+import AdminService, { type College } from '../../services/admin.service';
 
 const Colleges: React.FC = () => {
-  // Dummy data
-  const [colleges, setColleges] = useState<College[]>([
-    { id: 1, name: 'KSR College', domain: '@ksrit.edu.in', ptoName: 'John Doe', ptoEmail: 'pto@ksrit.edu.in', students: 320, assessments: 12, active: true },
-    { id: 2, name: 'SNS College', domain: '@snsct.org', ptoName: 'Jane Smith', ptoEmail: 'pto@snsct.org', students: 280, assessments: 10, active: false },
-    { id: 3, name: 'PSG College', domain: '@psgtech.ac.in', ptoName: 'Robert Johnson', ptoEmail: 'pto@psgtech.ac.in', students: 450, assessments: 18, active: true },
-    { id: 4, name: 'KCT College', domain: '@kct.ac.in', ptoName: 'Emily Davis', ptoEmail: 'pto@kct.ac.in', students: 380, assessments: 15, active: true },
-    { id: 5, name: 'Kumaraguru College', domain: '@kct.ac.in', ptoName: 'Michael Brown', ptoEmail: 'pto@kct.ac.in', students: 290, assessments: 11, active: false },
-  ]);
+  const [colleges, setColleges] = useState<College[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCollege, setEditingCollege] = useState<College | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     domain: '',
-    ptoName: '',
-    ptoEmail: '',
+    location: '',
   });
+
+  useEffect(() => {
+    loadColleges();
+  }, []);
+
+  const loadColleges = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const collegesData = await AdminService.getColleges();
+      setColleges(collegesData);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load colleges');
+      console.error('Error loading colleges:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddNew = () => {
     setEditingCollege(null);
-    setFormData({ name: '', domain: '', ptoName: '', ptoEmail: '' });
+    setFormData({ name: '', domain: '', location: '' });
     setIsModalOpen(true);
   };
 
@@ -41,49 +44,111 @@ const Colleges: React.FC = () => {
     setFormData({
       name: college.name,
       domain: college.domain,
-      ptoName: college.ptoName,
-      ptoEmail: college.ptoEmail,
+      location: college.location || '',
     });
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingCollege) {
-      // Update existing college
-      setColleges(colleges.map(col => 
-        col.id === editingCollege.id
-          ? { ...col, ...formData }
-          : col
-      ));
-    } else {
-      // Add new college
-      const newCollege: College = {
-        id: Math.max(...colleges.map(c => c.id)) + 1,
-        ...formData,
-        students: 0,
-        assessments: 0,
-        active: true,
-      };
-      setColleges([...colleges, newCollege]);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      if (editingCollege) {
+        // Update existing college
+        const updatedCollege = await AdminService.updateCollege(editingCollege.id, formData);
+        setColleges(colleges.map(col => 
+          col.id === editingCollege.id ? updatedCollege : col
+        ));
+      } else {
+        // Add new college
+        const newCollege = await AdminService.createCollege(formData);
+        setColleges([...colleges, newCollege]);
+      }
+
+      setIsModalOpen(false);
+      setEditingCollege(null);
+      setFormData({ name: '', domain: '', location: '' });
+    } catch (err: any) {
+      setError(err.message || 'Failed to save college');
+      console.error('Error saving college:', err);
+    } finally {
+      setSaving(false);
     }
-    setIsModalOpen(false);
-    setEditingCollege(null);
-    setFormData({ name: '', domain: '', ptoName: '', ptoEmail: '' });
   };
 
-  const handleToggleStatus = (id: number) => {
-    setColleges(colleges.map(col =>
-      col.id === id ? { ...col, active: !col.active } : col
-    ));
+  const handleToggleStatus = async (collegeId: string) => {
+    const college = colleges.find(c => c.id === collegeId);
+    if (!college) return;
+
+    const originalActive = college.active;
+    const newActive = !college.active;
+    
+    try {
+      // Optimistic update: Update UI immediately
+      setColleges(colleges.map(col =>
+        col.id === collegeId ? { ...col, active: newActive } : col
+      ));
+
+      // Then update backend
+      await AdminService.updateCollege(collegeId, { 
+        active: newActive 
+      });
+      
+    } catch (err: any) {
+      // If backend fails, revert the optimistic update
+      setColleges(colleges.map(col =>
+        col.id === collegeId ? { ...col, active: originalActive } : col
+      ));
+      setError(err.message || 'Failed to update college status');
+      console.error('Error updating college status:', err);
+    }
   };
+
+  const handleDelete = async (collegeId: string, collegeName: string) => {
+    if (window.confirm(`Are you sure you want to delete "${collegeName}"? This action cannot be undone.`)) {
+      try {
+        await AdminService.deleteCollege(collegeId);
+        setColleges(colleges.filter(col => col.id !== collegeId));
+      } catch (err: any) {
+        setError(err.message || 'Failed to delete college');
+        console.error('Error deleting college:', err);
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="admin-page-container">
+        <div className="admin-loading-state">
+          <div className="admin-spinner"></div>
+          <p>Loading colleges...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-page-container">
+      {error && (
+        <div className="admin-error-message">
+          <p>❌ {error}</p>
+          <button className="admin-btn-secondary" onClick={loadColleges}>
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="admin-page-header">
         <h2 className="admin-page-title">Colleges Management</h2>
-        <button className="admin-btn-primary" onClick={handleAddNew}>
-          Add New College
-        </button>
+        <div>
+          <button className="admin-btn-secondary" onClick={loadColleges} style={{ marginRight: '10px' }}>
+            🔄 Refresh
+          </button>
+          <button className="admin-btn-primary" onClick={handleAddNew}>
+            Add New College
+          </button>
+        </div>
       </div>
 
       <div className="admin-table-container">
@@ -92,10 +157,7 @@ const Colleges: React.FC = () => {
             <tr>
               <th>College Name</th>
               <th>Domain</th>
-              <th>PTO Name</th>
-              <th>PTO Email</th>
-              <th>Students</th>
-              <th>Assessments</th>
+              <th>Location</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -105,10 +167,7 @@ const Colleges: React.FC = () => {
               <tr key={college.id}>
                 <td>{college.name}</td>
                 <td>{college.domain}</td>
-                <td>{college.ptoName}</td>
-                <td>{college.ptoEmail}</td>
-                <td>{college.students}</td>
-                <td>{college.assessments}</td>
+                <td>{college.location || 'Not specified'}</td>
                 <td>
                   <span className={`admin-status-badge ${college.active ? 'active' : 'inactive'}`}>
                     {college.active ? 'Active' : 'Inactive'}
@@ -127,6 +186,13 @@ const Colleges: React.FC = () => {
                       onClick={() => handleToggleStatus(college.id)}
                     >
                       {college.active ? 'Disable' : 'Enable'}
+                    </button>
+                    <button
+                      className="admin-btn-delete"
+                      onClick={() => handleDelete(college.id, college.name)}
+                      title="Delete College"
+                    >
+                      Delete
                     </button>
                   </div>
                 </td>
@@ -162,34 +228,25 @@ const Colleges: React.FC = () => {
                   type="text"
                   value={formData.domain}
                   onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                  placeholder="@college.edu.in"
+                  placeholder="college.edu.in (without @)"
                 />
               </div>
               <div className="admin-form-group">
-                <label>PTO Name</label>
+                <label>Location</label>
                 <input
                   type="text"
-                  value={formData.ptoName}
-                  onChange={(e) => setFormData({ ...formData, ptoName: e.target.value })}
-                  placeholder="Enter PTO name"
-                />
-              </div>
-              <div className="admin-form-group">
-                <label>PTO Email</label>
-                <input
-                  type="email"
-                  value={formData.ptoEmail}
-                  onChange={(e) => setFormData({ ...formData, ptoEmail: e.target.value })}
-                  placeholder="pto@college.edu.in"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="City, State"
                 />
               </div>
             </div>
             <div className="admin-modal-footer">
-              <button className="admin-btn-secondary" onClick={() => setIsModalOpen(false)}>
+              <button className="admin-btn-secondary" onClick={() => setIsModalOpen(false)} disabled={saving}>
                 Cancel
               </button>
-              <button className="admin-btn-primary" onClick={handleSave}>
-                Save
+              <button className="admin-btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

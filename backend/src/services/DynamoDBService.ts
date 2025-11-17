@@ -127,7 +127,113 @@ class DynamoDBService {
             throw error;
         }
     }
+
+    // Additional methods for AdminService
+    async scanTable(params: any): Promise<any> {
+        try {
+            const scanParams = {
+                TableName: this.tableName,
+                ...params
+            };
+            return await dynamodb.scan(scanParams).promise();
+        } catch (error) {
+            console.error('Error scanning table:', error);
+            throw error;
+        }
+    }
+
+    async queryTable(params: any): Promise<any> {
+        try {
+            const queryParams = {
+                TableName: this.tableName,
+                ...params
+            };
+            return await dynamodb.query(queryParams).promise();
+        } catch (error) {
+            console.error('Error querying table:', error);
+            throw error;
+        }
+    }
+
+    async putItem(item: any): Promise<any> {
+        try {
+            const params = {
+                TableName: this.tableName,
+                Item: item
+            };
+            return await dynamodb.put(params).promise();
+        } catch (error) {
+            console.error('Error putting item:', error);
+            throw error;
+        }
+    }
+
+    async getItem(params: any): Promise<any> {
+        try {
+            const getParams = {
+                TableName: this.tableName,
+                ...params
+            };
+            return await dynamodb.get(getParams).promise();
+        } catch (error) {
+            console.error('Error getting item:', error);
+            throw error;
+        }
+    }
+
+    async updateItem(params: any): Promise<any> {
+        try {
+            const updateParams = {
+                TableName: this.tableName,
+                ...params
+            };
+            return await dynamodb.update(updateParams).promise();
+        } catch (error) {
+            console.error('Error updating item:', error);
+            throw error;
+        }
+    }
+
+    async deleteItem(params: any): Promise<any> {
+        try {
+            const deleteParams = {
+                TableName: this.tableName,
+                ...params
+            };
+            return await dynamodb.delete(deleteParams).promise();
+        } catch (error) {
+            console.error('Error deleting item:', error);
+            throw error;
+        }
+    }
+
+    async batchWrite(items: any[]): Promise<any> {
+        try {
+            // Split items into chunks of 25 (DynamoDB limit)
+            const chunks = [];
+            for (let i = 0; i < items.length; i += 25) {
+                chunks.push(items.slice(i, i + 25));
+            }
+
+            const results = [];
+            for (const chunk of chunks) {
+                const params = {
+                    RequestItems: {
+                        [this.tableName]: chunk
+                    }
+                };
+                const result = await dynamodb.batchWrite(params).promise();
+                results.push(result);
+            }
+            return results;
+        } catch (error) {
+            console.error('Error batch writing:', error);
+            throw error;
+        }
+    }
 }
 
-// Export a singleton instance
-module.exports = new DynamoDBService(process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy');
+// Export both the class and a singleton instance
+module.exports = DynamoDBService;
+module.exports.DynamoDBService = DynamoDBService;
+module.exports.instance = new DynamoDBService(process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy');

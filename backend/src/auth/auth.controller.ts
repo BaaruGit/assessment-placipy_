@@ -1,6 +1,6 @@
 // @ts-nocheck
 const { registerUser, loginUser, addUserToGroup, getUserAttributes } = require('./cognito');
-const dynamoDBService = require('../services/DynamoDBService');
+const dynamoDBService = require('../services/DynamoDBService').instance;
 
 /**
  * Register a new user

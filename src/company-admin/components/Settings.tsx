@@ -1,10 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import AdminService from '../../services/admin.service';
+
+interface SettingsData {
+  logo?: string;
+  theme: 'light' | 'dark';
+  emailTemplate: string;
+  companyName?: string;
+  supportEmail?: string;
+  maxFileSize?: number;
+  allowedFileTypes?: string[];
+}
 
 const Settings: React.FC = () => {
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string>('');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [emailTemplate, setEmailTemplate] = useState(`Dear Student,
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  const [settings, setSettings] = useState<SettingsData>({
+    theme: 'light',
+    emailTemplate: `Dear Student,
 
 Welcome to Placipy Assessment Platform!
 
@@ -15,12 +30,56 @@ Duration: [Duration]
 Please log in to your dashboard to begin.
 
 Best regards,
-Placement Training Team`);
+Placement Training Team`
+  });
+  
+  const [logoPreview, setLogoPreview] = useState<string>('');
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const settingsData = await AdminService.getSettings();
+      
+      // Ensure all required fields have defaults
+      const safeSettings: SettingsData = {
+        theme: settingsData.theme || 'light',
+        emailTemplate: settingsData.emailTemplate || `Dear Student,
+
+Welcome to Placipy Assessment Platform!
+
+You have been assigned a new assessment: [Assessment Name]
+Start Date: [Date]
+Duration: [Duration]
+
+Please log in to your dashboard to begin.
+
+Best regards,
+Placement Training Team`,
+        companyName: settingsData.companyName || '',
+        supportEmail: settingsData.supportEmail || '',
+        maxFileSize: settingsData.maxFileSize || 2048,
+        allowedFileTypes: settingsData.allowedFileTypes || ['jpg', 'jpeg', 'png']
+      };
+      
+      setSettings(safeSettings);
+      setLogoPreview(settingsData.logo || '');
+    } catch (err: any) {
+      setError(err.message || 'Failed to load settings');
+      console.error('Error loading settings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setLogoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setLogoPreview(reader.result as string);
@@ -29,19 +88,68 @@ Placement Training Team`);
     }
   };
 
-  const handleSaveSettings = () => {
-    // In real app, this would save to backend
-    alert('Settings saved successfully! (UI only)');
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+      
+      const updatedSettings = {
+        ...settings,
+        logo: logoPreview
+      };
+      
+      await AdminService.updateSettings(updatedSettings);
+      setSettings(updatedSettings);
+      setSuccess('Settings saved successfully!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save settings');
+      console.error('Error saving settings:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateSetting = (key: keyof SettingsData, value: any) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
   };
 
   return (
     <div className="admin-page-container">
       <div className="admin-page-header">
         <h2 className="admin-page-title">Settings</h2>
-        <button className="admin-btn-primary" onClick={handleSaveSettings}>
-          Save Settings
+        <button 
+          className="admin-btn-primary" 
+          onClick={handleSaveSettings}
+          disabled={saving}
+        >
+          {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
+
+      {error && (
+        <div className="admin-error">
+          <p>{error}</p>
+          <button onClick={() => setError(null)}>×</button>
+        </div>
+      )}
+
+      {success && (
+        <div className="admin-success">
+          <p>{success}</p>
+          <button onClick={() => setSuccess(null)}>×</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="admin-loading">
+          <div className="spinner"></div>
+          <p>Loading settings...</p>
+        </div>
+      ) : (
 
       <div className="admin-settings-grid">
         {/* Logo Upload */}
@@ -55,7 +163,6 @@ Placement Training Team`);
                   className="admin-btn-remove"
                   onClick={() => {
                     setLogoPreview('');
-                    setLogoFile(null);
                   }}
                 >
                   Remove
@@ -91,8 +198,8 @@ Placement Training Team`);
                 type="radio"
                 name="theme"
                 value="light"
-                checked={theme === 'light'}
-                onChange={(e) => setTheme(e.target.value as 'light' | 'dark')}
+                checked={settings.theme === 'light'}
+                onChange={(e) => updateSetting('theme', e.target.value as 'light' | 'dark')}
               />
               <div className="admin-theme-preview light">
                 <div className="admin-theme-preview-header"></div>
@@ -105,8 +212,8 @@ Placement Training Team`);
                 type="radio"
                 name="theme"
                 value="dark"
-                checked={theme === 'dark'}
-                onChange={(e) => setTheme(e.target.value as 'light' | 'dark')}
+                checked={settings.theme === 'dark'}
+                onChange={(e) => updateSetting('theme', e.target.value as 'light' | 'dark')}
               />
               <div className="admin-theme-preview dark">
                 <div className="admin-theme-preview-header"></div>
@@ -123,15 +230,15 @@ Placement Training Team`);
           <div className="admin-email-template-section">
             <textarea
               className="admin-email-template-editor"
-              value={emailTemplate}
-              onChange={(e) => setEmailTemplate(e.target.value)}
+              value={settings.emailTemplate}
+              onChange={(e) => updateSetting('emailTemplate', e.target.value)}
               rows={15}
               placeholder="Enter email template..."
             />
             <div className="admin-email-template-preview">
               <h4>Preview</h4>
               <div className="admin-email-preview-content">
-                {emailTemplate.split('\n').map((line, index) => (
+                {(settings.emailTemplate || '').split('\n').map((line: string, index: number) => (
                   <p key={index}>{line || '\u00A0'}</p>
                 ))}
               </div>
@@ -139,6 +246,7 @@ Placement Training Team`);
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };
