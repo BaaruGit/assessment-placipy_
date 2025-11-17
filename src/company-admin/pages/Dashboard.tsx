@@ -41,7 +41,7 @@ const AdminDashboard: React.FC = () => {
         }
 
         const userRole = await AuthService.getUserRole(token);
-        if (userRole !== 'Admin') {
+        if (userRole !== 'Administrator') {
           navigate('/unauthorized');
           return;
         }

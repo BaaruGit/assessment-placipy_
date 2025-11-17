@@ -46,7 +46,7 @@ export interface Officer {
   id: string;
   name: string;
   email: string;
-  role: 'PTO' | 'PTS' | 'ADMIN';
+  role: 'Placement Training Officer' | 'Placement Training Staff' | 'Administrator';
   department?: string;
   phone?: string;
   collegeId: string;

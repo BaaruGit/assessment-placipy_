@@ -52,7 +52,7 @@ Your DynamoDB table should have items with the following structure based on your
   "SK": "ADMIN#admin@praskla.com",
   "email": "admin@praskla.com",
   "name": "Global Super Admin",
-  "role": "Admin",
+  "role": "Administrator",
   "createdAt": "2025-11-02T10:28:00"
 }
 ```
@@ -105,7 +105,7 @@ Your DynamoDB table should have items with the following structure based on your
   "SK": "PTO#pto@ksrce.ac.in",
   "email": "pto@ksrce.ac.in",
   "name": "Kavin",
-  "role": "PTO",
+  "role": "Placement Training Officer",
   "createdAt": "2025-11-02T10:28:00"
 }
 ```
@@ -117,7 +117,7 @@ Your DynamoDB table should have items with the following structure based on your
   "SK": "PTO#1001",
   "email": "PTO@ksrce.ac.in",
   "name": "Kavin",
-  "role": "PTO",
+  "role": "Placement Training Officer",
   "createdAt": "2025-11-02T10:28:00"
 }
 ```
@@ -129,7 +129,7 @@ Your DynamoDB table should have items with the following structure based on your
   "SK": "PTS#pts@ksrce.ac.in",
   "email": "pts@ksrce.ac.in",
   "name": "Ravi",
-  "role": "PTS",
+  "role": "Placement Training Staff",
   "department": "MECH",
   "joiningDate": "2022-05-01",
   "createdAt": "2025-11-02T10:28:00"
@@ -143,7 +143,7 @@ Your DynamoDB table should have items with the following structure based on your
   "SK": "PTS#2001",
   "email": "PTS@ksrce.ac.in",
   "name": "Ravi",
-  "role": "PTS",
+  "role": "Placement Training Staff",
   "department": "MECH",
   "joiningDate": "2022-05-01",
   "createdAt": "2025-11-02T10:28:00"
