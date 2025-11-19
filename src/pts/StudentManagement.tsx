@@ -25,7 +25,6 @@ const StudentManagement: React.FC = () => {
 
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
-  const [editEmail, setEditEmail] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -37,30 +36,6 @@ const StudentManagement: React.FC = () => {
   });
 
   const departments = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'Information Technology'];
-
-  // Keep original add-only function (will not be called when editing modal is used)
-  const handleAddStudent = async () => {
-    // Validate email domain
-    if (!formData.email.endsWith('@ksrce.ac.in')) {
-      alert('Email must be from @ksrce.ac.in domain');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      await upsertStudent(formData);
-      await loadStudents();
-      resetForm();
-      setShowAddModal(false);
-      alert('Student added successfully!');
-    } catch (err: any) {
-      alert('Failed to add student: ' + err.message);
-      console.error('Failed to add student:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Unified save handler: used for both Add and Edit flows
   const handleSaveStudent = async () => {
@@ -83,7 +58,6 @@ const StudentManagement: React.FC = () => {
       resetForm();
       setShowAddModal(false);
       setIsEditing(false);
-      setEditEmail(null);
 
       alert(isEditing ? 'Student updated successfully!' : 'Student added successfully!');
     } catch (err: any) {
@@ -97,7 +71,6 @@ const StudentManagement: React.FC = () => {
   // Open modal for editing (Option A: email not editable)
   const openEditModal = (student: Student) => {
     setIsEditing(true);
-    setEditEmail(student.email);
     setFormData({
       email: student.email,
       name: student.name,
@@ -170,7 +143,6 @@ const StudentManagement: React.FC = () => {
       status: 'Active'
     });
     setIsEditing(false);
-    setEditEmail(null);
   };
 
   const handleFormChange = (field: string, value: string) => {
@@ -566,12 +538,54 @@ const StudentManagement: React.FC = () => {
               ) : (
                 filteredStudents.map(student => (
                   <tr key={student.email} style={{ borderBottom: '1px solid #e9ecef' }}>
-                    <td style={{ padding: '12px', color: '#A4878D', fontSize: '0.9rem' }}>{student.email}</td>
-                    <td style={{ padding: '12px', color: '#523C48', fontWeight: '500' }}>{student.rollNumber}</td>
-                    <td style={{ padding: '12px', color: '#523C48' }}>{student.name}</td>
-                    <td style={{ padding: '12px', color: '#523C48' }}>{student.department}</td>
-                    <td style={{ padding: '12px', color: '#A4878D', fontSize: '0.9rem' }}>{student.phone || '-'}</td>
-                    <td style={{ padding: '12px' }}>
+                    <td style={{ 
+                      padding: '12px', 
+                      color: '#A4878D', 
+                      fontSize: '0.9rem',
+                      position: 'relative',
+                      zIndex: 1
+                    }}>
+                      {student.email}
+                    </td>
+                    <td style={{ 
+                      padding: '12px', 
+                      color: '#523C48', 
+                      fontWeight: '500',
+                      position: 'relative',
+                      zIndex: 1
+                    }}>
+                      {student.rollNumber}
+                    </td>
+                    <td style={{ 
+                      padding: '12px', 
+                      color: '#523C48',
+                      position: 'relative',
+                      zIndex: 1
+                    }}>
+                      {student.name}
+                    </td>
+                    <td style={{ 
+                      padding: '12px', 
+                      color: '#523C48',
+                      position: 'relative',
+                      zIndex: 1
+                    }}>
+                      {student.department}
+                    </td>
+                    <td style={{ 
+                      padding: '12px', 
+                      color: '#A4878D', 
+                      fontSize: '0.9rem',
+                      position: 'relative',
+                      zIndex: 1
+                    }}>
+                      {student.phone || '-'}
+                    </td>
+                    <td style={{ 
+                      padding: '12px',
+                      position: 'relative',
+                      zIndex: 1
+                    }}>
                       <button
                         onClick={() => toggleStudentStatus(student.email)}
                         style={{
@@ -584,7 +598,9 @@ const StudentManagement: React.FC = () => {
                           border: 'none',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          opacity: 1
+                          opacity: 1,
+                          position: 'relative',
+                          zIndex: 10
                         }}
                         onMouseEnter={e => {
                           e.currentTarget.style.opacity = '0.8';
@@ -600,7 +616,13 @@ const StudentManagement: React.FC = () => {
                       </button>
                     </td>
 
-                    <td style={{ padding: '12px', display: 'flex', gap: '8px' }}>
+                    <td style={{ 
+                      padding: '12px', 
+                      display: 'flex', 
+                      gap: '8px',
+                      position: 'relative',
+                      zIndex: 10
+                    }}>
                       {/* Edit Button */}
                       <button
                         onClick={() => openEditModal(student)}
@@ -610,7 +632,10 @@ const StudentManagement: React.FC = () => {
                           color: '#004085',
                           border: 'none',
                           borderRadius: '8px',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          position: 'relative',
+                          zIndex: 20,
+                          pointerEvents: 'auto'
                         }}
                         title="Edit student"
                       >
@@ -626,7 +651,10 @@ const StudentManagement: React.FC = () => {
                           color: '#721c24',
                           border: 'none',
                           borderRadius: '8px',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          position: 'relative',
+                          zIndex: 20,
+                          pointerEvents: 'auto'
                         }}
                         title="Delete student"
                       >

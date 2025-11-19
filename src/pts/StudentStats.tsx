@@ -39,11 +39,12 @@ const StudentStats: React.FC = () => {
   const [selectedView, setSelectedView] = useState<'overview' | 'departments' | 'assessments' | 'students'>('overview');
   
   const [departmentStats, setDepartmentStats] = useState<DepartmentStats[]>([]);
+  const [departmentChartData, setDepartmentChartData] = useState<any[]>([]);
   const [topPerformers, setTopPerformers] = useState<StudentPerformance[]>([]);
   const [assessmentAnalytics, setAssessmentAnalytics] = useState<AssessmentAnalytics[]>([]);
   const [performanceTrends, setPerformanceTrends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch real data from backend
   useEffect(() => {
@@ -64,7 +65,39 @@ const StudentStats: React.FC = () => {
           participationRate: dept.totalStudents > 0 ? (dept.activeStudents / dept.totalStudents) * 100 : 0
         }));
         
+        // Create chart data for PieChart
+        const chartData = deptData.map((dept: any) => ({
+          name: dept.department,
+          value: dept.totalStudents
+        }));
+        
         setDepartmentStats(formattedDeptStats);
+        setDepartmentChartData(chartData);
+        
+        // Mock data for other components since we don't have real API endpoints yet
+        setTopPerformers([
+          { id: 1, name: 'John Doe', rollNo: 'CS2024001', department: 'Computer Science', batch: '2024', assessmentsTaken: 5, averageScore: 85, totalMarks: 425, rank: 1, lastActive: '2023-06-15' },
+          { id: 2, name: 'Jane Smith', rollNo: 'CS2024002', department: 'Computer Science', batch: '2024', assessmentsTaken: 4, averageScore: 82, totalMarks: 328, rank: 2, lastActive: '2023-06-14' },
+          { id: 3, name: 'Robert Johnson', rollNo: 'EC2024001', department: 'Electronics', batch: '2024', assessmentsTaken: 6, averageScore: 78, totalMarks: 468, rank: 3, lastActive: '2023-06-12' },
+          { id: 4, name: 'Emily Davis', rollNo: 'ME2024001', department: 'Mechanical', batch: '2024', assessmentsTaken: 3, averageScore: 75, totalMarks: 225, rank: 4, lastActive: '2023-06-10' },
+          { id: 5, name: 'Michael Wilson', rollNo: 'CS2024003', department: 'Computer Science', batch: '2024', assessmentsTaken: 5, averageScore: 72, totalMarks: 360, rank: 5, lastActive: '2023-06-08' }
+        ]);
+        
+        setAssessmentAnalytics([
+          { assessmentTitle: 'Java Programming Test 1', date: '2023-06-01', totalParticipants: 45, averageScore: 72, highestScore: 95, lowestScore: 42, completionRate: 95 },
+          { assessmentTitle: 'Database Management Quiz', date: '2023-05-25', totalParticipants: 42, averageScore: 68, highestScore: 92, lowestScore: 38, completionRate: 90 },
+          { assessmentTitle: 'Data Structures Final', date: '2023-05-18', totalParticipants: 40, averageScore: 75, highestScore: 98, lowestScore: 45, completionRate: 88 }
+        ]);
+        
+        setPerformanceTrends([
+          { month: 'Jan', averageScore: 65 },
+          { month: 'Feb', averageScore: 68 },
+          { month: 'Mar', averageScore: 72 },
+          { month: 'Apr', averageScore: 70 },
+          { month: 'May', averageScore: 75 },
+          { month: 'Jun', averageScore: 78 }
+        ]);
+        
         setLoading(false);
       } catch (error: any) {
         console.error('Error fetching analytics:', error);
@@ -152,14 +185,14 @@ const StudentStats: React.FC = () => {
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
-                data={departmentStats}
+                data={departmentChartData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={(entry: any) => `${entry.department.substring(0,3)}: ${entry.totalStudents}`}
+                label={({ name, value }) => `${name ? name.substring(0,3) : 'N/A'}: ${value}`}
                 outerRadius={80}
                 fill="#8884d8"
-                dataKey="totalStudents"
+                dataKey="value"
               >
                 {departmentStats.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

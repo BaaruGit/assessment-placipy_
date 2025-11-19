@@ -265,6 +265,19 @@ class StudentService {
      */
     async deleteStudent(email) {
         try {
+            // First delete from Cognito
+            try {
+                await cognito.adminDeleteUser({
+                    UserPoolId: this.userPoolId,
+                    Username: email
+                }).promise();
+                console.log(`Successfully deleted user ${email} from Cognito`);
+            } catch (cognitoError) {
+                // Log the error but don't fail the operation if Cognito deletion fails
+                console.warn(`Failed to delete user ${email} from Cognito:`, cognitoError.message);
+            }
+
+            // Then delete from DynamoDB
             const params = {
                 TableName: this.tableName,
                 Key: {
