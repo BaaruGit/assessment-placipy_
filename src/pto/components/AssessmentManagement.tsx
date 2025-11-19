@@ -532,4 +532,3 @@ const AssessmentManagement: React.FC = () => {
 };
 
 export default AssessmentManagement;
-

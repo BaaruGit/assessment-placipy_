@@ -69,9 +69,18 @@ const DepartmentManagement: React.FC = () => {
 
   const handleAddDepartment = async () => {
     if (formData.name && formData.code) {
-      const created = await PTOService.createDepartment({ name: formData.name, code: formData.code });
-      const newDept: Department = { id: departments.length + 1, name: created.name, code: created.code, students: 0, staff: 0, assessments: 0, staffMembers: [] };
-      setDepartments(prev => [...prev, newDept]);
+      await PTOService.createDepartment({ name: formData.name, code: formData.code });
+      const refreshed = await PTOService.getDepartments();
+      const mapped: Department[] = refreshed.map((d: Dept, idx) => ({
+        id: idx + 1,
+        name: d.name,
+        code: d.code,
+        students: d.students,
+        staff: d.staff,
+        assessments: d.assessments,
+        staffMembers: d.staffMembers || []
+      }));
+      setDepartments(mapped);
       setFormData({ name: '', code: '' });
       setIsAddModalOpen(false);
     }
@@ -86,11 +95,17 @@ const DepartmentManagement: React.FC = () => {
   const handleUpdateDepartment = async () => {
     if (selectedDept && formData.name && formData.code) {
       await PTOService.updateDepartment(selectedDept.code, { name: formData.name, code: formData.code });
-      setDepartments(departments.map(dept =>
-        dept.id === selectedDept.id
-          ? { ...dept, name: formData.name, code: formData.code }
-          : dept
-      ));
+      const refreshed = await PTOService.getDepartments();
+      const mapped: Department[] = refreshed.map((d: Dept, idx) => ({
+        id: idx + 1,
+        name: d.name,
+        code: d.code,
+        students: d.students,
+        staff: d.staff,
+        assessments: d.assessments,
+        staffMembers: d.staffMembers || []
+      }));
+      setDepartments(mapped);
       setIsEditModalOpen(false);
       setSelectedDept(null);
       setFormData({ name: '', code: '' });
@@ -101,7 +116,17 @@ const DepartmentManagement: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this department?')) {
       const dept = departments.find(d => d.id === id);
       if (dept) await PTOService.deleteDepartment(dept.code);
-      setDepartments(departments.filter(dept => dept.id !== id));
+      const refreshed = await PTOService.getDepartments();
+      const mapped: Department[] = refreshed.map((d: Dept, idx) => ({
+        id: idx + 1,
+        name: d.name,
+        code: d.code,
+        students: d.students,
+        staff: d.staff,
+        assessments: d.assessments,
+        staffMembers: d.staffMembers || []
+      }));
+      setDepartments(mapped);
     }
   };
 
@@ -302,10 +327,13 @@ const DepartmentManagement: React.FC = () => {
                         <button 
                           className="icon-btn assign-btn"
                           onClick={async () => {
-                            await PTOService.assignStaffToDepartment(selectedDept.code, s.id);
-                            setStaffList(prev => prev.map(st => st.id === s.id ? { ...st, department: selectedDept.code } : st));
-                            setDepartments(prev => prev.map(dept => dept.id === selectedDept.id ? { ...dept, staff: dept.staff + 1 } : dept));
-                          }}
+                          await PTOService.assignStaffToDepartment(selectedDept.code, s.id);
+                          const refreshedStaff = await PTOService.getStaff();
+                          setStaffList(refreshedStaff.map((st: StaffDto) => ({ id: st.id, name: st.name, department: st.department })));
+                          const refreshedDepts = await PTOService.getDepartments();
+                          const mappedDepts: Department[] = refreshedDepts.map((d: Dept, idx) => ({ id: idx + 1, name: d.name, code: d.code, students: d.students, staff: d.staff, assessments: d.assessments, staffMembers: d.staffMembers || [] }));
+                          setDepartments(mappedDepts);
+                        }}
                         >
                           <FaUserPlus />
                         </button>
@@ -323,8 +351,11 @@ const DepartmentManagement: React.FC = () => {
                         className="icon-btn delete-btn"
                         onClick={async () => {
                           await PTOService.unassignStaffFromDepartment(selectedDept.code, s.id);
-                          setStaffList(prev => prev.map(st => st.id === s.id ? { ...st, department: '' } : st));
-                          setDepartments(prev => prev.map(dept => dept.id === selectedDept.id ? { ...dept, staff: Math.max(0, dept.staff - 1) } : dept));
+                          const refreshedStaff = await PTOService.getStaff();
+                          setStaffList(refreshedStaff.map((st: StaffDto) => ({ id: st.id, name: st.name, department: st.department })));
+                          const refreshedDepts = await PTOService.getDepartments();
+                          const mappedDepts: Department[] = refreshedDepts.map((d: Dept, idx) => ({ id: idx + 1, name: d.name, code: d.code, students: d.students, staff: d.staff, assessments: d.assessments, staffMembers: d.staffMembers || [] }));
+                          setDepartments(mappedDepts);
                         }}
                       >
                         <FaTrash />

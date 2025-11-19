@@ -9,7 +9,11 @@ const ptoService = new PTOService();
 router.use(authMiddleware.authenticateToken);
 
 function getEmail(req) {
-  return req.user.email || req.user.username || req.user['cognito:username'] || '';
+  const u = req.user || {};
+  const headerEmail = String(req.headers['x-user-email'] || req.headers['X-User-Email'] || '').trim();
+  const fromUsername = (u.username && u.username.includes('@')) ? u.username : '';
+  const fromCognitoUsername = (u['cognito:username'] && u['cognito:username'].includes('@')) ? u['cognito:username'] : '';
+  return u.email || fromUsername || fromCognitoUsername || headerEmail || '';
 }
 
 router.get('/dashboard', async (req, res) => {

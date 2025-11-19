@@ -8,8 +8,10 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('idToken') || localStorage.getItem('accessToken');
+  const token = localStorage.getItem('accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const email = localStorage.getItem('userEmail');
+  if (email) (config.headers as any)['X-User-Email'] = email;
   return config;
 });
 

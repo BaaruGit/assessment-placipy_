@@ -284,6 +284,7 @@ async function getUserGroups(username) {
     }
 }
 
+
 module.exports = {
     registerUser,
     loginUser,

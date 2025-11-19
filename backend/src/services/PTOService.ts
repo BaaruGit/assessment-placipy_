@@ -1,5 +1,6 @@
 // @ts-nocheck
 const DynamoDBService = require('./DynamoDBService');
+const { registerUser, addUserToGroup } = require('../auth/cognito');
 const { v4: uuidv4 } = require('uuid');
 
 class PTOService {
@@ -176,6 +177,20 @@ class PTOService {
       updatedAt: now
     };
     await this.dynamoService.putItem(item);
+
+    try {
+      const username = finalEmail;
+      const defaultPassword = 'Praskla@123';
+      await registerUser(username, defaultPassword, finalEmail);
+      try {
+        await addUserToGroup(username, 'instructor');
+      } catch (groupErr) {
+        console.warn('Failed to add user to Cognito group instructor:', groupErr?.message || groupErr);
+      }
+    } catch (cogErr) {
+      throw new Error('Cognito registration failed: ' + (cogErr?.message || cogErr));
+    }
+
     return item;
   }
 

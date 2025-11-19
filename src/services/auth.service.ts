@@ -93,16 +93,13 @@ class AuthService {
                 };
             }
 
-            const { accessToken, idToken } = response.data;
+            const { accessToken } = response.data;
 
             // Get user profile from backend (bypass cache for fresh login)
-            const userProfile = await this.getUserProfile(idToken || accessToken, true);
+            const userProfile = await this.getUserProfile(accessToken, true);
 
             // Store token in localStorage for future requests
             localStorage.setItem('accessToken', accessToken);
-            if (idToken) {
-                localStorage.setItem('idToken', idToken);
-            }
 
             // Cache the user profile
             this.userProfileCache = {
@@ -368,7 +365,7 @@ class AuthService {
      * @returns True if user is authenticated, false otherwise
      */
     isAuthenticated(): boolean {
-        const token = localStorage.getItem('idToken') || localStorage.getItem('accessToken');
+        const token = localStorage.getItem('accessToken');
         return !!token;
     }
 

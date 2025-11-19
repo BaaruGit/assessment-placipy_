@@ -48,6 +48,8 @@ const StaffManagement: React.FC = () => {
       }
     };
     load();
+    const i = setInterval(load, 10000);
+    return () => clearInterval(i);
   }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -80,22 +82,21 @@ const StaffManagement: React.FC = () => {
         department: formData.department,
         permissions: Object.keys(formData.permissions).filter((perm) => (formData.permissions as any)[perm])
       });
-      const created = await PTOService.getStaff();
-      const latest = created[created.length - 1];
-      const newStaff: StaffMember = {
-        id: latest.id,
-        name: `${formData.firstName} ${formData.lastName}`.trim(),
-        email: formData.email,
-        phone: formData.phone,
-        designation: formData.designation,
-        department: formData.department,
+      const refreshed = await PTOService.getStaff();
+      const mapped: StaffMember[] = refreshed.map((s: StaffDto) => ({
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        phone: s.phone || '',
+        designation: s.designation || '',
+        department: s.department || '',
         permissions: {
-          createAssessments: formData.permissions.createAssessments,
-          editAssessments: formData.permissions.editAssessments,
-          viewReports: formData.permissions.viewReports
+          createAssessments: (s.permissions || []).includes('createAssessments'),
+          editAssessments: (s.permissions || []).includes('editAssessments'),
+          viewReports: (s.permissions || []).includes('viewReports')
         }
-      };
-      setStaff(prev => [...prev, newStaff]);
+      }));
+      setStaff(mapped);
       setFormData({
         firstName: '',
         lastName: '',
@@ -134,11 +135,21 @@ const StaffManagement: React.FC = () => {
         department: formData.department,
         permissions: Object.keys(formData.permissions).filter((perm) => (formData.permissions as any)[perm])
       });
-      setStaff(staff.map(member =>
-        member.id === selectedStaff.id
-          ? { ...selectedStaff, name: `${formData.firstName} ${formData.lastName}`.trim(), email: formData.email, phone: formData.phone, designation: formData.designation, department: formData.department, permissions: { ...formData.permissions } }
-          : member
-      ));
+      const refreshed = await PTOService.getStaff();
+      const mapped: StaffMember[] = refreshed.map((s: StaffDto) => ({
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        phone: s.phone || '',
+        designation: s.designation || '',
+        department: s.department || '',
+        permissions: {
+          createAssessments: (s.permissions || []).includes('createAssessments'),
+          editAssessments: (s.permissions || []).includes('editAssessments'),
+          viewReports: (s.permissions || []).includes('viewReports')
+        }
+      }));
+      setStaff(mapped);
       setIsEditModalOpen(false);
       setSelectedStaff(null);
     }
