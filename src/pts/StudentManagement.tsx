@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, X, Save } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Plus, Filter, X, Save, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import {
   getAllStudents,
   upsertStudent,
@@ -7,7 +8,6 @@ import {
   deleteStudent,
   type Student
 } from '../services/student.service';
-import * as XLSX from 'xlsx';
 
 // Student interface is imported from student.service
 
@@ -19,6 +19,9 @@ const StudentManagement: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [importResults, setImportResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
 
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -253,8 +256,140 @@ const StudentManagement: React.FC = () => {
     XLSX.writeFile(wb, 'students-export.xlsx');
   };
 
+  // File input reference
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle Excel file import
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setImportLoading(true);
+      setImportResults(null);
+      setError(null);
+      
+      // Read Excel file
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      
+      // Convert to JSON
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+      
+      if (jsonData.length === 0) {
+        throw new Error('No data found in Excel file');
+      }
+
+      // Process students
+      let successCount = 0;
+      let failedCount = 0;
+      const errors: string[] = [];
+      
+      setImportProgress({ current: 0, total: jsonData.length });
+      
+      for (let i = 0; i < jsonData.length; i++) {
+        const row: any = jsonData[i];
+        setImportProgress({ current: i + 1, total: jsonData.length });
+        
+        try {
+          // Map Excel columns to student fields
+          const studentData: any = {
+            email: row.Email || row.email || row['Email Address'] || '',
+            rollNumber: row['Roll Number'] || row.rollNumber || row.roll_number || row['Roll No'] || row['Roll'] || '',
+            name: row.Name || row.name || row['Full Name'] || row['Student Name'] || '',
+            department: row.Department || row.department || row['Department Name'] || 'Computer Science',
+            phone: row.Phone || row.phone || row['Phone Number'] || row['Mobile'] || '',
+            status: row.Status || row.status || 'Active'
+          };
+          
+          // Validate required fields
+          if (!studentData.email) {
+            throw new Error('Missing email');
+          }
+          
+          if (!studentData.rollNumber) {
+            // Generate a roll number if missing
+            const emailUsername = studentData.email.split('@')[0];
+            studentData.rollNumber = emailUsername.toUpperCase();
+            console.log(`Generated roll number for ${studentData.email}: ${studentData.rollNumber}`);
+          }
+          
+          if (!studentData.name) {
+            throw new Error('Missing name');
+          }
+          
+          if (!studentData.department) {
+            throw new Error('Missing department');
+          }
+          
+          // Validate email domain and fix if needed
+          if (!studentData.email.endsWith('@ksrce.ac.in')) {
+            // If email doesn't contain @, append the domain
+            if (!studentData.email.includes('@')) {
+              studentData.email = `${studentData.email}@ksrce.ac.in`;
+            } else {
+              // If it has @ but wrong domain, fix it
+              const username = studentData.email.split('@')[0];
+              studentData.email = `${username}@ksrce.ac.in`;
+            }
+          }
+          
+          // Create/update student
+          await upsertStudent(studentData);
+          successCount++;
+        } catch (err: any) {
+          const errorMessage = err.response?.data?.error || err.message || 'Unknown error';
+          errors.push(`Row ${i + 1}: ${errorMessage}`);
+          failedCount++;
+        }
+      }
+      
+      setImportResults({ success: successCount, failed: failedCount, errors });
+      
+      // Refresh student list
+      await loadStudents();
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Show success message
+      if (successCount > 0) {
+        alert(`${successCount} students imported successfully!`);
+      }
+      
+      if (failedCount > 0) {
+        console.error('Import errors:', errors);
+      }
+    } catch (err: any) {
+      console.error('Error importing Excel file:', err);
+      setError(err.message || 'Failed to import Excel file');
+    } finally {
+      setImportLoading(false);
+      setImportProgress({ current: 0, total: 0 });
+    }
+  };
+
+  // Trigger file input click
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   return (
     <div className="pts-fade-in">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".xlsx,.xls,.csv"
+        onChange={handleImportExcel}
+        style={{ display: 'none' }}
+      />
+      
       {/* Error Message */}
       {error && (
         <div
@@ -270,6 +405,63 @@ const StudentManagement: React.FC = () => {
           Error: {error}
         </div>
       )}
+      
+      {/* Import Results */}
+      {importResults && (
+        <div
+          style={{
+            padding: '15px',
+            marginBottom: '20px',
+            background: importResults.failed === 0 ? '#d4edda' : '#fff3cd',
+            color: importResults.failed === 0 ? '#155724' : '#856404',
+            borderRadius: '8px',
+            border: `1px solid ${importResults.failed === 0 ? '#c3e6cb' : '#ffeaa7'}`
+          }}
+        >
+          <strong>Import Results:</strong> {importResults.success} successful, {importResults.failed} failed
+          {importResults.errors.length > 0 && (
+            <div style={{ marginTop: '10px', fontSize: '0.9rem' }}>
+              <strong>Errors:</strong>
+              <ul style={{ marginTop: '5px', marginLeft: '20px' }}>
+                {importResults.errors.slice(0, 5).map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+                {importResults.errors.length > 5 && (
+                  <li>... and {importResults.errors.length - 5} more errors</li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Import Progress */}
+      {importLoading && (
+        <div
+          style={{
+            padding: '15px',
+            marginBottom: '20px',
+            background: '#d1ecf1',
+            color: '#0c5460',
+            borderRadius: '8px',
+            border: '1px solid #bee5eb'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>Importing students... ({importProgress.current}/{importProgress.total})</span>
+            <div style={{ width: '200px', height: '8px', background: '#e9ecef', borderRadius: '4px', overflow: 'hidden' }}>
+              <div 
+                style={{ 
+                  width: `${importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0}%`, 
+                  height: '100%', 
+                  background: '#0c5460',
+                  transition: 'width 0.3s ease'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header Actions */}
       <div className="action-buttons-section" style={{ marginBottom: '20px' }}>
@@ -281,6 +473,14 @@ const StudentManagement: React.FC = () => {
           }}
         >
           <Plus size={18} /> Add New Student
+        </button>
+        <button 
+          className="pts-btn-secondary" 
+          onClick={triggerFileInput}
+          disabled={importLoading}
+          style={{ marginLeft: '10px' }}
+        >
+          <Upload size={18} /> Import Excel
         </button>
         <button className="pts-btn-secondary" onClick={exportToExcel} style={{ marginLeft: '10px' }}>
           Export as Excel

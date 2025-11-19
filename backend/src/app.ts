@@ -8,12 +8,9 @@ const rateLimit = require('express-rate-limit');
 // Import routes
 const userRoutes = require('./routes/user.routes');
 const assessmentRoutes = require('./routes/assessment.routes');
-<<<<<<< HEAD
 const analyticsRoutes = require('./routes/analytics.routes');
 const studentRoutes = require('./routes/student.routes');
-=======
 const adminRoutes = require('./routes/admin.routes');
->>>>>>> ae7a17c5f153e01911843a695f3b8fa57025ccf1
 
 // Import middleware
 const { authenticateToken, authorizeRole } = require('./auth/auth.middleware');
@@ -49,12 +46,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/assessments', assessmentRoutes);
-<<<<<<< HEAD
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/students', studentRoutes);
-=======
 app.use('/api/admin', adminRoutes);
->>>>>>> ae7a17c5f153e01911843a695f3b8fa57025ccf1
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -38,10 +38,12 @@ class StudentService {
             console.log('Creating Cognito user for:', email);
             console.log('User name:', name);
             
-            // Default password for all students
-            const defaultPassword = 'pyplaci#25';
-            console.log('Using default password: pyplaci#25');
+            // Default password for all students - meets Cognito requirements
+            // Must have uppercase, lowercase, numbers, and special characters
+            const defaultPassword = 'Pyplaci#25Student';
+            console.log('Using default password: Pyplaci#25Student');
             
+            // Create user with temporary password first
             const params = {
                 UserPoolId: this.userPoolId,
                 Username: email,
@@ -91,6 +93,14 @@ class StudentService {
                 Permanent: true
             }).promise();
             console.log('Successfully set permanent password');
+            
+            // Verify user state
+            console.log('Verifying user state...');
+            const userStatus = await cognito.adminGetUser({
+                UserPoolId: this.userPoolId,
+                Username: email
+            }).promise();
+            console.log('User status:', JSON.stringify(userStatus, null, 2));
 
             console.log('=== COGNITO USER CREATION COMPLETED ===');
             return result.User;
@@ -176,6 +186,7 @@ class StudentService {
                 department: studentData.department,
                 phone: studentData.phone || '',
                 status: studentData.status || 'Active',
+                role: 'Student', // Add role field for authentication
                 createdAt: existingStudent ? existingStudent.createdAt : now,
                 createdBy: existingStudent ? existingStudent.createdBy : createdByEmail,
                 updatedAt: now,

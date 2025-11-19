@@ -34,6 +34,12 @@ class AuthService {
      * @returns Normalized UserRole
      */
     private normalizeRole(role: string): UserRole {
+        // Handle case where role is undefined or null
+        if (!role) {
+            console.warn('Role is undefined or null, defaulting to Student');
+            return 'Student';
+        }
+        
         // Handle different possible role representations
         switch (role.toLowerCase()) {
             case 'student':
