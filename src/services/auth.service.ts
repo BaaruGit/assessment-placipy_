@@ -34,7 +34,8 @@ class AuthService {
      * @returns Normalized UserRole
      */
     private normalizeRole(role: string): UserRole {
-        // Handle different possible role representations
+        
+      // Handle different possible role representations
         switch (role.toLowerCase()) {
             case 'student':
             case 'student user':

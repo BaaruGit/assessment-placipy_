@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
+import { Download, Upload } from 'lucide-react';
+import AnalyticsService from '../services/analytics.service';
 
 interface StudentPerformance {
   id: number;
@@ -37,48 +39,74 @@ const StudentStats: React.FC = () => {
   const [selectedView, setSelectedView] = useState<'overview' | 'departments' | 'assessments' | 'students'>('overview');
   
   const [departmentStats, setDepartmentStats] = useState<DepartmentStats[]>([]);
+  const [departmentChartData, setDepartmentChartData] = useState<any[]>([]);
   const [topPerformers, setTopPerformers] = useState<StudentPerformance[]>([]);
   const [assessmentAnalytics, setAssessmentAnalytics] = useState<AssessmentAnalytics[]>([]);
   const [performanceTrends, setPerformanceTrends] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data initialization
+  // Fetch real data from backend
   useEffect(() => {
-    // Department Statistics
-    setDepartmentStats([
-      { department: "Computer Science", totalStudents: 120, activeStudents: 115, averageScore: 82.5, assessmentsCompleted: 45, participationRate: 95.8 },
-      { department: "Information Technology", totalStudents: 100, activeStudents: 94, averageScore: 79.3, assessmentsCompleted: 38, participationRate: 94.0 },
-      { department: "Electronics", totalStudents: 80, activeStudents: 76, averageScore: 75.8, assessmentsCompleted: 32, participationRate: 95.0 },
-      { department: "Mechanical", totalStudents: 90, activeStudents: 85, averageScore: 73.2, assessmentsCompleted: 28, participationRate: 94.4 },
-      { department: "Civil", totalStudents: 70, activeStudents: 66, averageScore: 71.5, assessmentsCompleted: 25, participationRate: 94.3 }
-    ]);
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch department stats
+        const deptResponse = await AnalyticsService.getDepartmentStats();
+        const deptData = deptResponse.data || [];
+        
+        const formattedDeptStats = deptData.map((dept: any) => ({
+          department: dept.department,
+          totalStudents: dept.totalStudents,
+          activeStudents: dept.activeStudents,
+          averageScore: 0, // No assessment scores yet
+          assessmentsCompleted: 0,
+          participationRate: dept.totalStudents > 0 ? (dept.activeStudents / dept.totalStudents) * 100 : 0
+        }));
+        
+        // Create chart data for PieChart
+        const chartData = deptData.map((dept: any) => ({
+          name: dept.department,
+          value: dept.totalStudents
+        }));
+        
+        setDepartmentStats(formattedDeptStats);
+        setDepartmentChartData(chartData);
+        
+        // Mock data for other components since we don't have real API endpoints yet
+        setTopPerformers([
+          { id: 1, name: 'John Doe', rollNo: 'CS2024001', department: 'Computer Science', batch: '2024', assessmentsTaken: 5, averageScore: 85, totalMarks: 425, rank: 1, lastActive: '2023-06-15' },
+          { id: 2, name: 'Jane Smith', rollNo: 'CS2024002', department: 'Computer Science', batch: '2024', assessmentsTaken: 4, averageScore: 82, totalMarks: 328, rank: 2, lastActive: '2023-06-14' },
+          { id: 3, name: 'Robert Johnson', rollNo: 'EC2024001', department: 'Electronics', batch: '2024', assessmentsTaken: 6, averageScore: 78, totalMarks: 468, rank: 3, lastActive: '2023-06-12' },
+          { id: 4, name: 'Emily Davis', rollNo: 'ME2024001', department: 'Mechanical', batch: '2024', assessmentsTaken: 3, averageScore: 75, totalMarks: 225, rank: 4, lastActive: '2023-06-10' },
+          { id: 5, name: 'Michael Wilson', rollNo: 'CS2024003', department: 'Computer Science', batch: '2024', assessmentsTaken: 5, averageScore: 72, totalMarks: 360, rank: 5, lastActive: '2023-06-08' }
+        ]);
+        
+        setAssessmentAnalytics([
+          { assessmentTitle: 'Java Programming Test 1', date: '2023-06-01', totalParticipants: 45, averageScore: 72, highestScore: 95, lowestScore: 42, completionRate: 95 },
+          { assessmentTitle: 'Database Management Quiz', date: '2023-05-25', totalParticipants: 42, averageScore: 68, highestScore: 92, lowestScore: 38, completionRate: 90 },
+          { assessmentTitle: 'Data Structures Final', date: '2023-05-18', totalParticipants: 40, averageScore: 75, highestScore: 98, lowestScore: 45, completionRate: 88 }
+        ]);
+        
+        setPerformanceTrends([
+          { month: 'Jan', averageScore: 65 },
+          { month: 'Feb', averageScore: 68 },
+          { month: 'Mar', averageScore: 72 },
+          { month: 'Apr', averageScore: 70 },
+          { month: 'May', averageScore: 75 },
+          { month: 'Jun', averageScore: 78 }
+        ]);
+        
+        setLoading(false);
+      } catch (error: any) {
+        console.error('Error fetching analytics:', error);
+        setError(error.message);
+        setLoading(false);
+      }
+    };
 
-    // Top Performers
-    setTopPerformers([
-      { id: 1, name: "Ananya Sharma", rollNo: "CSE21001", department: "Computer Science", batch: "CSE-2021-A", assessmentsTaken: 12, averageScore: 95.2, totalMarks: 1428, rank: 1, lastActive: "2 hours ago" },
-      { id: 2, name: "Rahul Kumar", rollNo: "IT21005", department: "Information Technology", batch: "IT-2021-A", assessmentsTaken: 10, averageScore: 92.8, totalMarks: 1392, rank: 2, lastActive: "1 day ago" },
-      { id: 3, name: "Priya Singh", rollNo: "CSE21045", department: "Computer Science", batch: "CSE-2021-B", assessmentsTaken: 11, averageScore: 91.5, totalMarks: 1373, rank: 3, lastActive: "3 hours ago" },
-      { id: 4, name: "Arjun Patel", rollNo: "ECE21012", department: "Electronics", batch: "ECE-2021-A", assessmentsTaken: 9, averageScore: 90.1, totalMarks: 1351, rank: 4, lastActive: "5 hours ago" },
-      { id: 5, name: "Sneha Reddy", rollNo: "IT21023", department: "Information Technology", batch: "IT-2021-B", assessmentsTaken: 10, averageScore: 89.7, totalMarks: 1345, rank: 5, lastActive: "1 hour ago" }
-    ]);
-
-    // Assessment Analytics
-    setAssessmentAnalytics([
-      { assessmentTitle: "React Fundamentals", date: "2025-11-01", totalParticipants: 85, averageScore: 78.5, highestScore: 98, lowestScore: 45, completionRate: 94.4 },
-      { assessmentTitle: "JavaScript Basics", date: "2025-10-28", totalParticipants: 92, averageScore: 82.3, highestScore: 96, lowestScore: 52, completionRate: 97.9 },
-      { assessmentTitle: "Database Management", date: "2025-10-25", totalParticipants: 67, averageScore: 75.2, highestScore: 94, lowestScore: 38, completionRate: 91.8 },
-      { assessmentTitle: "Data Structures", date: "2025-10-22", totalParticipants: 78, averageScore: 71.8, highestScore: 92, lowestScore: 41, completionRate: 89.7 },
-      { assessmentTitle: "Network Security", date: "2025-10-19", totalParticipants: 55, averageScore: 79.6, highestScore: 97, lowestScore: 48, completionRate: 96.5 }
-    ]);
-
-    // Performance Trends (last 6 months)
-    setPerformanceTrends([
-      { month: "Jun", averageScore: 72.5, participationRate: 89.2, assessments: 8 },
-      { month: "Jul", averageScore: 74.8, participationRate: 91.5, assessments: 12 },
-      { month: "Aug", averageScore: 76.2, participationRate: 93.1, assessments: 15 },
-      { month: "Sep", averageScore: 78.9, participationRate: 94.7, assessments: 18 },
-      { month: "Oct", averageScore: 81.3, participationRate: 95.8, assessments: 22 },
-      { month: "Nov", averageScore: 83.1, participationRate: 96.2, assessments: 25 }
-    ]);
+    fetchAnalytics();
   }, []);
 
   const getOverallStats = () => {
@@ -99,6 +127,16 @@ const StudentStats: React.FC = () => {
   const overallStats = getOverallStats();
 
   const COLORS = ['#9768E1', '#523C48', '#A4878D', '#E4D5F8', '#D0BFE7'];
+
+  const handleExportStudents = () => {
+    alert('Exporting student data...');
+    // TODO: Implement CSV/Excel export functionality
+  };
+
+  const handleImportStudents = () => {
+    alert('Import functionality coming soon!');
+    // TODO: Implement file upload and import functionality
+  };
 
   const renderOverviewTab = () => (
     <div className="pts-fade-in">
@@ -147,14 +185,14 @@ const StudentStats: React.FC = () => {
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
-                data={departmentStats as any}
+                data={departmentChartData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={(entry: any) => `${entry.department.substring(0,3)}: ${entry.totalStudents}`}
+                label={({ name, value }) => `${name ? name.substring(0,3) : 'N/A'}: ${value}`}
                 outerRadius={80}
                 fill="#8884d8"
-                dataKey="totalStudents"
+                dataKey="value"
               >
                 {departmentStats.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -316,6 +354,13 @@ const StudentStats: React.FC = () => {
               {tab.label}
             </button>
           ))}
+          {/* Export/Import Buttons */}
+          <button className="pts-btn-secondary" onClick={handleExportStudents} style={{ marginBottom: "10px", marginLeft: "auto" }}>
+            <Download size={18} /> Export Data
+          </button>
+          <button className="pts-btn-secondary" onClick={handleImportStudents} style={{ marginBottom: "10px" }}>
+            <Upload size={18} /> Import Students
+          </button>
         </div>
       </div>
 

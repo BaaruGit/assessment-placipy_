@@ -18,51 +18,101 @@ router.get('/profile', authMiddleware.authenticateToken, userController.getProfi
 // Profile Management Endpoints
 router.put('/profile', authMiddleware.authenticateToken, async (req, res) => {
     try {
-        const userId = req.user.userId;
+        console.log('=== Profile Update Request ===');
+        console.log('Full req.user:', JSON.stringify(req.user, null, 2));
+        console.log('Body:', req.body);
+        
+        // Extract email - it might be in different fields
+        const email = req.user.email || req.user.username || req.user.sub;
+        const role = req.user.role || req.user['custom:role'] || 'PTS';
+        
+        console.log('Extracted email:', email);
+        console.log('Extracted role:', role);
+        
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email not found in user token'
+            });
+        }
+        
         const {
             firstName,
             lastName,
             phone,
             designation,
             department,
-            bio,
-            address,
-            city,
-            state,
-            zipCode,
-            country
+            employeeId,
+            joiningDate
         } = req.body;
 
+        // Construct full name
+        const name = `${firstName} ${lastName}`.trim();
+
+        // Determine PK and SK based on role and email
+        const clientDomain = email.includes('@') ? email.split('@')[1] : 'ksrce.ac.in';
+        const PK = `CLIENT#${clientDomain}`;
+        let SK;
+        
+        if (role === 'PTS' || role === 'pts') {
+            SK = `PTS#${employeeId || '2001'}`;
+        } else if (role === 'PTO' || role === 'pto') {
+            SK = `PTO#${employeeId || '1001'}`;
+        } else {
+            SK = `USER#${email}`;
+        }
+
+        console.log('DynamoDB Key:', { PK, SK });
+
         // Update user profile in DynamoDB
-        const updatedProfile = {
-            userId,
-            firstName,
-            lastName,
-            phone,
-            designation,
-            department,
-            bio,
-            address,
-            city,
-            state,
-            zipCode,
-            country,
-            updatedAt: new Date().toISOString()
+        const AWS = require('aws-sdk');
+        const dynamodb = new AWS.DynamoDB.DocumentClient({
+            region: process.env.AWS_REGION
+        });
+
+        const params = {
+            TableName: process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy',
+            Key: { PK, SK },
+            UpdateExpression: 'SET #name = :name, phone = :phone, designation = :designation, department = :department, updatedAt = :updatedAt',
+            ExpressionAttributeNames: {
+                '#name': 'name'
+            },
+            ExpressionAttributeValues: {
+                ':name': name,
+                ':phone': phone || '',
+                ':designation': designation || 'PTS Administrator',
+                ':department': department || '',
+                ':updatedAt': new Date().toISOString()
+            },
+            ReturnValues: 'ALL_NEW'
         };
 
-        // In real implementation, update DynamoDB here
-        // await dynamoDBService.updateUser(userId, updatedProfile);
+        console.log('Update params:', JSON.stringify(params, null, 2));
+        const result = await dynamodb.update(params).promise();
+        console.log('Update result:', result);
 
         res.json({
             success: true,
             message: 'Profile updated successfully',
-            profile: updatedProfile
+            profile: {
+                firstName,
+                lastName,
+                name,
+                email,
+                phone,
+                designation,
+                department,
+                employeeId,
+                joiningDate
+            }
         });
     } catch (error) {
         console.error('Profile update error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({
             success: false,
-            message: 'Failed to update profile'
+            message: 'Failed to update profile',
+            error: error.message
         });
     }
 });
@@ -91,7 +141,8 @@ router.put('/profile/password', authMiddleware.authenticateToken, async (req, re
 
 router.put('/profile/preferences', authMiddleware.authenticateToken, async (req, res) => {
     try {
-        const userId = req.user.userId;
+        const email = req.user.email;
+        const role = req.user.role || 'PTS';
         const {
             theme,
             language,
@@ -99,34 +150,64 @@ router.put('/profile/preferences', authMiddleware.authenticateToken, async (req,
             dateFormat,
             emailDigest,
             notificationSound,
-            autoLogout
+            autoSave,
+            defaultAssessmentDuration
         } = req.body;
 
-        const preferences = {
-            userId,
-            theme,
-            language,
-            timezone,
-            dateFormat,
-            emailDigest,
-            notificationSound,
-            autoLogout,
-            updatedAt: new Date().toISOString()
+        // Determine PK and SK
+        const clientDomain = email.split('@')[1] || 'ksrce.ac.in';
+        const PK = `CLIENT#${clientDomain}`;
+        const employeeId = req.user.employeeId || (role === 'PTS' ? '2001' : '1001');
+        const SK = role === 'PTS' ? `PTS#${employeeId}` : `PTO#${employeeId}`;
+
+        // Save preferences to DynamoDB
+        const AWS = require('aws-sdk');
+        const dynamodb = new AWS.DynamoDB.DocumentClient({
+            region: process.env.AWS_REGION
+        });
+
+        const params = {
+            TableName: process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy',
+            Key: { PK, SK },
+            UpdateExpression: 'SET preferences = :preferences, updatedAt = :updatedAt',
+            ExpressionAttributeValues: {
+                ':preferences': {
+                    theme,
+                    language,
+                    timezone,
+                    dateFormat,
+                    emailDigest,
+                    notificationSound,
+                    autoSave,
+                    defaultAssessmentDuration
+                },
+                ':updatedAt': new Date().toISOString()
+            },
+            ReturnValues: 'ALL_NEW'
         };
 
-        // In real implementation, save preferences to DynamoDB
-        // await dynamoDBService.saveUserPreferences(userId, preferences);
+        await dynamodb.update(params).promise();
 
         res.json({
             success: true,
             message: 'Preferences saved successfully',
-            preferences
+            preferences: {
+                theme,
+                language,
+                timezone,
+                dateFormat,
+                emailDigest,
+                notificationSound,
+                autoSave,
+                defaultAssessmentDuration
+            }
         });
     } catch (error) {
         console.error('Preferences save error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to save preferences'
+            message: 'Failed to save preferences',
+            error: error.message
         });
     }
 });
@@ -161,34 +242,58 @@ router.get('/profile/preferences', authMiddleware.authenticateToken, async (req,
 
 router.put('/profile/security', authMiddleware.authenticateToken, async (req, res) => {
     try {
-        const userId = req.user.userId;
+        const email = req.user.email;
+        const role = req.user.role || 'PTS';
         const {
             twoFactorEnabled,
             emailNotifications,
             smsNotifications
         } = req.body;
 
-        const securitySettings = {
-            userId,
-            twoFactorEnabled,
-            emailNotifications,
-            smsNotifications,
-            updatedAt: new Date().toISOString()
+        // Determine PK and SK
+        const clientDomain = email.split('@')[1] || 'ksrce.ac.in';
+        const PK = `CLIENT#${clientDomain}`;
+        const employeeId = req.user.employeeId || (role === 'PTS' ? '2001' : '1001');
+        const SK = role === 'PTS' ? `PTS#${employeeId}` : `PTO#${employeeId}`;
+
+        // Update security settings in DynamoDB
+        const AWS = require('aws-sdk');
+        const dynamodb = new AWS.DynamoDB.DocumentClient({
+            region: process.env.AWS_REGION
+        });
+
+        const params = {
+            TableName: process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy',
+            Key: { PK, SK },
+            UpdateExpression: 'SET securitySettings = :settings, updatedAt = :updatedAt',
+            ExpressionAttributeValues: {
+                ':settings': {
+                    twoFactorEnabled,
+                    emailNotifications,
+                    smsNotifications
+                },
+                ':updatedAt': new Date().toISOString()
+            },
+            ReturnValues: 'ALL_NEW'
         };
 
-        // In real implementation, update security settings in DynamoDB
-        // await dynamoDBService.updateSecuritySettings(userId, securitySettings);
+        await dynamodb.update(params).promise();
 
         res.json({
             success: true,
             message: 'Security settings updated successfully',
-            settings: securitySettings
+            settings: {
+                twoFactorEnabled,
+                emailNotifications,
+                smsNotifications
+            }
         });
     } catch (error) {
         console.error('Security settings update error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to update security settings'
+            message: 'Failed to update security settings',
+            error: error.message
         });
     }
 });

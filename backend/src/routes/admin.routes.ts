@@ -242,6 +242,15 @@ router.post('/officers', async (req, res) => {
       });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
     const officer = await adminService.createOfficer({
       name,
       email,
@@ -253,16 +262,46 @@ router.post('/officers', async (req, res) => {
       createdBy: req.user.userId
     });
 
+    // Extract sensitive information for admin notification only
+    const { defaultPassword, loginInstructions, cognitoUserCreated, cognitoError, ...officerData } = officer;
+
+    // Determine success message based on Cognito creation status
+    let successMessage = 'Officer created successfully';
+    let authStatus = 'Authentication account created';
+    
+    if (cognitoUserCreated === false) {
+      successMessage = 'Officer created in database, but authentication setup needs attention';
+      authStatus = cognitoError ? `Authentication account creation failed: ${cognitoError}` : 'Authentication account creation pending';
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Officer created successfully',
-      data: officer
+      message: successMessage,
+      data: officerData,
+      authInfo: {
+        message: authStatus,
+        defaultPassword: defaultPassword, // Send password if it exists, regardless of cognitoUserCreated flag
+        instructions: loginInstructions,
+        cognitoStatus: cognitoUserCreated,
+        note: cognitoUserCreated === true
+          ? 'Please share the default password securely with the officer. They will be required to change it on first login.'
+          : 'The officer record was created, but you may need to create their authentication account manually or retry.'
+      }
     });
   } catch (error) {
     console.error('Error creating officer:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to create officer';
+    if (error.message.includes('authentication account')) {
+      errorMessage = 'Failed to create authentication account';
+    } else if (error.message.includes('UsernameExistsException')) {
+      errorMessage = 'An account with this email already exists';
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to create officer',
+      message: errorMessage,
       error: error.message
     });
   }

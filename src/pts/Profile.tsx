@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Lock, Settings, BarChart3, Calendar, Globe, Camera } from "lucide-react";
+import { useUser } from "../contexts/UserContext";
+import ProfileService from "../services/profile.service";
 
 interface PersonalInfo {
   firstName: string;
@@ -10,12 +12,6 @@ interface PersonalInfo {
   employeeId: string;
   designation: string;
   joiningDate: string;
-  bio: string;
-  address: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
 }
 
 interface SecuritySettings {
@@ -39,6 +35,7 @@ interface PreferencesSettings {
 }
 
 const Profile: React.FC = () => {
+  const { user } = useUser();
   const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'preferences' | 'activity'>('personal');
   const [isEditing, setIsEditing] = useState<{[key: string]: boolean}>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -47,21 +44,41 @@ const Profile: React.FC = () => {
 
   // Personal Information State
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
-    firstName: "Dr. Sarah",
-    lastName: "Wilson",
-    email: "sarah.wilson@university.edu",
-    phone: "+1 (555) 123-4567",
-    department: "Computer Science",
-    employeeId: "EMP001234",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    department: "",
+    employeeId: "",
     designation: "PTS Administrator",
-    joiningDate: "2020-08-15",
-    bio: "Experienced educator and assessment specialist with over 8 years in academic administration and placement training.",
-    address: "123 University Drive",
-    city: "Tech City",
-    state: "California",
-    zipCode: "90210",
-    country: "United States"
+    joiningDate: ""
   });
+
+  // Initialize personal info with user context data from login
+  useEffect(() => {
+    if (user && user.email) {
+      // Split name into first and last name
+      let firstName = "";
+      let lastName = "";
+      
+      if (user.name) {
+        const nameParts = user.name.trim().split(' ');
+        if (nameParts.length > 0) {
+          firstName = nameParts[0];
+          lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+        }
+      }
+      
+      setPersonalInfo(prev => ({
+        ...prev,
+        email: user.email,
+        firstName,
+        lastName,
+        department: user.department || prev.department,
+        joiningDate: user.joiningDate || prev.joiningDate
+      }));
+    }
+  }, [user]);
 
   // Security Settings State
   const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
@@ -100,7 +117,6 @@ const Profile: React.FC = () => {
   const languages = ["English", "Spanish", "French", "German", "Hindi"];
   const timezones = ["America/Los_Angeles", "America/New_York", "Europe/London", "Asia/Kolkata", "Australia/Sydney"];
   const dateFormats = ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD", "DD-MMM-YYYY"];
-  const emailDigestOptions = ["disabled", "daily", "weekly", "monthly"];
 
   const handlePersonalInfoChange = (field: keyof PersonalInfo, value: string) => {
     setPersonalInfo(prev => ({
@@ -155,8 +171,26 @@ const Profile: React.FC = () => {
         }
       }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call real API based on section
+      if (section === 'personal') {
+        console.log('Sending profile update:', personalInfo);
+        const response = await ProfileService.updateProfile(personalInfo);
+        console.log('Profile updated:', response);
+      } else if (section === 'preferences') {
+        console.log('Sending preferences update:', preferences);
+        const response = await ProfileService.updatePreferences(preferences);
+        console.log('Preferences updated:', response);
+      } else if (section === 'security') {
+        // Update security settings (not password)
+        const securityData = {
+          twoFactorEnabled: securitySettings.twoFactorEnabled,
+          emailNotifications: securitySettings.emailNotifications,
+          smsNotifications: securitySettings.smsNotifications
+        };
+        console.log('Sending security update:', securityData);
+        const response = await ProfileService.updateSecuritySettings(securityData);
+        console.log('Security settings updated:', response);
+      }
 
       setSuccessMessage(`${section.charAt(0).toUpperCase() + section.slice(1)} information updated successfully!`);
       setIsEditing(prev => ({
@@ -178,7 +212,10 @@ const Profile: React.FC = () => {
       setTimeout(() => setSuccessMessage(""), 3000);
 
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "An error occurred while saving");
+      console.error('Save error:', error);
+      const errorMsg = error instanceof Error ? error.message : "An error occurred while saving";
+      console.error('Error message:', errorMsg);
+      setErrorMessage(errorMsg);
     } finally {
       setIsSaving(false);
     }
@@ -237,18 +274,27 @@ const Profile: React.FC = () => {
         {/* Profile Picture Section */}
         <div style={{ display: "flex", alignItems: "center", marginBottom: "30px", padding: "20px", background: "#f8f9fa", borderRadius: "12px" }}>
           <div style={{ position: "relative", marginRight: "20px" }}>
-            <img
-              src="https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=100&h=100&fit=crop&crop=face"
-              alt="Profile"
+            {/* Avatar Circle with First Letter */}
+            <div
               style={{
                 width: "100px",
                 height: "100px",
                 borderRadius: "50%",
-                border: "4px solid #9768E1"
+                border: "4px solid #9768E1",
+                background: "linear-gradient(135deg, #9768E1 0%, #7B4FC4 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "40px",
+                fontWeight: "bold",
+                color: "white",
+                textTransform: "uppercase"
               }}
-            />
+            >
+              {personalInfo.firstName ? personalInfo.firstName.charAt(0) : "U"}
+            </div>
             {isEditing.personal && (
-              <button
+              <div
                 style={{
                   position: "absolute",
                   bottom: "0",
@@ -259,13 +305,15 @@ const Profile: React.FC = () => {
                   borderRadius: "50%",
                   width: "30px",
                   height: "30px",
-                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   fontSize: "14px"
                 }}
-                title="Change Profile Picture"
+                title="Profile Picture"
               >
                 <Camera size={14} />
-              </button>
+              </div>
             )}
           </div>
           <div>
@@ -383,96 +431,6 @@ const Profile: React.FC = () => {
             <div className="pts-form-display">{new Date(personalInfo.joiningDate).toLocaleDateString()}</div>
           </div>
         </div>
-
-        {/* Bio Section */}
-        <div className="pts-form-group">
-          <label className="pts-form-label">Bio</label>
-          {isEditing.personal ? (
-            <textarea
-              className="pts-form-textarea"
-              value={personalInfo.bio}
-              onChange={(e) => handlePersonalInfoChange('bio', e.target.value)}
-              rows={3}
-              placeholder="Tell us about yourself..."
-            />
-          ) : (
-            <div className="pts-form-display">{personalInfo.bio}</div>
-          )}
-        </div>
-
-        {/* Address Section */}
-        <h4 style={{ color: "#523C48", marginTop: "30px", marginBottom: "20px" }}>Address Information</h4>
-        <div className="pts-form-grid">
-          <div className="pts-form-group">
-            <label className="pts-form-label">Street Address</label>
-            {isEditing.personal ? (
-              <input
-                type="text"
-                className="pts-form-input"
-                value={personalInfo.address}
-                onChange={(e) => handlePersonalInfoChange('address', e.target.value)}
-              />
-            ) : (
-              <div className="pts-form-display">{personalInfo.address}</div>
-            )}
-          </div>
-
-          <div className="pts-form-group">
-            <label className="pts-form-label">City</label>
-            {isEditing.personal ? (
-              <input
-                type="text"
-                className="pts-form-input"
-                value={personalInfo.city}
-                onChange={(e) => handlePersonalInfoChange('city', e.target.value)}
-              />
-            ) : (
-              <div className="pts-form-display">{personalInfo.city}</div>
-            )}
-          </div>
-
-          <div className="pts-form-group">
-            <label className="pts-form-label">State</label>
-            {isEditing.personal ? (
-              <input
-                type="text"
-                className="pts-form-input"
-                value={personalInfo.state}
-                onChange={(e) => handlePersonalInfoChange('state', e.target.value)}
-              />
-            ) : (
-              <div className="pts-form-display">{personalInfo.state}</div>
-            )}
-          </div>
-
-          <div className="pts-form-group">
-            <label className="pts-form-label">ZIP Code</label>
-            {isEditing.personal ? (
-              <input
-                type="text"
-                className="pts-form-input"
-                value={personalInfo.zipCode}
-                onChange={(e) => handlePersonalInfoChange('zipCode', e.target.value)}
-              />
-            ) : (
-              <div className="pts-form-display">{personalInfo.zipCode}</div>
-            )}
-          </div>
-
-          <div className="pts-form-group">
-            <label className="pts-form-label">Country</label>
-            {isEditing.personal ? (
-              <input
-                type="text"
-                className="pts-form-input"
-                value={personalInfo.country}
-                onChange={(e) => handlePersonalInfoChange('country', e.target.value)}
-              />
-            ) : (
-              <div className="pts-form-display">{personalInfo.country}</div>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -567,17 +525,48 @@ const Profile: React.FC = () => {
                 Add an extra layer of security to your account
               </p>
             </div>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={securitySettings.twoFactorEnabled}
-                onChange={(e) => handleSecurityChange('twoFactorEnabled', e.target.checked)}
-                style={{ marginRight: "8px" }}
-              />
-              <span style={{ color: securitySettings.twoFactorEnabled ? "#28a745" : "#6c757d" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {/* Toggle Switch */}
+              <div
+                onClick={() => handleSecurityChange('twoFactorEnabled', !securitySettings.twoFactorEnabled)}
+                style={{
+                  width: "50px",
+                  height: "26px",
+                  background: securitySettings.twoFactorEnabled 
+                    ? "linear-gradient(135deg, #9768E1 0%, #E17668 100%)" 
+                    : "#d1d5db",
+                  borderRadius: "13px",
+                  position: "relative",
+                  cursor: "pointer",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: securitySettings.twoFactorEnabled 
+                    ? "0 4px 12px rgba(151, 104, 225, 0.4)" 
+                    : "0 2px 4px rgba(0,0,0,0.1)"
+                }}
+              >
+                <div
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    backgroundColor: "white",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    top: "2px",
+                    left: securitySettings.twoFactorEnabled ? "26px" : "2px",
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                    transform: securitySettings.twoFactorEnabled ? "scale(1.05)" : "scale(1)"
+                  }}
+                />
+              </div>
+              <span style={{ 
+                color: securitySettings.twoFactorEnabled ? "#9768E1" : "#6c757d", 
+                fontWeight: "500",
+                transition: "color 0.3s ease"
+              }}>
                 {securitySettings.twoFactorEnabled ? "Enabled" : "Disabled"}
               </span>
-            </label>
+            </div>
           </div>
 
           <div style={{
@@ -594,17 +583,48 @@ const Profile: React.FC = () => {
                 Receive security alerts via email
               </p>
             </div>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={securitySettings.emailNotifications}
-                onChange={(e) => handleSecurityChange('emailNotifications', e.target.checked)}
-                style={{ marginRight: "8px" }}
-              />
-              <span style={{ color: securitySettings.emailNotifications ? "#28a745" : "#6c757d" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {/* Toggle Switch */}
+              <div
+                onClick={() => handleSecurityChange('emailNotifications', !securitySettings.emailNotifications)}
+                style={{
+                  width: "50px",
+                  height: "26px",
+                  background: securitySettings.emailNotifications 
+                    ? "linear-gradient(135deg, #9768E1 0%, #E17668 100%)" 
+                    : "#d1d5db",
+                  borderRadius: "13px",
+                  position: "relative",
+                  cursor: "pointer",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: securitySettings.emailNotifications 
+                    ? "0 4px 12px rgba(151, 104, 225, 0.4)" 
+                    : "0 2px 4px rgba(0,0,0,0.1)"
+                }}
+              >
+                <div
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    backgroundColor: "white",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    top: "2px",
+                    left: securitySettings.emailNotifications ? "26px" : "2px",
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                    transform: securitySettings.emailNotifications ? "scale(1.05)" : "scale(1)"
+                  }}
+                />
+              </div>
+              <span style={{ 
+                color: securitySettings.emailNotifications ? "#9768E1" : "#6c757d", 
+                fontWeight: "500",
+                transition: "color 0.3s ease"
+              }}>
                 {securitySettings.emailNotifications ? "Enabled" : "Disabled"}
               </span>
-            </label>
+            </div>
           </div>
 
           <div style={{
@@ -621,17 +641,48 @@ const Profile: React.FC = () => {
                 Receive security alerts via SMS
               </p>
             </div>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={securitySettings.smsNotifications}
-                onChange={(e) => handleSecurityChange('smsNotifications', e.target.checked)}
-                style={{ marginRight: "8px" }}
-              />
-              <span style={{ color: securitySettings.smsNotifications ? "#28a745" : "#6c757d" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {/* Toggle Switch */}
+              <div
+                onClick={() => handleSecurityChange('smsNotifications', !securitySettings.smsNotifications)}
+                style={{
+                  width: "50px",
+                  height: "26px",
+                  background: securitySettings.smsNotifications 
+                    ? "linear-gradient(135deg, #9768E1 0%, #E17668 100%)" 
+                    : "#d1d5db",
+                  borderRadius: "13px",
+                  position: "relative",
+                  cursor: "pointer",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: securitySettings.smsNotifications 
+                    ? "0 4px 12px rgba(151, 104, 225, 0.4)" 
+                    : "0 2px 4px rgba(0,0,0,0.1)"
+                }}
+              >
+                <div
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    backgroundColor: "white",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    top: "2px",
+                    left: securitySettings.smsNotifications ? "26px" : "2px",
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                    transform: securitySettings.smsNotifications ? "scale(1.05)" : "scale(1)"
+                  }}
+                />
+              </div>
+              <span style={{ 
+                color: securitySettings.smsNotifications ? "#9768E1" : "#6c757d", 
+                fontWeight: "500",
+                transition: "color 0.3s ease"
+              }}>
                 {securitySettings.smsNotifications ? "Enabled" : "Disabled"}
               </span>
-            </label>
+            </div>
           </div>
         </div>
       </div>
@@ -742,43 +793,6 @@ const Profile: React.FC = () => {
               <div className="pts-form-display">{preferences.dateFormat}</div>
             )}
           </div>
-
-          <div className="pts-form-group">
-            <label className="pts-form-label">Default Assessment Duration (minutes)</label>
-            {isEditing.preferences ? (
-              <input
-                type="number"
-                className="pts-form-input"
-                value={preferences.defaultAssessmentDuration}
-                onChange={(e) => handlePreferencesChange('defaultAssessmentDuration', parseInt(e.target.value) || 60)}
-                min="15"
-                max="300"
-              />
-            ) : (
-              <div className="pts-form-display">{preferences.defaultAssessmentDuration} minutes</div>
-            )}
-          </div>
-
-          <div className="pts-form-group">
-            <label className="pts-form-label">Email Digest Frequency</label>
-            {isEditing.preferences ? (
-              <select
-                className="pts-form-select"
-                value={preferences.emailDigest}
-                onChange={(e) => handlePreferencesChange('emailDigest', e.target.value)}
-              >
-                {emailDigestOptions.map(option => (
-                  <option key={option} value={option}>
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="pts-form-display">
-                {preferences.emailDigest.charAt(0).toUpperCase() + preferences.emailDigest.slice(1)}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Toggle Preferences */}
@@ -798,18 +812,49 @@ const Profile: React.FC = () => {
                 Automatically save form data as you type
               </p>
             </div>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={preferences.autoSave}
-                onChange={(e) => handlePreferencesChange('autoSave', e.target.checked)}
-                disabled={!isEditing.preferences}
-                style={{ marginRight: "8px" }}
-              />
-              <span style={{ color: preferences.autoSave ? "#28a745" : "#6c757d" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {/* Toggle Switch */}
+              <div
+                onClick={() => !isEditing.preferences ? null : handlePreferencesChange('autoSave', !preferences.autoSave)}
+                style={{
+                  width: "50px",
+                  height: "26px",
+                  background: preferences.autoSave 
+                    ? "linear-gradient(135deg, #9768E1 0%, #E17668 100%)" 
+                    : "#d1d5db",
+                  borderRadius: "13px",
+                  position: "relative",
+                  cursor: isEditing.preferences ? "pointer" : "not-allowed",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: preferences.autoSave 
+                    ? "0 4px 12px rgba(151, 104, 225, 0.4)" 
+                    : "0 2px 4px rgba(0,0,0,0.1)",
+                  opacity: isEditing.preferences ? 1 : 0.6
+                }}
+              >
+                <div
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    backgroundColor: "white",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    top: "2px",
+                    left: preferences.autoSave ? "26px" : "2px",
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                    transform: preferences.autoSave ? "scale(1.05)" : "scale(1)"
+                  }}
+                />
+              </div>
+              <span style={{ 
+                color: preferences.autoSave ? "#9768E1" : "#6c757d", 
+                fontWeight: "500",
+                transition: "color 0.3s ease"
+              }}>
                 {preferences.autoSave ? "Enabled" : "Disabled"}
               </span>
-            </label>
+            </div>
           </div>
 
           <div style={{
@@ -826,18 +871,49 @@ const Profile: React.FC = () => {
                 Play sounds for notifications and alerts
               </p>
             </div>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={preferences.notificationSound}
-                onChange={(e) => handlePreferencesChange('notificationSound', e.target.checked)}
-                disabled={!isEditing.preferences}
-                style={{ marginRight: "8px" }}
-              />
-              <span style={{ color: preferences.notificationSound ? "#28a745" : "#6c757d" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {/* Toggle Switch */}
+              <div
+                onClick={() => !isEditing.preferences ? null : handlePreferencesChange('notificationSound', !preferences.notificationSound)}
+                style={{
+                  width: "50px",
+                  height: "26px",
+                  background: preferences.notificationSound 
+                    ? "linear-gradient(135deg, #9768E1 0%, #E17668 100%)" 
+                    : "#d1d5db",
+                  borderRadius: "13px",
+                  position: "relative",
+                  cursor: isEditing.preferences ? "pointer" : "not-allowed",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: preferences.notificationSound 
+                    ? "0 4px 12px rgba(151, 104, 225, 0.4)" 
+                    : "0 2px 4px rgba(0,0,0,0.1)",
+                  opacity: isEditing.preferences ? 1 : 0.6
+                }}
+              >
+                <div
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    backgroundColor: "white",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    top: "2px",
+                    left: preferences.notificationSound ? "26px" : "2px",
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                    transform: preferences.notificationSound ? "scale(1.05)" : "scale(1)"
+                  }}
+                />
+              </div>
+              <span style={{ 
+                color: preferences.notificationSound ? "#9768E1" : "#6c757d", 
+                fontWeight: "500",
+                transition: "color 0.3s ease"
+              }}>
                 {preferences.notificationSound ? "Enabled" : "Disabled"}
               </span>
-            </label>
+            </div>
           </div>
         </div>
       </div>
@@ -941,5 +1017,4 @@ const Profile: React.FC = () => {
     </div>
   );
 };
-
 export default Profile;

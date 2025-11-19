@@ -4,6 +4,7 @@ import Dashboard from "./Dashboard";
 import AssessmentCreation from "./AssessmentCreation";
 import AssessmentScheduling from "./AssessmentScheduling";
 import StudentStats from "./StudentStats";
+import StudentManagement from "./StudentManagement";
 import Profile from "./Profile";
 import './styles/PTSDashboard.css';
 import { useUser } from '../contexts/UserContext';
@@ -20,6 +21,7 @@ const PTSModule: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', path: '/pts' },
     { id: 'create', label: 'Create Assessment', path: '/pts/create' },
     { id: 'schedule', label: 'Assessment Scheduling', path: '/pts/schedule' },
+    { id: 'students', label: 'Student Management', path: '/pts/students' },
     { id: 'stats', label: 'Student Analytics', path: '/pts/stats' },
     { id: 'profile', label: 'Profile Settings', path: '/pts/profile' },
   ], []);
@@ -141,6 +143,7 @@ const PTSModule: React.FC = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/create" element={<AssessmentCreation />} />
             <Route path="/schedule" element={<AssessmentScheduling />} />
+            <Route path="/students" element={<StudentManagement />} />
             <Route path="/stats" element={<StudentStats />} />
             <Route path="/profile" element={<Profile />} />
           </Routes>

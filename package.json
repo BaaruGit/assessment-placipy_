@@ -11,6 +11,7 @@
     "preview": "npx rolldown-vite preview"
   },
   "dependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.53.2",
     "axios": "^1.13.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
