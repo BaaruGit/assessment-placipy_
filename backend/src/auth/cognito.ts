@@ -10,7 +10,9 @@ const {
     RespondToAuthChallengeCommand, // Add this for handling challenges
     AdminAddUserToGroupCommand,
     AdminListGroupsForUserCommand,
-    AdminGetUserCommand  // Add this for getting user attributes
+    AdminGetUserCommand,  // Add this for getting user attributes
+    AdminCreateUserCommand,  // Add this for admin user creation
+    AdminSetUserPasswordCommand  // Add this for setting permanent password
 } = require("@aws-sdk/client-cognito-identity-provider");
 const { fromEnv } = require("@aws-sdk/credential-providers");
 
@@ -284,10 +286,78 @@ async function getUserGroups(username) {
     }
 }
 
+/**
+ * Create user using Admin API (for cases where SignUp is disabled)
+ * @param {string} username 
+ * @param {string} password 
+ * @param {string} email 
+ * @param {boolean} temporary Whether the password is temporary (default: false)
+ * @returns {Promise<Object>} User creation result
+ */
+async function adminCreateUser(username, password, email, temporary = false) {
+    try {
+        // Validate inputs
+        if (!username || !password || !email) {
+            throw new Error('Username, password, and email are required');
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            throw new Error('Invalid email format');
+        }
+
+        // Prepare user attributes
+        const userAttributes = [
+            {
+                Name: 'email',
+                Value: email
+            },
+            {
+                Name: 'email_verified',
+                Value: 'true'  // Admin created users can have verified email
+            }
+        ];
+
+        // Prepare admin create user parameters
+        const params = {
+            UserPoolId: process.env.COGNITO_USER_POOL_ID,
+            Username: username,
+            UserAttributes: userAttributes,
+            TemporaryPassword: temporary ? password : undefined,
+            MessageAction: 'SUPPRESS', // Don't send welcome email
+            ForceAliasCreation: false
+        };
+
+        // Execute admin create user command
+        const command = new AdminCreateUserCommand(params);
+        const result = await cognitoClient.send(command);
+
+        // If not temporary, set as permanent password
+        if (!temporary) {
+            const setPasswordParams = {
+                UserPoolId: process.env.COGNITO_USER_POOL_ID,
+                Username: username,
+                Password: password,
+                Permanent: true
+            };
+            
+            const setPasswordCommand = new AdminSetUserPasswordCommand(setPasswordParams);
+            await cognitoClient.send(setPasswordCommand);
+        }
+
+        return result.User;
+    } catch (error) {
+        // Re-throw the error to be handled by the calling function
+        throw error;
+    }
+}
+
 module.exports = {
     registerUser,
     loginUser,
     addUserToGroup,
     getUserAttributes,
-    getUserGroups
+    getUserGroups,
+    adminCreateUser
 };

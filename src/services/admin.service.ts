@@ -144,10 +144,15 @@ class AdminService {
     }
   }
 
-  async createOfficer(officerData: Partial<Officer>): Promise<Officer> {
+  async createOfficer(officerData: Partial<Officer>): Promise<Officer & { authInfo?: { defaultPassword: string | null; instructions: string; note: string; cognitoStatus?: boolean } }> {
     try {
       const response = await api.post('/admin/officers', officerData);
-      return response.data.data;
+      
+      // Return both officer data and auth info if present
+      return {
+        ...response.data.data,
+        authInfo: response.data.authInfo
+      };
     } catch (error) {
       console.error('Error creating officer:', error);
       throw error;

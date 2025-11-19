@@ -278,6 +278,13 @@ class AdminService {
       const officerId = `${officerData.role}#${uuidv4().substring(0, 8)}`;
       const collegeId = officerData.collegeId.startsWith('CLIENT#') ? officerData.collegeId : `CLIENT#${officerData.collegeId}`;
 
+      // Generate default password that meets Cognito policy: 
+      // Must have uppercase, lowercase, numbers, and symbols
+      const username = officerData.email;
+      const emailPart = username.split('@')[0]; // Get part before @
+      const defaultPassword = emailPart.charAt(0).toUpperCase() + emailPart.slice(1) + '123!@#';
+
+      // STEP 1: First create officer record in DynamoDB
       const officer = {
         PK: collegeId,
         SK: officerId,
@@ -289,11 +296,91 @@ class AdminService {
         permissions: officerData.permissions || [],
         createdAt: timestamp,
         updatedAt: timestamp,
-        createdBy: officerData.createdBy
+        createdBy: officerData.createdBy,
+        defaultPasswordSet: true, // Flag to indicate default password was set
+        mustChangePassword: true, // Flag to force password change on first login
+        cognitoUserCreated: false // Track Cognito creation status - initialize to false
       };
 
       await this.putItem(officer);
-      return this.formatOfficerData(officer);
+
+      // STEP 2: Then create user in Cognito using Admin API
+      const { adminCreateUser } = require('../auth/cognito');
+      
+      try {
+        await adminCreateUser(username, defaultPassword, officerData.email, false);
+        
+        // Update DynamoDB record to mark Cognito user as created
+        const updateParams = {
+          Key: {
+            PK: collegeId,
+            SK: officerId
+          },
+          UpdateExpression: 'SET cognitoUserCreated = :cognitoStatus, updatedAt = :updatedAt',
+          ExpressionAttributeValues: {
+            ':cognitoStatus': true,
+            ':updatedAt': new Date().toISOString()
+          }
+        };
+        await this.updateItem(updateParams);
+        officer.cognitoUserCreated = true;
+        
+      } catch (cognitoError) {
+        console.error('Error creating Cognito user:', cognitoError);
+        
+        // Handle specific Cognito errors
+        if (cognitoError.code === 'UsernameExistsException') {
+          console.log(`User ${username} already exists in Cognito, marking as created`);
+          // Update DynamoDB to mark Cognito user as created (already exists)
+          const updateParams = {
+            Key: {
+              PK: collegeId,
+              SK: officerId
+            },
+            UpdateExpression: 'SET cognitoUserCreated = :cognitoStatus, updatedAt = :updatedAt',
+            ExpressionAttributeValues: {
+              ':cognitoStatus': true,
+              ':updatedAt': new Date().toISOString()
+            }
+          };
+          await this.updateItem(updateParams);
+          officer.cognitoUserCreated = true;
+        } else {
+          // For other Cognito errors, log but don't fail the entire operation
+          // The officer record exists in DynamoDB, admin can retry Cognito creation later
+          console.error(`Failed to create Cognito user for ${username}:`, cognitoError.message);
+          
+          // Update DynamoDB with error info
+          const updateParams = {
+            Key: {
+              PK: collegeId,
+              SK: officerId
+            },
+            UpdateExpression: 'SET cognitoUserCreated = :cognitoStatus, cognitoError = :error, updatedAt = :updatedAt',
+            ExpressionAttributeValues: {
+              ':cognitoStatus': false,
+              ':error': cognitoError.message,
+              ':updatedAt': new Date().toISOString()
+            }
+          };
+          await this.updateItem(updateParams);
+          
+          // Include warning in response but don't fail
+          officer.cognitoUserCreated = false;
+          officer.cognitoError = cognitoError.message;
+        }
+      }
+
+      // Return formatted officer data
+      const formattedOfficer = this.formatOfficerData(officer);
+      
+      // Add default password info to response (for admin notification)
+      formattedOfficer.defaultPassword = defaultPassword;
+      formattedOfficer.loginInstructions = officer.cognitoUserCreated 
+        ? `Default password: ${defaultPassword}. User must change password on first login.`
+        : `Officer created in database. Authentication account creation ${officer.cognitoError ? 'failed: ' + officer.cognitoError : 'pending'}.`;
+      
+      return formattedOfficer;
     } catch (error) {
       console.error('Error creating officer:', error);
       throw error;
@@ -625,7 +712,12 @@ class AdminService {
       permissions: item.permissions || [],
       status: item.status || 'ACTIVE', // Use stored status or default to ACTIVE
       createdAt: item.createdAt,
-      updatedAt: item.updatedAt
+      updatedAt: item.updatedAt,
+      // Include authentication-related fields
+      cognitoUserCreated: item.cognitoUserCreated,
+      cognitoError: item.cognitoError,
+      defaultPasswordSet: item.defaultPasswordSet,
+      mustChangePassword: item.mustChangePassword
     };
   }
 
