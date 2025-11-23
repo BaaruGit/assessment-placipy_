@@ -1,41 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-// Define the missing types directly in the component
-interface AdminProfile {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  designation: string;
-  department: string;
-  employeeId: string;
-  joiningDate: string;
-  bio: string;
-  address: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
-  profilePicture: string;
-}
-
-interface SecuritySettings {
-  twoFactorEnabled: boolean;
-  emailNotifications: boolean;
-  smsNotifications: boolean;
-}
-
-interface AdminPreferences {
-  theme: 'light' | 'dark';
-  language: string;
-  timezone: string;
-  dateFormat: string;
-  emailDigest: string;
-  notificationSound: boolean;
-  autoLogout: number;
-}
+import type { AdminProfile, SecuritySettings, AdminPreferences } from '../../services/profile.service';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -100,21 +65,21 @@ const Profile: React.FC = () => {
 
   const handleProfileChange = (field: keyof AdminProfile, value: string) => {
     setProfile(prev => ({
-      ...(prev as AdminProfile),
+      ...prev,
       [field]: value
     }));
   };
 
   const handleSecurityChange = (field: keyof SecuritySettings, value: any) => {
     setSecuritySettings(prev => ({
-      ...(prev as SecuritySettings),
+      ...prev,
       [field]: value
     }));
   };
 
   const handlePreferencesChange = (field: keyof AdminPreferences, value: any) => {
     setPreferences(prev => ({
-      ...(prev as AdminPreferences),
+      ...prev,
       [field]: value
     }));
   };
@@ -197,7 +162,7 @@ const Profile: React.FC = () => {
 
   const handleImageSelect = (imageUrl: string) => {
     setProfile(prev => ({
-      ...(prev as AdminProfile),
+      ...prev,
       profilePicture: imageUrl
     }));
     setShowImageSelector(false);
