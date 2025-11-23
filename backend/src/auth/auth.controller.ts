@@ -231,19 +231,17 @@ const getProfile = async (req, res) => {
             });
         }
 
-        // Return user profile with all available data
+        // Return user profile with role information
         return res.status(200).json({
             message: 'User profile retrieved successfully',
-            email: userData.email || email,
-            name: userData.name || userData.firstName || '',
-            phone: userData.phone || '',
-            regNo: userData.regNo || userData.registrationNumber || '',
-            collegeName: userData.collegeName || userData.college || '',
-            department: userData.department || '',
-            year: userData.year || userData.yearOfStudy || '',
-            section: userData.section || '',
-            enrollmentDate: userData.enrollmentDate || userData.joiningDate || new Date().toISOString().split('T')[0],
-            role: userData.role || 'Student'
+            user: {
+                email: userData.email,
+                name: userData.name,
+                role: userData.role,
+                department: userData.department,
+                year: userData.year,
+                joiningDate: userData.joiningDate
+            }
         });
     } catch (error) {
         // Handle DynamoDB specific errors
