@@ -15,10 +15,6 @@ router.post('/reset-password', userController.resetPassword);
 // Protected routes
 router.get('/profile', authMiddleware.authenticateToken, userController.getProfile);
 
-// Ensure DynamoDB service and Cognito helper are available for profile updates
-const dynamoDBService = require('../services/DynamoDBService');
-const { getUserAttributes } = require('../auth/cognito');
-
 // Profile Management Endpoints
 router.put('/profile', authMiddleware.authenticateToken, async (req, res) => {
     try {
@@ -113,8 +109,11 @@ router.put('/profile', authMiddleware.authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Profile update error:', error);
         console.error('Error stack:', error.stack);
-        res.status(500).json({ success: false, message: 'Failed to update profile',
-            error: error.message });
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update profile',
+            error: error.message
+        });
     }
 });
 
@@ -360,21 +359,3 @@ router.put('/profile/picture', authMiddleware.authenticateToken, async (req, res
 });
 
 module.exports = router;
-
-// Development-only debug routes
-if (process.env.NODE_ENV !== 'production') {
-    router.get('/debug/user-by-email', authMiddleware.authenticateToken, async (req, res) => {
-        try {
-            const email = req.query.email || req.user && (req.user.email || req.user.username || req.user['cognito:username']);
-            if (!email) {
-                return res.status(400).json({ success: false, message: 'email query param or token-derived email required' });
-            }
-
-            const item = await dynamoDBService.getUserDataByEmail(String(email));
-            return res.json({ success: true, item });
-        } catch (err) {
-            console.error('Debug route error:', err);
-            res.status(500).json({ success: false, message: 'Debug lookup failed', error: err.message });
-        }
-    });
-}
