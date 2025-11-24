@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
+import { useUser } from '../../contexts/UserContext';
 
 const DashboardHome: React.FC = () => {
+  const { user } = useUser();
   // Mock data
   const stats = [
     { title: 'Active Tests', value: 3, change: '+2 from last week' },
@@ -35,7 +37,7 @@ const DashboardHome: React.FC = () => {
         className="welcome-banner"
         style={{
           background: 'linear-gradient(135deg, #9768E1 0%, #523C48 100%)',
-          borderRadius: '15px',
+          borderRadius: '16px',
           padding: '28px',
           minHeight: '160px',
           marginBottom: '24px',
@@ -45,6 +47,7 @@ const DashboardHome: React.FC = () => {
           alignItems: 'center',
           position: 'relative',
           overflow: 'hidden',
+          boxShadow: '0 8px 25px rgba(151, 104, 225, 0.15)',
         }}
       >
         {/* Animated background (floating circles) */}
@@ -54,7 +57,10 @@ const DashboardHome: React.FC = () => {
 
         <div style={{ zIndex: 1, position: 'relative' }}>
           <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '10px' }}>{currentDate}</div>
-          <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 700 }}>Welcome back, Student!</h1>
+                  <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 700 }}>
+                    Welcome back, {/** prefer the real user name from context */}
+                    {user?.name ? ` ${user.name}` : ' Student'}!
+                  </h1>
           <p style={{ margin: '6px 0 0 0', fontSize: '1rem', opacity: 0.95 }}>
             You have <strong>3</strong> active assessments awaiting your action.
           </p>

@@ -1,4 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+
+interface Assessment {
+  id: string;
+  title: string;
+  category: string;
+  startTime: number;
+  totalQuestions: number;
+  durationMinutes: number;
+  status: 'upcoming' | 'active' | 'completed';
+}
+
+// Helper function to generate random assessments
+const generateAssessments = (min: number, max: number): Assessment[] => {
+  const categories = ['JavaScript', 'Python', 'Java', 'C++', 'React', 'Node.js'];
+  const count = Math.floor(Math.random() * (max - min + 1)) + min;
+  
+  return Array.from({ length: count }, (_, i) => ({
+    id: `assess-${i + 1}`,
+    title: `Assessment ${i + 1}`,
+    category: categories[Math.floor(Math.random() * categories.length)],
+    startTime: Date.now() + (Math.random() * 30 * 24 * 60 * 60 * 1000), // Within next 30 days
+    totalQuestions: Math.floor(Math.random() * 10) + 5, // 5-15 questions
+    durationMinutes: Math.floor(Math.random() * 30) + 30, // 30-60 minutes
+    status: ['upcoming', 'active', 'completed'][Math.floor(Math.random() * 3)] as 'upcoming' | 'active' | 'completed'
+  }));
+};
 
 const Assessments: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState('all');
@@ -8,83 +35,83 @@ const Assessments: React.FC = () => {
     password: 'PLCY-7842'
   });
   
-  // Mock data for assessments
-  const allAssessments = [
-    { 
-      id: 1, 
-      title: 'Mathematics Quiz', 
-      subject: 'Mathematics',
-      startTime: '2025-11-15 10:00 AM',
-      duration: '60 minutes',
-      instructions: 'Complete all questions. No calculators allowed.',
-      status: 'active'
-    },
-    { 
-      id: 2, 
-      title: 'Physics Test', 
-      subject: 'Physics',
-      startTime: '2025-11-20 02:00 PM',
-      duration: '90 minutes',
-      instructions: 'Show all work for partial credit.',
-      status: 'upcoming'
-    },
-    { 
-      id: 3, 
-      title: 'Chemistry Exam', 
-      subject: 'Chemistry',
-      startTime: '2025-10-30 09:00 AM',
-      duration: '120 minutes',
-      instructions: 'Multiple choice and essay questions.',
-      status: 'completed'
-    },
-    { 
-      id: 4, 
-      title: 'Biology Midterm', 
-      subject: 'Biology',
-      startTime: '2025-11-25 11:00 AM',
-      duration: '90 minutes',
-      instructions: 'Bring pencil and eraser.',
-      status: 'upcoming'
-    },
-  ];
+  // Generate demo assessments using Faker (configurable counts)
+  const [allAssessments, setAllAssessments] = useState<Assessment[]>([]);
+  const navigate = useNavigate();
 
-  const filteredAssessments = activeFilter === 'all' 
-    ? allAssessments 
-    : allAssessments.filter(assessment => assessment.subject.toLowerCase() === activeFilter);
+  useEffect(() => {
+    const generated = generateAssessments(6, 8);
+    setAllAssessments(generated);
+  }, []);
 
-  const uniqueSubjects = Array.from(new Set(allAssessments.map(a => a.subject.toLowerCase())));
+  const filteredAssessments = activeFilter === 'all'
+    ? allAssessments
+    : allAssessments.filter(assessment => assessment.category.toLowerCase() === activeFilter);
 
-  const handleAttendTest = (assessmentId: number) => {
-    alert(`Attending test #${assessmentId}`);
-    // In a real app, this would navigate to the test page
+  const uniqueSubjects = Array.from(new Set(allAssessments.map(a => a.category.toLowerCase())));
+
+  const handleAttendTest = (assessment: Assessment) => {
+    // Navigate to the assessment taking page
+    navigate('/student/assessment-taking');
   };
 
-  const handleViewResults = (assessmentId: number) => {
-    alert(`Viewing results for test #${assessmentId}`);
-    // In a real app, this would navigate to the results page
+  // Get status badge style based on status
+  const getStatusBadgeStyle = (status: string) => {
+    switch (status) {
+      case 'active':
+        return { background: '#DCFCE7', color: '#166534' }; // Green for active
+      case 'completed':
+        return { background: '#E5E7EB', color: '#4B5563' }; // Gray for completed
+      case 'upcoming':
+      default:
+        return { background: '#E0F2FE', color: '#075985' }; // Blue for upcoming
+    }
+  };
+
+  // Get button style and text based on status
+  const getButtonConfig = (status: string) => {
+    switch (status) {
+      case 'active':
+        return { 
+          text: 'Start Assessment', 
+          style: { background: '#10B981', color: 'white' },
+          disabled: false
+        };
+      case 'upcoming':
+        return { 
+          text: 'Coming Soon', 
+          style: { background: '#E5E7EB', color: '#6B7280', cursor: 'not-allowed' },
+          disabled: true
+        };
+      case 'completed':
+      default:
+        return { 
+          text: 'View Results', 
+          style: { background: '#6B7280', color: 'white' },
+          disabled: false
+        };
+    }
   };
 
   return (
-    <div className="assessments-page">
-      <h2>Assessments</h2>
+    <div className="assessments-page" style={{ padding: '20px' }}>
+      <h2 style={{ marginBottom: '24px' }}>Programming Assessments</h2>
       
-      <div className="filters">
+      <div className="filters" style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
         <button 
           className={`filter-btn ${activeFilter === 'all' ? 'active' : ''}`}
           style={{
-            border: activeFilter === 'all' ? '1px solid #9768E1' : '1px solid #E5E7EB',
+            border: '1px solid #E5E7EB',
             borderRadius: '8px',
-            padding: '8px 12px',
+            padding: '8px 16px',
             background: activeFilter === 'all' ? '#9768E1' : '#FFFFFF',
             color: activeFilter === 'all' ? '#FFFFFF' : '#111827',
-            transition: 'transform 120ms ease, box-shadow 120ms ease',
-            userSelect: 'none'
+            transition: 'all 0.2s ease',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+            boxShadow: activeFilter === 'all' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
           }}
-          onMouseDown={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.97)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 0 4px rgba(79,70,229,0.12)'; }}
-          onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
-          onMouseLeave={(e) => { const t = e.currentTarget as HTMLButtonElement; t.style.transform = 'scale(1)'; t.style.boxShadow = 'none'; }}
-          onTouchStart={(e) => { const t = e.currentTarget as HTMLButtonElement; t.style.transform = 'scale(0.97)'; t.style.boxShadow = '0 0 0 4px rgba(79,70,229,0.12)'; }}
-          onTouchEnd={(e) => { const t = e.currentTarget as HTMLButtonElement; t.style.transform = 'scale(1)'; t.style.boxShadow = 'none'; }}
           onClick={() => setActiveFilter('all')}
         >
           All Assessments
@@ -94,19 +121,17 @@ const Assessments: React.FC = () => {
             key={subject}
             className={`filter-btn ${activeFilter === subject ? 'active' : ''}`}
             style={{
-              border: activeFilter === subject ? '1px solid #9768E1' : '1px solid #E5E7EB',
+              border: '1px solid #E5E7EB',
               borderRadius: '8px',
-              padding: '8px 12px',
+              padding: '8px 16px',
               background: activeFilter === subject ? '#9768E1' : '#FFFFFF',
               color: activeFilter === subject ? '#FFFFFF' : '#111827',
-              transition: 'transform 120ms ease, box-shadow 120ms ease',
-              userSelect: 'none'
+              transition: 'all 0.2s ease',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              boxShadow: activeFilter === subject ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
             }}
-            onMouseDown={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.97)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 0 4px rgba(79,70,229,0.12)'; }}
-            onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
-            onMouseLeave={(e) => { const t = e.currentTarget as HTMLButtonElement; t.style.transform = 'scale(1)'; t.style.boxShadow = 'none'; }}
-            onTouchStart={(e) => { const t = e.currentTarget as HTMLButtonElement; t.style.transform = 'scale(0.97)'; t.style.boxShadow = '0 0 0 4px rgba(79,70,229,0.12)'; }}
-            onTouchEnd={(e) => { const t = e.currentTarget as HTMLButtonElement; t.style.transform = 'scale(1)'; t.style.boxShadow = 'none'; }}
             onClick={() => setActiveFilter(subject)}
           >
             {subject.charAt(0).toUpperCase() + subject.slice(1)}
@@ -206,57 +231,104 @@ const Assessments: React.FC = () => {
               >
                 Close
               </button>
-            </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
-      <div className="assessments-grid">
-        {filteredAssessments.map(assessment => (
-          <div key={assessment.id} className="assessment-card">
-            <div className="card-header">
-              <h3>{assessment.title}</h3>
-              <span className={`status-badge ${assessment.status}`}>
+    <div className="assessments-grid" style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+      gap: '20px',
+      width: '100%'
+    }}>
+      {filteredAssessments.map(assessment => {
+        const statusStyle = getStatusBadgeStyle(assessment.status);
+        const buttonConfig = getButtonConfig(assessment.status);
+        
+        return (
+          <div key={assessment.id} style={{
+            border: '1px solid #E5E7EB',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+          }}>
+            <div style={{
+              padding: '16px',
+              borderBottom: '1px solid #E5E7EB',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#111827' }}>{assessment.title}</h3>
+              <span style={{
+                padding: '4px 12px',
+                borderRadius: '9999px',
+                fontSize: '12px',
+                fontWeight: 600,
+                ...statusStyle
+              }}>
                 {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1)}
               </span>
             </div>
-            
-            <div className="card-body">
-              <p><strong>Subject:</strong> {assessment.subject}</p>
-              <p><strong>Start Time:</strong> {assessment.startTime}</p>
-              <p><strong>Duration:</strong> {assessment.duration}</p>
-              <p><strong>Instructions:</strong> {assessment.instructions}</p>
+
+            <div style={{ padding: '16px', flexGrow: 1 }}>
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ margin: '0 0 8px 0', color: '#6B7280', fontSize: '14px' }}>Category</p>
+                <p style={{ margin: 0, fontWeight: 500 }}>{assessment.category}</p>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Questions</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{assessment.totalQuestions}</p>
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Duration</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{assessment.durationMinutes} mins</p>
+                </div>
+              </div>
+
+              <div>
+                <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Starts</p>
+                <p style={{ margin: 0, fontWeight: 500, fontSize: '14px' }}>
+                  {new Date(assessment.startTime).toLocaleString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
             </div>
             
-            <div className="card-actions">
-              {assessment.status === 'active' && (
-                <button 
-                  className="attend-btn"
-                  onClick={() => handleAttendTest(assessment.id)}
-                >
-                  Attend Test
-                </button>
-              )}
-              
-              {assessment.status === 'completed' && (
-                <button 
-                  className="results-btn"
-                  onClick={() => handleViewResults(assessment.id)}
-                >
-                  View Results
-                </button>
-              )}
-              
-              {assessment.status === 'upcoming' && (
-                <button className="upcoming-btn" disabled>
-                  Upcoming
-                </button>
-              )}
+            <div style={{ padding: '16px', borderTop: '1px solid #E5E7EB' }}>
+              <button 
+                onClick={() => handleAttendTest(assessment)}
+                disabled={buttonConfig.disabled}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontWeight: 500,
+                  cursor: buttonConfig.disabled ? 'not-allowed' : 'pointer',
+                  transition: 'opacity 0.2s ease',
+                  ...buttonConfig.style
+                }}
+              >
+                {buttonConfig.text}
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
+  </div>
   );
 };
 

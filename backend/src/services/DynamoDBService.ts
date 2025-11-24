@@ -128,6 +128,64 @@ class DynamoDBService {
         }
     }
 
+    /**
+     * Update an existing user record in DynamoDB by email.
+     * Finds the existing item (to discover PK/SK) and applies the provided updates.
+     * @param email User email
+     * @param updates Object with fields to set on the item
+     */
+    async updateUserByEmail(email: string, updates: Record<string, any>): Promise<any> {
+        try {
+            // First, locate the existing item (and its PK/SK)
+            const existing = await this.getUserByEmail(email);
+            if (!existing) {
+                throw new Error('User not found');
+            }
+
+            const PK = existing.PK;
+            const SK = existing.SK;
+
+            // Build UpdateExpression dynamically
+            const expressionParts: string[] = [];
+            const expressionNames: Record<string, string> = {};
+            const expressionValues: Record<string, any> = {};
+
+            let idx = 0;
+            for (const key of Object.keys(updates)) {
+                const attrName = `#a${idx}`;
+                const attrValue = `:v${idx}`;
+                expressionParts.push(`${attrName} = ${attrValue}`);
+                expressionNames[attrName] = key;
+                expressionValues[attrValue] = updates[key];
+                idx++;
+            }
+
+            // Always update the updatedAt timestamp
+            const timeAttrName = `#a${idx}`;
+            const timeAttrValue = `:v${idx}`;
+            expressionParts.push(`${timeAttrName} = ${timeAttrValue}`);
+            expressionNames[timeAttrName] = 'updatedAt';
+            expressionValues[timeAttrValue] = new Date().toISOString();
+
+            const params = {
+                TableName: this.tableName,
+                Key: { PK, SK },
+                UpdateExpression: 'SET ' + expressionParts.join(', '),
+                ExpressionAttributeNames: expressionNames,
+                ExpressionAttributeValues: expressionValues,
+                ReturnValues: 'ALL_NEW'
+            };
+
+            const result = await dynamodb.update(params).promise();
+            return result.Attributes;
+        } catch (error) {
+            if (error.code === 'CredentialsError' || error.message.includes('credentials')) {
+                throw new Error('AWS credentials not configured. Please check your AWS configuration.');
+            }
+            throw new Error('Failed to update user in DynamoDB: ' + error.message);
+        }
+    }
+
     // Additional methods for AdminService
     async scanTable(params: any): Promise<any> {
         try {

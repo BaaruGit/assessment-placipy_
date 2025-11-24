@@ -4,6 +4,7 @@ import '../css-files/Login.css';
 import AuthService from '../services/auth.service';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../services/auth.service';
+import { useUser } from '../contexts/UserContext';
 
 // Define challenge response interface locally to avoid import issues
 interface ChallengeResponse {
@@ -18,6 +19,8 @@ const LoginPage: React.FC = () => {
     const [challenge, setChallenge] = useState<ChallengeResponse | null>(null);
     const [password, setPassword] = useState<string>('');
     const [sessionExpired, setSessionExpired] = useState<boolean>(false);
+
+    const { refreshUser } = useUser();
 
     const handleLogin = async (email: string, password: string) => {
         try {
@@ -39,15 +42,24 @@ const LoginPage: React.FC = () => {
             const userResult = result as User;
             console.log('Login successful for:', userResult.email);
 
+            // Refresh UserContext so profile and name update immediately
+            try {
+                await refreshUser();
+                console.log('UserContext refreshed after login');
+            } catch (refreshErr) {
+                console.warn('Failed to refresh user context after login:', refreshErr);
+            }
+
             // Get dashboard path based on user role
             const dashboardPath = AuthService.getDashboardPath(userResult.role);
             console.log('Redirecting to:', dashboardPath);
 
             // Redirect to appropriate dashboard
             navigate(dashboardPath);
-        } catch (err: any) {
-            console.error('Login error in component:', err);
-            setError(err.message || 'An unexpected error occurred during login. Please try again.');
+        } catch (err) {
+            const e = err as Error;
+            console.error('Login error in component:', e);
+            setError(e.message || 'An unexpected error occurred during login. Please try again.');
         }
     };
 
@@ -79,15 +91,24 @@ const LoginPage: React.FC = () => {
             const user = result as User;
             console.log('Password updated successfully for:', user.email);
 
+            // Refresh context after setting new password / login
+            try {
+                await refreshUser();
+                console.log('UserContext refreshed after completing password challenge');
+            } catch (refreshErr) {
+                console.warn('Failed to refresh user context after password challenge:', refreshErr);
+            }
+
             // Get dashboard path based on user role
             const dashboardPath = AuthService.getDashboardPath(user.role);
             console.log('Redirecting to:', dashboardPath);
 
             // Redirect to appropriate dashboard
             navigate(dashboardPath);
-        } catch (err: any) {
-            console.error('New password error in component:', err);
-            setError(err.message || 'Failed to set new password. Please try again.');
+        } catch (err) {
+            const e = err as Error;
+            console.error('New password error in component:', e);
+            setError(e.message || 'Failed to set new password. Please try again.');
         }
     };
 

@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import DashboardHome from '../components/DashboardHome';
 import Assessments from '../components/Assessments';
 import ResultsReports from '../components/ResultsReports';
 import Profile from '../components/Profile';
 import Notifications from '../components/Notifications';
-import { ProfileDropdown } from '../components/Profile';
+import AssessmentTaking from '../components/AssessmentTaking';
 import '../styles/Dashboard.css';
 import AuthService from '../../services/auth.service';
+import { useUser } from '../../contexts/UserContext';
 
 // Student Dashboard Component
 const StudentDashboard: React.FC = () => {
@@ -16,14 +17,36 @@ const StudentDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAssessmentActive, setIsAssessmentActive] = useState(false);
 
   // Navigation items (removed profile)
-  const navItems = [
+  const navItems = useMemo(() => [
     { id: 'dashboard', label: 'Dashboard', path: '/student' },
     { id: 'assessments', label: 'Assessments', path: '/student/assessments' },
     { id: 'results', label: 'Results & Reports', path: '/student/results' },
     { id: 'notifications', label: 'Notifications', path: '/student/notifications' },
-  ];
+  ], []);
+
+  // Listen for messages from child components
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'ASSESSMENT_COMPLETED') {
+        setIsAssessmentActive(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Check if we're on the assessment taking page
+  useEffect(() => {
+    if (location.pathname.includes('/assessment-taking')) {
+      setIsAssessmentActive(true);
+    } else {
+      setIsAssessmentActive(false);
+    }
+  }, [location.pathname]);
 
   // Verify user role on component mount
   useEffect(() => {
@@ -78,7 +101,7 @@ const StudentDashboard: React.FC = () => {
 
     // Default to dashboard if no match
     setActiveTab('dashboard');
-  }, [location]);
+  }, [location, navItems]);
 
   const handleLogout = () => {
     AuthService.logout();
@@ -93,6 +116,8 @@ const StudentDashboard: React.FC = () => {
     setSidebarOpen(false);
   };
 
+  const { user } = useUser();
+
   if (isLoading) {
     return <div className="loading">Verifying access...</div>;
   }
@@ -106,46 +131,56 @@ const StudentDashboard: React.FC = () => {
         <span></span>
       </button>
 
-      {/* Sidebar Navigation */}
-      <nav className={`dashboard-sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <h2>Student Portal</h2>
-        </div>
-        <ul className="sidebar-menu">
-          {navItems.map((item) => (
-            <li key={item.id}>
-              <Link
-                to={item.path}
-                className={`sidebar-link ${activeTab === item.id ? 'active' : ''} sidebar-link-${item.id}`}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  closeSidebar();
-                }}
-              >
-                <span className="sidebar-label">{item.label}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <div className="sidebar-footer">
-          <button className="logout-btn" onClick={() => {
-            handleLogout();
-            closeSidebar();
-          }}>
-            <span className="sidebar-label">Logout</span>
-          </button>
-        </div>
-      </nav>
+      {/* Sidebar Navigation - Hidden during active assessment */}
+      {!isAssessmentActive && (
+        <nav className={`dashboard-sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div className="sidebar-header">
+            <h2>Student Portal</h2>
+          </div>
+          <ul className="sidebar-menu">
+            {navItems.map((item) => (
+              <li key={item.id}>
+                <Link
+                  to={item.path}
+                  className={`sidebar-link ${activeTab === item.id ? 'active' : ''} sidebar-link-${item.id}`}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    closeSidebar();
+                  }}
+                >
+                  <span className="sidebar-label">{item.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="sidebar-footer">
+            <button className="logout-btn" onClick={() => {
+              handleLogout();
+              closeSidebar();
+            }}>
+              <span className="sidebar-label">Logout</span>
+            </button>
+          </div>
+        </nav>
+      )}
 
       {/* Overlay for mobile when sidebar is open */}
-      {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar}></div>}
+      {sidebarOpen && !isAssessmentActive && <div className="sidebar-overlay" onClick={closeSidebar}></div>}
 
       {/* Main Content Area */}
       <main className="dashboard-main">
-        <header className="dashboard-header">
-          <h1>Welcome, Student!</h1>
-          <ProfileDropdown />
-        </header>
+        {/* Welcome board - Hidden during active assessment */}
+        {!isAssessmentActive && (
+          <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1>{user?.name ? `Welcome, ${user.name}!` : 'Welcome, Student!'}</h1>
+            <Link to="/student/profile" className="profile-btn" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#9768E1', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'S'}
+              </div>
+              <span style={{ color: '#523C48' }}>{user?.name || 'Profile'}</span>
+            </Link>
+          </header>
+        )}
 
         <div className="dashboard-content">
           <Routes>
@@ -154,6 +189,7 @@ const StudentDashboard: React.FC = () => {
             <Route path="/results" element={<ResultsReports />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/assessment-taking" element={<AssessmentTaking />} />
           </Routes>
         </div>
       </main>

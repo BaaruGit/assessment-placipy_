@@ -21,14 +21,34 @@ async function fetchJwks() {
     }
 
     try {
-        const jwksUrl = process.env.COGNITO_JWKS_URL ||
-            `https://cognito-idp.${process.env.COGNITO_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}/.well-known/jwks.json`;
+        // Validate required environment variables
+        if (!process.env.COGNITO_USER_POOL_ID) {
+            throw new Error('COGNITO_USER_POOL_ID is not configured. Please set it in your .env file.');
+        }
 
-        const response = await axios.get(jwksUrl);
+        const region = process.env.COGNITO_REGION || process.env.AWS_REGION || 'us-east-1';
+        const jwksUrl = process.env.COGNITO_JWKS_URL ||
+            `https://cognito-idp.${region}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}/.well-known/jwks.json`;
+
+        const response = await axios.get(jwksUrl, {
+            timeout: 10000, // 10 second timeout
+            validateStatus: function (status) {
+                return status >= 200 && status < 300; // default
+            }
+        });
         jwksCache = response.data;
         jwksCacheTime = now;
         return jwksCache;
     } catch (error) {
+        const region = process.env.COGNITO_REGION || process.env.AWS_REGION || 'unknown';
+        if (error.message?.includes('ENOTFOUND') || error.message?.includes('getaddrinfo')) {
+            throw new Error(`Failed to fetch JWKs from Cognito in region: ${region}. Please verify:\n` +
+                `1. COGNITO_REGION matches your User Pool region\n` +
+                `2. COGNITO_USER_POOL_ID is correct\n` +
+                `3. You have internet connectivity\n` +
+                `4. Your Cognito User Pool exists in ${region} region\n` +
+                `Original error: ${error.message}`);
+        }
         throw new Error('Failed to fetch JWKs: ' + error.message);
     }
 }

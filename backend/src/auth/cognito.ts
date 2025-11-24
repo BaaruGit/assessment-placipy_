@@ -18,16 +18,39 @@ const { fromEnv } = require("@aws-sdk/credential-providers");
 
 // Configure AWS Cognito client with proper error handling
 let cognitoClient;
+let cognitoRegion;
 
 function initializeCognitoClient() {
     try {
-        const region = process.env.COGNITO_REGION || process.env.AWS_REGION || 'us-east-1';
+        // Validate required environment variables
+        if (!process.env.COGNITO_USER_POOL_ID) {
+            console.error('ERROR: COGNITO_USER_POOL_ID is not set in environment variables');
+            console.error('Please set COGNITO_USER_POOL_ID in your .env file');
+        }
+        
+        if (!process.env.COGNITO_CLIENT_ID) {
+            console.error('ERROR: COGNITO_CLIENT_ID is not set in environment variables');
+            console.error('Please set COGNITO_CLIENT_ID in your .env file');
+        }
+
+        cognitoRegion = process.env.COGNITO_REGION || process.env.AWS_REGION || 'us-east-1';
+        
+        console.log(`Initializing Cognito client for region: ${cognitoRegion}`);
+        
         cognitoClient = new CognitoIdentityProviderClient({
-            region: region,
+            region: cognitoRegion,
             credentials: fromEnv()
         });
+        
+        console.log('Cognito client initialized successfully');
         return true;
     } catch (error) {
+        console.error('ERROR: Failed to initialize Cognito client:', error.message);
+        console.error('Please check your AWS credentials and region configuration');
+        console.error('Make sure you have:');
+        console.error('1. AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY set in your environment');
+        console.error('2. COGNITO_REGION or AWS_REGION set correctly');
+        console.error('3. A valid Cognito User Pool in the specified region');
         return false;
     }
 }
@@ -115,6 +138,16 @@ async function registerUser(username, password, email) {
  */
 async function loginUser(username, password, newPassword = null, session = null) {
     try {
+        // Validate Cognito client is initialized
+        if (!cognitoClient) {
+            throw new Error('Cognito client is not initialized. Please check your AWS configuration and environment variables.');
+        }
+
+        // Validate required environment variables
+        if (!process.env.COGNITO_CLIENT_ID) {
+            throw new Error('COGNITO_CLIENT_ID is not configured. Please set it in your .env file.');
+        }
+
         // Validate inputs
         if (!username || !password) {
             throw new Error('Username and password are required');
@@ -180,6 +213,20 @@ async function loginUser(username, password, newPassword = null, session = null)
             };
         }
     } catch (error) {
+        // Provide more helpful error messages
+        if (error.name === 'UnknownEndpoint' || error.message?.includes('ENOTFOUND') || error.message?.includes('getaddrinfo')) {
+            const region = cognitoRegion || process.env.COGNITO_REGION || process.env.AWS_REGION || 'ap-south-1';
+            const errorMsg = `Failed to connect to AWS Cognito in region: ${region}. `;
+            const suggestions = [
+                `1. Verify that COGNITO_REGION in your .env file matches the region where your Cognito User Pool exists.`,
+                `2. Check your AWS credentials (AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY) are set correctly.`,
+                `3. Verify you have internet connectivity and can reach AWS services.`,
+                `4. Check if your Cognito User Pool exists in the ${region} region.`,
+                `5. If using a different region, update COGNITO_REGION in your .env file to match your User Pool region.`
+            ].join('\n');
+            throw new Error(errorMsg + '\n' + suggestions + '\n\nOriginal error: ' + error.message);
+        }
+        
         // Re-throw the error to be handled by the calling function
         throw error;
     }
