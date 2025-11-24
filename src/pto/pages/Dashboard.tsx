@@ -71,6 +71,24 @@ const PTODashboard: React.FC = () => {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const closeSidebar = () => setSidebarOpen(false);
 
+  const [avatarUrl, setAvatarUrl] = useState<string>(
+    (typeof window !== 'undefined' ? localStorage.getItem('ptoProfilePictureUrl') : null) ||
+    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face'
+  );
+
+  useEffect(() => {
+    const update = () => {
+      const url = localStorage.getItem('ptoProfilePictureUrl');
+      if (url) setAvatarUrl(url);
+    };
+    update();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'ptoProfilePictureUrl') update();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
 
   return (
     <div className="pto-dashboard">
@@ -144,7 +162,7 @@ const PTODashboard: React.FC = () => {
             title="Go to Profile Settings"
           >
             <img
-              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"
+              src={avatarUrl}
               alt="Profile"
               className="pto-user-avatar"
             />

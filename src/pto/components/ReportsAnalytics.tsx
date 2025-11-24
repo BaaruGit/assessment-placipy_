@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FaFileExcel, FaFilePdf, FaFilter } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import PTOService from '../../services/pto.service';
+import AnalyticsService from '../../services/analytics.service';
 
 const ReportsAnalytics: React.FC = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
@@ -9,30 +10,35 @@ const ReportsAnalytics: React.FC = () => {
 
   const [departments, setDepartments] = useState<string[]>(['all']);
 
-  // Mock data for charts
   const [departmentPerformanceData, setDeptPerf] = useState<Array<{ name: string; students: number; avgScore: number; completed: number }>>([]);
-
-  const studentAnalyticsData = [
-    { name: 'Week 1', accuracy: 75, attempts: 120 },
-    { name: 'Week 2', accuracy: 78, attempts: 145 },
-    { name: 'Week 3', accuracy: 82, attempts: 150 },
-    { name: 'Week 4', accuracy: 80, attempts: 138 },
-  ];
-
-  const attendanceData = [
-    { assessment: 'Test 1', total: 450, attended: 380, completion: 84 },
-    { assessment: 'Test 2', total: 450, attended: 365, completion: 81 },
-    { assessment: 'Test 3', total: 450, attended: 395, completion: 88 },
-    { assessment: 'Test 4', total: 450, attended: 340, completion: 76 },
-  ];
+  const [studentAnalyticsData, setStudentAnalyticsData] = useState<Array<{ name: string; accuracy: number; attempts: number }>>([]);
+  const [attendanceData, setAttendanceData] = useState<Array<{ assessment: string; total: number; attended: number; completion: number }>>([]);
 
   useEffect(() => {
     const load = async () => {
       try {
         const dash = await PTOService.getDashboard();
-        const perf = dash.departmentPerformance.map(d => ({ name: d.code || d.name, students: d.students, avgScore: d.avgScore, completed: d.completed }));
+        const perf = dash.departmentPerformance.map((d: any) => ({ name: String(d?.code ?? d?.name ?? ''), students: Number(d?.students ?? 0), avgScore: Number(d?.avgScore ?? 0), completed: Number(d?.completed ?? 0) }));
         setDeptPerf(perf);
-        setDepartments(['all', ...Array.from(new Set(perf.map(p => p.name)))]);
+        const names = Array.from(new Set(perf.map(p => p.name))).map(n => String(n));
+        setDepartments(['all', ...names]);
+
+        const studentsResp = await AnalyticsService.getStudentAnalytics();
+        const studentsRows = Array.isArray((studentsResp as any)?.data) ? (studentsResp as any).data : (Array.isArray(studentsResp) ? studentsResp : []);
+        setStudentAnalyticsData(studentsRows.map((row: any) => ({
+          name: String(row?.name ?? row?.week ?? row?.label ?? ''),
+          accuracy: Number(row?.accuracy ?? row?.avgAccuracy ?? row?.score ?? 0),
+          attempts: Number(row?.attempts ?? row?.totalAttempts ?? row?.count ?? 0)
+        })));
+
+        const assessResp = await AnalyticsService.getAssessmentAnalytics();
+        const assessRows = Array.isArray((assessResp as any)?.data) ? (assessResp as any).data : (Array.isArray(assessResp) ? assessResp : []);
+        setAttendanceData(assessRows.map((row: any) => ({
+          assessment: String(row?.assessment ?? row?.title ?? row?.name ?? ''),
+          total: Number(row?.total ?? row?.totalStudents ?? 0),
+          attended: Number(row?.attended ?? row?.present ?? row?.participants ?? 0),
+          completion: Number(row?.completion ?? row?.completionRate ?? 0)
+        })));
       } catch (e: any) {
         console.error(e);
       } finally {

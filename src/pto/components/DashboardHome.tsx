@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fa';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import PTOService from '../../services/pto.service';
+// Removed extra CTA nav cards per request
 
 const DashboardHome: React.FC = () => {
   const [stats, setStats] = useState({
@@ -70,7 +71,6 @@ const DashboardHome: React.FC = () => {
 
   return (
     <div className="pto-dashboard-home">
-      {/* Welcome Banner - PTO Dashboard */}
       <div className="pto-welcome-banner">
         <div className="pto-welcome-content">
           <h1 className="pto-welcome-title">Welcome to PTO Dashboard</h1>
@@ -79,6 +79,8 @@ const DashboardHome: React.FC = () => {
           </p>
         </div>
       </div>
+
+      
 
       {/* KPI Cards - Matching Image Style */}
       <div className="pto-kpi-section">

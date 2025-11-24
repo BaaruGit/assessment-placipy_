@@ -1,9 +1,7 @@
 
 import axios from 'axios';
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PTO_BASE_URL)
-  ? (import.meta as any).env.VITE_PTO_BASE_URL
-  : '/api/pto';
+const API_BASE_URL = '/api/pto';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -13,6 +11,8 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const devEmail = localStorage.getItem('ptoDevEmail') || 'pto@ksrce.ac.in';
+  (config.headers as any)['X-User-Email'] = devEmail;
   return config;
 });
 
@@ -34,6 +34,7 @@ export interface Department {
   staff: number;
   assessments: number;
   staffMembers: string[];
+  active?: boolean;
 }
 
 export interface StaffMember {
@@ -102,6 +103,14 @@ class PTOService {
     await api.delete(`/departments/${encodeURIComponent(code)}`);
   }
 
+  async activateDepartment(code: string): Promise<void> {
+    await api.post(`/departments/${encodeURIComponent(code)}/activate`);
+  }
+
+  async deactivateDepartment(code: string): Promise<void> {
+    await api.post(`/departments/${encodeURIComponent(code)}/deactivate`);
+  }
+
   async getStaff(): Promise<StaffMember[]> {
     const res = await api.get('/staff');
     return res.data.data;
@@ -121,8 +130,27 @@ class PTOService {
     await api.delete(`/staff/${encodeURIComponent(id)}`);
   }
 
+  async exportStaff(): Promise<Blob> {
+    const res = await api.get('/staff/export', { responseType: 'blob' });
+    return res.data;
+  }
+
+  async importStaff(rows: any[]): Promise<{ success: boolean; results: any[] }>{
+    const res = await api.post('/staff/import', { rows });
+    return res.data;
+  }
+
+  async updateStaffPassword(email: string, newPassword: string): Promise<void> {
+    await api.post('/staff/password', { email, newPassword });
+  }
+
   async getAssessments(): Promise<Assessment[]> {
     const res = await api.get('/assessments');
+    return res.data.data;
+  }
+
+  async getAssessment(id: string): Promise<any> {
+    const res = await api.get(`/assessments/${encodeURIComponent(id)}`);
     return res.data.data;
   }
 
@@ -131,7 +159,7 @@ class PTOService {
     return res.data.data;
   }
 
-  async updateAssessment(id: string, updates: Partial<Assessment>): Promise<Assessment> {
+  async updateAssessment(id: string, updates: any): Promise<any> {
     const res = await api.put(`/assessments/${encodeURIComponent(id)}`, updates);
     return res.data.data;
   }
@@ -140,8 +168,28 @@ class PTOService {
     await api.delete(`/assessments/${encodeURIComponent(id)}`);
   }
 
+  async enableAssessment(id: string): Promise<void> {
+    await api.post(`/assessments/${encodeURIComponent(id)}/enable`);
+  }
+
+  async disableAssessment(id: string): Promise<void> {
+    await api.post(`/assessments/${encodeURIComponent(id)}/disable`);
+  }
+
+  async scheduleAssessment(id: string): Promise<void> {
+    await api.post(`/assessments/${encodeURIComponent(id)}/schedule`);
+  }
+
   async getStudents(): Promise<Array<{ id: string; name: string; rollNumber?: string; department: string; email: string; testsParticipated: number; avgScore: number }>> {
     const res = await api.get('/students');
+    return res.data.data;
+  }
+  async updateProfile(payload: { firstName: string; lastName: string; email: string; phone?: string; designation?: string; department?: string }): Promise<any> {
+    const res = await api.put('/profile', payload);
+    return res.data.data;
+  }
+  async getProfile(): Promise<any> {
+    const res = await api.get('/profile');
     return res.data.data;
   }
   async assignStaffToDepartment(code: string, staffId: string): Promise<void> {
@@ -150,6 +198,42 @@ class PTOService {
 
   async unassignStaffFromDepartment(code: string, staffId: string): Promise<void> {
     await api.post(`/departments/${encodeURIComponent(code)}/unassign-staff`, { staffId });
+  }
+
+  async sendAnnouncement(payload: { title: string; message: string; tags?: string[]; attachments?: { filename: string; contentType: string; data: string }[] }): Promise<any> {
+    const res = await api.post('/announcements', payload);
+    return res.data.data;
+  }
+
+  async listAnnouncements(params?: { limit?: number; nextToken?: any }): Promise<{ items: any[]; nextToken: any }>{
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.append('limit', String(params.limit));
+    if (params?.nextToken) qs.append('nextToken', JSON.stringify(params.nextToken));
+    const res = await api.get(`/announcements${qs.toString() ? `?${qs.toString()}` : ''}`);
+    return res.data.data;
+  }
+
+  async sendMessage(recipientId: string, message: string, attachments?: { filename: string; contentType: string; data: string }[]): Promise<any> {
+    const res = await api.post('/messages/send', { recipientId, message, attachments: attachments || [] });
+    return res.data.data;
+  }
+
+  async getMessageHistory(params: { recipientId?: string; conversationId?: string; limit?: number; nextToken?: any }): Promise<{ items: any[]; nextToken: any }>{
+    const qs = new URLSearchParams();
+    if (params.recipientId) qs.append('recipientId', params.recipientId);
+    if (params.conversationId) qs.append('conversationId', params.conversationId);
+    if (params.limit) qs.append('limit', String(params.limit));
+    if (params.nextToken) qs.append('nextToken', JSON.stringify(params.nextToken));
+    const res = await api.get(`/messages/history?${qs.toString()}`);
+    return res.data.data;
+  }
+
+  async markMessageRead(params: { conversationId?: string; recipientId?: string; messageId: string }): Promise<any> {
+    const body: any = {};
+    if (params.conversationId) body.conversationId = params.conversationId;
+    if (params.recipientId) body.recipientId = params.recipientId;
+    const res = await api.post(`/messages/${encodeURIComponent(params.messageId)}/read`, body);
+    return res.data.data;
   }
 }
 

@@ -79,6 +79,19 @@ class ProfileService {
     }
   }
 
+  async updateProfilePicture(profilePictureUrl: string): Promise<any> {
+    try {
+      const response = await axios.put(
+        `${API_BASE_URL}/users/profile/picture`,
+        { profilePictureUrl },
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to update profile picture');
+    }
+  }
+
   /**
    * Get security settings
    */

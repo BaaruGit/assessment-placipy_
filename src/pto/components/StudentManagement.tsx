@@ -21,7 +21,14 @@ const StudentManagement: React.FC = () => {
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
-  const [messageData, setMessageData] = useState({ subject: '', message: '' });
+  const [messageData, setMessageData] = useState({ subject: '', message: '', tags: '' });
+  const [attachments, setAttachments] = useState<Array<{ filename: string; contentType: string; data: string }>>([]);
+  const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
+  const [conversationFor, setConversationFor] = useState<string>('');
+  const [messages, setMessages] = useState<Array<{ messageId: string; senderType: string; senderId: string; recipientType: string; recipientId: string; message: string; timestamp: string; readStatus: boolean }>>([]);
+  const [messagesNextToken, setMessagesNextToken] = useState<any>(null);
+  const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
 
   const [departments, setDepartments] = useState<string[]>(['all']);
 
@@ -42,8 +49,19 @@ const StudentManagement: React.FC = () => {
         }));
         setStudents(mapped);
         const catalog = await PTOService.getDepartmentCatalog();
-        const codes = Array.isArray(catalog) ? catalog : [];
-        setDepartments(['all', ...codes]);
+        const codes = Array.isArray(catalog)
+          ? catalog.map((d: any) => {
+              if (typeof d === 'string') return d;
+              if (d && typeof d === 'object') return String(d.code || '').toUpperCase();
+              return String(d || '').toUpperCase();
+            }).filter((c: string) => !!c && c !== '[OBJECT OBJECT]')
+          : [];
+        const unique = Array.from(new Set(codes));
+        setDepartments(['all', ...unique]);
+        try {
+          const ann = await PTOService.listAnnouncements({ limit: 10 });
+          setAnnouncements(ann.items || []);
+        } catch {}
       } catch (e: any) {
         setError(e.message || 'Failed to load students');
       } finally {
@@ -75,21 +93,61 @@ const StudentManagement: React.FC = () => {
     }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (selectedStudents.length > 0 && messageData.subject && messageData.message) {
-      alert(`Message sent to ${selectedStudents.length} student(s)`);
+      const recipients = filteredStudents.filter(s => selectedStudents.includes(s.id));
+      for (const r of recipients) {
+        try {
+          await PTOService.sendMessage(r.email, `${messageData.subject}\n\n${messageData.message}`, attachments);
+        } catch (e) {}
+      }
       setIsMessageModalOpen(false);
-      setMessageData({ subject: '', message: '' });
+      setMessageData({ subject: '', message: '', tags: '' });
+      setAttachments([]);
       setSelectedStudents([]);
+      alert(`Message sent to ${recipients.length} student(s)`);
     }
   };
 
-  const handleSendAnnouncement = () => {
+  const handleSendAnnouncement = async () => {
     if (messageData.subject && messageData.message) {
-      alert('Announcement sent to all students');
+      await PTOService.sendAnnouncement({ title: messageData.subject, message: messageData.message, tags: messageData.tags ? messageData.tags.split(',').map(t => t.trim()).filter(Boolean) : [], attachments });
       setIsMessageModalOpen(false);
-      setMessageData({ subject: '', message: '' });
+      setMessageData({ subject: '', message: '', tags: '' });
+      setAttachments([]);
+      alert('Announcement sent to all students');
     }
+  };
+
+  const openConversation = async (email: string) => {
+    setConversationFor(email);
+    setIsConversationModalOpen(true);
+    setMessagesLoading(true);
+    try {
+      const res = await PTOService.getMessageHistory({ recipientId: email, limit: 20 });
+      setMessages(res.items || []);
+      setMessagesNextToken(res.nextToken || null);
+    } catch (e) {
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  const loadMoreMessages = async () => {
+    if (!conversationFor || !messagesNextToken) return;
+    setMessagesLoading(true);
+    try {
+      const res = await PTOService.getMessageHistory({ recipientId: conversationFor, limit: 20, nextToken: messagesNextToken });
+      setMessages([...(messages || []), ...(res.items || [])]);
+      setMessagesNextToken(res.nextToken || null);
+    } catch {}
+    setMessagesLoading(false);
+  };
+
+  const markRead = async (msg: { messageId: string }) => {
+    try {
+      await PTOService.markMessageRead({ recipientId: conversationFor, messageId: msg.messageId });
+    } catch {}
   };
 
   return (
@@ -132,6 +190,18 @@ const StudentManagement: React.FC = () => {
           disabled={selectedStudents.length === 0}
         >
           <FaEnvelope /> Send Message ({selectedStudents.length})
+        </button>
+        <button
+          className="secondary-btn"
+          onClick={() => {
+            if (selectedStudents.length === 1) {
+              const student = filteredStudents.find(s => s.id === selectedStudents[0]);
+              if (student) openConversation(student.email);
+            }
+          }}
+          disabled={selectedStudents.length !== 1}
+        >
+          Inbox (1)
         </button>
         <button 
           className="secondary-btn"
@@ -188,6 +258,7 @@ const StudentManagement: React.FC = () => {
               <th>Email</th>
               <th>Tests Participated</th>
               <th>Average Score</th>
+              <th>Messages</th>
             </tr>
           </thead>
           <tbody>
@@ -209,6 +280,11 @@ const StudentManagement: React.FC = () => {
                   <span className={`score-badge ${student.avgScore >= 80 ? 'high' : student.avgScore >= 70 ? 'medium' : 'low'}`}>
                     {student.avgScore}%
                   </span>
+                </td>
+                <td>
+                  <button className="text-btn" onClick={() => openConversation(student.email)}>
+                    View Messages
+                  </button>
                 </td>
               </tr>
             ))}
@@ -243,6 +319,34 @@ const StudentManagement: React.FC = () => {
                 rows={6}
               />
             </div>
+            <div className="form-group">
+              <label>Attachments</label>
+              <input
+                type="file"
+                multiple
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || []);
+                  const processed: Array<{ filename: string; contentType: string; data: string }> = [];
+                  for (const f of files) {
+                    const arrayBuffer = await f.arrayBuffer();
+                    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                    processed.push({ filename: f.name, contentType: f.type || 'application/octet-stream', data: base64 });
+                  }
+                  setAttachments(processed);
+                }}
+              />
+            </div>
+            {selectedStudents.length === 0 && (
+              <div className="form-group">
+                <label>Tags (comma separated)</label>
+                <input
+                  type="text"
+                  value={messageData.tags}
+                  onChange={(e) => setMessageData({ ...messageData, tags: e.target.value })}
+                  placeholder="e.g. exam, placement"
+                />
+              </div>
+            )}
             <div className="modal-actions">
               <button 
                 className="primary-btn" 
@@ -255,6 +359,74 @@ const StudentManagement: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Conversation Modal */}
+      {isConversationModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsConversationModalOpen(false)}>
+          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+            <h3>Conversation with {conversationFor}</h3>
+            <div className="messages-list">
+              {messagesLoading && <div className="admin-loading"><div className="spinner"></div><p>Loading...</p></div>}
+              {!messagesLoading && (!messages || messages.length === 0) && (
+                <div className="admin-empty-chart"><p>No messages yet</p></div>
+              )}
+              {(messages || []).map(m => (
+                <div key={m.messageId} className={`message-item ${m.senderType === 'PTO' ? 'sent' : 'received'}`}>
+                  <div className="message-meta">
+                    <span>{new Date(m.timestamp).toLocaleString()}</span>
+                    {!m.readStatus && (
+                      <button className="text-btn" onClick={() => markRead(m)}>Mark read</button>
+                    )}
+                  </div>
+                  <div className="message-body">{m.message}</div>
+                  {Array.isArray((m as any).attachments) && (m as any).attachments.length > 0 && (
+                    <div className="attachments">
+                      {((m as any).attachments as any[]).map((att: any, idx: number) => (
+                        <a key={idx} href={`data:${att.contentType};base64,${att.data}`} download={att.filename} className="text-btn">
+                          {att.filename}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="modal-actions">
+              {messagesNextToken && (
+                <button className="secondary-btn" onClick={loadMoreMessages}>Load more</button>
+              )}
+              <button className="primary-btn" onClick={() => setIsConversationModalOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Announcements */}
+      {announcements.length > 0 && (
+        <div className="table-container" style={{ marginTop: 20 }}>
+          <h3>Recent Announcements</h3>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Message</th>
+                <th>Tags</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {announcements.map((a: any) => (
+                <tr key={a.SK}>
+                  <td>{a.title}</td>
+                  <td>{a.message}</td>
+                  <td>{Array.isArray(a.tags) ? a.tags.join(', ') : ''}</td>
+                  <td>{new Date(a.createdAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

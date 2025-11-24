@@ -2500,7 +2500,7 @@
     margin-bottom: 12px;
     background: white;
     border-radius: 10px;
-    padding: 15px;
+    padding: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     border: 1px solid var(--light-gray);
   }
@@ -2510,9 +2510,7 @@
   }
   
   .data-table td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: block;
     padding: 10px 0;
     border: none;
     border-bottom: 1px solid var(--light-gray);
@@ -2526,12 +2524,15 @@
   }
   
   .data-table td::before {
+    display: none;
+  }
+  .data-table td[data-label]::before {
+    display: inline-block;
     content: attr(data-label);
     font-weight: 600;
     color: var(--text-dark);
-    margin-right: 12px;
-    flex-shrink: 0;
-    min-width: 100px;
+    margin-bottom: 6px;
+    min-width: auto;
   }
   
   .data-table td:empty::before {

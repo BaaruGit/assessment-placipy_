@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { FaClipboardList, FaPlus, FaTrash, FaEye, FaToggleOn, FaToggleOff, FaUpload, FaFileExcel } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
 import PTOService, { type Assessment as AssessDto } from '../../services/pto.service';
 
 interface Assessment {
@@ -12,7 +13,7 @@ interface Assessment {
   timeWindow: { start: string; end: string };
   attempts: number;
   questions: number;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'scheduled';
 }
 
 const AssessmentManagement: React.FC = () => {
@@ -36,7 +37,7 @@ const AssessmentManagement: React.FC = () => {
           timeWindow: { start: (a.timeWindow?.start || ''), end: (a.timeWindow?.end || '') },
           attempts: a.attempts,
           questions: a.questions,
-          status: a.status === 'active' ? 'active' : 'inactive'
+          status: a.status === 'active' ? 'active' : (a.status === 'scheduled' ? 'scheduled' : 'inactive')
         }));
         setAssessments(mapped);
       } catch (e: any) {
@@ -52,6 +53,10 @@ const AssessmentManagement: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importTargetId, setImportTargetId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     department: '',
@@ -63,7 +68,18 @@ const AssessmentManagement: React.FC = () => {
     questions: 0,
   });
 
-  const departments = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'All Departments'];
+  const [departments, setDepartments] = useState<string[]>([]);
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const list = await PTOService.getDepartmentCatalog();
+        setDepartments(list);
+      } catch (_) {
+        setDepartments(['CE', 'ME', 'EEE', 'ECE', 'CSE', 'IT']);
+      }
+    };
+    loadCatalog();
+  }, []);
 
   const handleAddAssessment = async () => {
     if (formData.name && formData.department) {
@@ -90,6 +106,8 @@ const AssessmentManagement: React.FC = () => {
         status: 'inactive'
       };
       setAssessments(prev => [...prev, newAssessment]);
+      setImportTargetId(String((created as any).id));
+      setIsImportModalOpen(true);
       resetForm();
       setIsAddModalOpen(false);
     }
@@ -135,7 +153,20 @@ const AssessmentManagement: React.FC = () => {
   const handleDeleteAssessment = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this assessment?')) {
       await PTOService.deleteAssessment(id);
-      setAssessments(assessments.filter(assessment => assessment.id !== id));
+      const data = await PTOService.getAssessments();
+      const mapped: Assessment[] = data.map((a: AssessDto) => ({
+        id: (a as any).id,
+        name: a.name,
+        department: a.department,
+        type: a.type,
+        duration: a.duration,
+        date: a.date,
+        timeWindow: { start: (a.timeWindow?.start || ''), end: (a.timeWindow?.end || '') },
+        attempts: a.attempts,
+        questions: a.questions,
+        status: a.status === 'active' ? 'active' : 'inactive'
+      }));
+      setAssessments(mapped);
     }
   };
 
@@ -143,14 +174,61 @@ const AssessmentManagement: React.FC = () => {
     const current = assessments.find(a => a.id === id);
     if (!current) return;
     const nextStatus = current.status === 'active' ? 'inactive' : 'active';
-    await PTOService.updateAssessment(id, { status: nextStatus });
-    setAssessments(assessments.map(assessment =>
-      assessment.id === id ? { ...assessment, status: nextStatus } : assessment
-    ));
+    if (nextStatus === 'active') {
+      await PTOService.enableAssessment(id);
+    } else {
+      await PTOService.disableAssessment(id);
+    }
+    const data = await PTOService.getAssessments();
+    const mapped: Assessment[] = data.map((a: AssessDto) => ({
+      id: (a as any).id,
+      name: a.name,
+      department: a.department,
+      type: a.type,
+      duration: a.duration,
+      date: a.date,
+      timeWindow: { start: (a.timeWindow?.start || ''), end: (a.timeWindow?.end || '') },
+      attempts: a.attempts,
+      questions: a.questions,
+      status: a.status === 'active' ? 'active' : (a.status === 'scheduled' ? 'scheduled' : 'inactive')
+    }));
+    setAssessments(mapped);
   };
 
-  const handlePreview = (assessment: Assessment) => {
-    setSelectedAssessment(assessment);
+  const scheduleAssessment = async (id: string) => {
+    await PTOService.scheduleAssessment(id);
+    const data = await PTOService.getAssessments();
+    const mapped: Assessment[] = data.map((a: AssessDto) => ({
+      id: (a as any).id,
+      name: a.name,
+      department: a.department,
+      type: a.type,
+      duration: a.duration,
+      date: a.date,
+      timeWindow: { start: (a.timeWindow?.start || ''), end: (a.timeWindow?.end || '') },
+      attempts: a.attempts,
+      questions: a.questions,
+      status: a.status === 'active' ? 'active' : (a.status === 'scheduled' ? 'scheduled' : 'inactive')
+    }));
+    setAssessments(mapped);
+  };
+
+  const [previewData, setPreviewData] = useState<any | null>(null);
+  const handlePreview = async (assessment: Assessment) => {
+    const full = await PTOService.getAssessment(assessment.id);
+    setSelectedAssessment({
+      id: assessment.id,
+      name: full?.name || assessment.name,
+      department: full?.department || assessment.department,
+      type: full?.type || assessment.type,
+      duration: full?.duration ?? assessment.duration,
+      date: full?.date || assessment.date,
+      timeWindow: full?.timeWindow || assessment.timeWindow,
+      attempts: full?.attempts ?? assessment.attempts,
+      questions: Array.isArray(full?.questions) ? full.questions.length : assessment.questions,
+      status: (full?.status === 'active' ? 'active' : full?.status === 'inactive' ? 'inactive' : assessment.status)
+    });
+    setPreviewData(full || null);
     setIsPreviewModalOpen(true);
   };
 
@@ -165,6 +243,65 @@ const AssessmentManagement: React.FC = () => {
       attempts: 1,
       questions: 0,
     });
+  };
+
+  const parsePastedQuestions = (text: string) => {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const items: any[] = [];
+    for (const line of lines) {
+      const parts = line.split('|').map(p => p.trim());
+      if (parts.length >= 3) {
+        const q = parts[0];
+        const opts = parts.slice(1, parts.length - 1);
+        const ans = parts[parts.length - 1];
+        let correctIndex = parseInt(ans, 10);
+        if (Number.isNaN(correctIndex)) {
+          const letter = String(ans).toUpperCase();
+          correctIndex = Math.max(0, ['A','B','C','D','E','F','G'].indexOf(letter));
+        }
+        items.push({ text: q, options: opts, correctIndex });
+      }
+    }
+    return items;
+  };
+
+  const handleImportSubmit = async () => {
+    if (!importTargetId) return;
+    const parsed = parsePastedQuestions(importText);
+    await PTOService.updateAssessment(importTargetId, { questions: parsed });
+    const updatedList = assessments.map(a => a.id === importTargetId ? { ...a, questions: parsed.length } : a);
+    setAssessments(updatedList);
+    setIsImportModalOpen(false);
+    setImportText('');
+    setImportTargetId(null);
+  };
+
+  const handleExcelFile = async (file: File) => {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[];
+    const parsed: any[] = [];
+    for (const r of rows) {
+      if (Array.isArray(r) && r.length >= 3) {
+        const q = String(r[0] || '').trim();
+        const opts = r.slice(1, r.length - 1).map((x: any) => String(x || '').trim()).filter(Boolean);
+        const ans = r[r.length - 1];
+        let idx = parseInt(ans, 10);
+        if (Number.isNaN(idx)) {
+          idx = Math.max(0, ['A','B','C','D','E','F','G'].indexOf(String(ans || '').toUpperCase()));
+        }
+        if (q && opts.length) parsed.push({ text: q, options: opts, correctIndex: idx });
+      }
+    }
+    if (importTargetId) {
+      await PTOService.updateAssessment(importTargetId, { questions: parsed });
+      const updatedList = assessments.map(a => a.id === importTargetId ? { ...a, questions: parsed.length } : a);
+      setAssessments(updatedList);
+    }
+    setIsImportModalOpen(false);
+    setImportText('');
+    setImportTargetId(null);
   };
 
   return (
@@ -232,16 +369,26 @@ const AssessmentManagement: React.FC = () => {
                 <td>{assessment.date}</td>
                 <td>{assessment.questions}</td>
                 <td>
-                  <button
-                    className={`status-toggle ${assessment.status}`}
-                    onClick={() => toggleAssessmentStatus(assessment.id)}
-                  >
-                    {assessment.status === 'active' ? (
-                      <><FaToggleOn /> Active</>
-                    ) : (
-                      <><FaToggleOff /> Inactive</>
-                    )}
-                  </button>
+                  <div className="status-actions">
+                    <button
+                      className={`status-toggle ${assessment.status}`}
+                      onClick={() => toggleAssessmentStatus(assessment.id)}
+                    >
+                      {assessment.status === 'active' ? (
+                        <><FaToggleOn /> Active</>
+                      ) : (
+                        <><FaToggleOff /> Inactive</>
+                      )}
+                    </button>
+                    <button
+                      className="text-btn"
+                      onClick={() => scheduleAssessment(assessment.id)}
+                      title="Schedule"
+                      type="button"
+                    >
+                      Schedule
+                    </button>
+                  </div>
                 </td>
                 <td>
                   <div className="action-buttons">
@@ -264,6 +411,14 @@ const AssessmentManagement: React.FC = () => {
                       type="button"
                     >
                       Edit
+                    </button>
+                    <button
+                      className="text-btn"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setImportTargetId(assessment.id); setIsImportModalOpen(true); }}
+                      title="Import Questions"
+                      type="button"
+                    >
+                      Import
                     </button>
                     <button 
                       className="icon-btn delete-btn" 
@@ -514,6 +669,28 @@ const AssessmentManagement: React.FC = () => {
               <div className="preview-item">
                 <strong>Questions:</strong> {selectedAssessment.questions}
               </div>
+              {previewData && Array.isArray(previewData.questions) && previewData.questions.length > 0 && (
+                <div className="preview-item">
+                  <strong>Question List:</strong>
+                  <div>
+                    {previewData.questions.map((q: any, idx: number) => (
+                      <div key={q.id || idx} style={{ marginTop: '8px' }}>
+                        <div>{idx + 1}. {q.text}</div>
+                        {Array.isArray(q.options) && q.options.length > 0 && (
+                          <ul style={{ marginLeft: '20px' }}>
+                            {q.options.map((opt: string, oi: number) => (
+                              <li key={oi}>
+                                {String.fromCharCode(65 + oi)}. {opt}
+                                {typeof q.correctIndex === 'number' && q.correctIndex === oi ? ' (Correct)' : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="preview-item">
                 <strong>Status:</strong> 
                 <span className={`status-badge ${selectedAssessment.status}`}>
@@ -523,6 +700,38 @@ const AssessmentManagement: React.FC = () => {
             </div>
             <div className="modal-actions">
               <button className="primary-btn" onClick={() => setIsPreviewModalOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isImportModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsImportModalOpen(false)}>
+          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+            <h3>Import Questions</h3>
+            <div className="form-group">
+              <label>Paste format: question|option1|option2|option3|option4|Answer</label>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="One question per line"
+                rows={8}
+              />
+            </div>
+            <div className="form-group">
+              <label>Or upload Excel</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0];
+                  if (f) handleExcelFile(f);
+                }}
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="primary-btn" onClick={handleImportSubmit} disabled={!importText.trim() || !importTargetId}>Import</button>
+              <button className="secondary-btn" onClick={() => setIsImportModalOpen(false)}>Cancel</button>
             </div>
           </div>
         </div>
