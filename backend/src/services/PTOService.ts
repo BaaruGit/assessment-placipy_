@@ -2,7 +2,7 @@
 const DynamoDBService = require('./DynamoDBService');
 const { registerUser, addUserToGroup } = require('../auth/cognito');
 const { v4: uuidv4 } = require('uuid');
-const { CognitoIdentityProviderClient, AdminDisableUserCommand, AdminCreateUserCommand, AdminSetUserPasswordCommand, AdminUpdateUserAttributesCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, AdminDisableUserCommand, AdminCreateUserCommand, AdminSetUserPasswordCommand, AdminUpdateUserAttributesCommand, AdminRemoveUserFromGroupCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { fromEnv } = require('@aws-sdk/credential-providers');
 
 class PTOService {
@@ -44,16 +44,34 @@ class PTOService {
     const pk = this.clientPkFromEmail(email);
     const students = await this.queryByPrefix(pk, 'STUDENT#');
     const assessments = await this.getAssessments(email);
-    const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
-    let departments = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
-    departments = departments.map(d => (typeof d === 'string' ? { code: d, name: d, active: true } : d));
-    const sanitized = departments.filter(d => {
-      const s = String(d.code || '').trim();
-      if (!s) return false;
-      if (s.toUpperCase() === '[OBJECT OBJECT]') return false;
-      return /^[A-Za-z0-9_-]+$/.test(s);
-    });
-    const activeDepartments = sanitized.filter(d => d && d.active !== false);
+    let deptItems = await this.queryByPrefix(pk, 'DEPT#');
+    if (!deptItems.length) {
+      const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
+      let departments = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
+      departments = departments.map(d => (typeof d === 'string' ? { code: d, name: d, active: true } : d));
+      const sanitized = departments.filter(d => {
+        const s = String(d.code || '').trim();
+        if (!s) return false;
+        if (s.toUpperCase() === '[OBJECT OBJECT]') return false;
+        return /^[A-Za-z0-9_-]+$/.test(s);
+      });
+      const now = new Date().toISOString();
+      for (const d of sanitized) {
+        const code = String(d.code).trim();
+        await this.dynamoService.putItem({
+          PK: pk,
+          SK: `DEPT#${code}`,
+          id: `DEPARTMENT#${code}`,
+          name: d.name || code,
+          code,
+          active: d.active !== false,
+          createdAt: d.createdAt || now,
+          updatedAt: now
+        });
+      }
+      deptItems = await this.queryByPrefix(pk, 'DEPT#');
+    }
+    const activeDepartments = deptItems.filter(d => d && d.active !== false);
 
     const deptStats = activeDepartments.map(d => {
       const code = String(d.code || '').trim();
@@ -88,35 +106,42 @@ class PTOService {
 
   async getDepartments(email) {
     const pk = this.clientPkFromEmail(email);
-    const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
-    let departments = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
-    // Migrate from string array to object array if needed
-    if (departments.length && typeof departments[0] === 'string') {
-      departments = departments.map(code => ({ code, name: String(code), active: true, createdAt: new Date().toISOString() }));
-      await this.dynamoService.updateItem({
-        Key: { PK: pk, SK: 'METADATA' },
-        UpdateExpression: 'SET #departments = :departments, #updatedAt = :updatedAt',
-        ExpressionAttributeNames: { '#departments': 'departments', '#updatedAt': 'updatedAt' },
-        ExpressionAttributeValues: { ':departments': departments, ':updatedAt': new Date().toISOString() }
-      });
+    let deptItems = await this.queryByPrefix(pk, 'DEPT#');
+    if (!deptItems.length) {
+      const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
+      let departments = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
+      if (departments.length && typeof departments[0] === 'string') {
+        departments = departments.map(code => ({ code, name: String(code), active: true, createdAt: new Date().toISOString() }));
+      }
+      const now = new Date().toISOString();
+      for (const d of departments) {
+        const code = String((typeof d === 'string' ? d : d.code) || '').trim();
+        if (!code) continue;
+        await this.dynamoService.putItem({
+          PK: pk,
+          SK: `DEPT#${code}`,
+          id: `DEPARTMENT#${code}`,
+          name: (typeof d === 'string' ? d : (d.name || code)),
+          code,
+          active: (typeof d === 'object' ? (d.active !== false) : true),
+          createdAt: (typeof d === 'object' ? d.createdAt : now),
+          updatedAt: now
+        });
+      }
+      deptItems = await this.queryByPrefix(pk, 'DEPT#');
     }
     const students = await this.queryByPrefix(pk, 'STUDENT#');
-    const staff = await this.queryByPrefix(pk, 'PTS#');
+    const staffNew = await this.queryByPrefix(pk, 'STAFF#').catch(() => []);
+    const staffLegacy = await this.queryByPrefix(pk, 'PTS#').catch(() => []);
+    const staff = [...staffNew, ...staffLegacy];
     const assessments = await this.getAssessments(email);
-    const sanitized = departments.filter(d => {
-      const code = typeof d === 'string' ? d : d.code;
-      const s = String(code || '').trim();
-      if (!s) return false;
-      if (s.toUpperCase() === '[OBJECT OBJECT]') return false;
-      return /^[A-Za-z0-9_-]+$/.test(s);
-    }).map(d => (typeof d === 'string' ? { code: d, name: d, active: true, createdAt: new Date().toISOString() } : d));
-    return sanitized.map(d => {
-      const code = d.code;
-      const studentsCount = students.filter(s => (s.department || '').toUpperCase() === String(code).toUpperCase()).length;
-      const staffCount = staff.filter(st => (st.department || '').toUpperCase() === String(code).toUpperCase()).length;
-      const assessmentsCount = assessments.filter(a => (a.department || '').toUpperCase() === String(code).toUpperCase()).length;
+    return deptItems.map(d => {
+      const code = String(d.code || '').trim();
+      const studentsCount = students.filter(s => (s.department || '').toUpperCase() === code.toUpperCase()).length;
+      const staffCount = staff.filter(st => (st.department || '').toUpperCase() === code.toUpperCase()).length;
+      const assessmentsCount = assessments.filter(a => (a.department || '').toUpperCase() === code.toUpperCase()).length;
       return {
-        id: `DEPARTMENT#${code}`,
+        id: d.id || `DEPARTMENT#${code}`,
         name: d.name || code,
         code,
         active: d.active !== false,
@@ -131,9 +156,13 @@ class PTOService {
 
   async getDepartmentCatalog(email) {
     const pk = this.clientPkFromEmail(email);
-    const res = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
-    const current = Array.isArray(res?.Item?.departments) ? res.Item.departments : [];
-    const codes = current.map(d => (typeof d === 'string' ? d : d.code)).map(c => String(c || '').toUpperCase()).filter(Boolean);
+    const items = await this.queryByPrefix(pk, 'DEPT#');
+    let codes = items.map(d => String(d.code || '').toUpperCase()).filter(Boolean);
+    if (!codes.length) {
+      const res = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
+      const current = Array.isArray(res?.Item?.departments) ? res.Item.departments : [];
+      codes = current.map(d => (typeof d === 'string' ? d : d.code)).map(c => String(c || '').toUpperCase()).filter(Boolean);
+    }
     const defaults = ['CE', 'ME', 'EEE', 'ECE', 'CSE', 'IT'];
     const union = Array.from(new Set([ ...codes, ...defaults ]));
     return union;
@@ -141,80 +170,65 @@ class PTOService {
 
   async createDepartment(email, { name, code }) {
     const pk = this.clientPkFromEmail(email);
-    const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
-    let current = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
-    if (current.length && typeof current[0] === 'string') {
-      current = current.map(c => ({ code: c, name: c, active: true, createdAt: new Date().toISOString() }));
-    }
-    const exists = current.some(d => String(d.code).toUpperCase() === String(code).toUpperCase());
-    if (!exists) current.push({ code, name: name || code, active: true, createdAt: new Date().toISOString() });
-    await this.dynamoService.updateItem({
-      Key: { PK: pk, SK: 'METADATA' },
-      UpdateExpression: 'SET #departments = :departments, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: { '#departments': 'departments', '#updatedAt': 'updatedAt' },
-      ExpressionAttributeValues: { ':departments': current, ':updatedAt': new Date().toISOString() }
-    });
-    return { PK: pk, SK: 'METADATA', departments: current };
+    const now = new Date().toISOString();
+    const sk = `DEPT#${String(code).trim()}`;
+    const existing = await this.dynamoService.getItem({ Key: { PK: pk, SK: sk } });
+    if (existing && existing.Item) return existing.Item;
+    const item = { PK: pk, SK: sk, id: `DEPARTMENT#${code}`, name: name || code, code, active: true, createdAt: now, updatedAt: now };
+    await this.dynamoService.putItem(item);
+    return item;
   }
 
   async updateDepartment(email, code, updates) {
     const pk = this.clientPkFromEmail(email);
-    const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
-    let current = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
-    if (current.length && typeof current[0] === 'string') {
-      current = current.map(c => ({ code: c, name: c, active: true, createdAt: new Date().toISOString() }));
+    const sk = `DEPT#${String(code).trim()}`;
+    const current = await this.dynamoService.getItem({ Key: { PK: pk, SK: sk } });
+    if (!current || !current.Item) throw new Error('Department not found');
+    const now = new Date().toISOString();
+    const newCode = updates.code ? String(updates.code).trim() : String(current.Item.code).trim();
+    const targetSk = `DEPT#${newCode}`;
+    const updatedItem = {
+      ...current.Item,
+      SK: targetSk,
+      id: `DEPARTMENT#${newCode}`,
+      name: updates.name !== undefined ? updates.name : (current.Item.name || newCode),
+      code: newCode,
+      active: updates.active !== undefined ? updates.active : (current.Item.active !== false),
+      updatedAt: now
+    };
+    if (targetSk !== sk) {
+      await this.dynamoService.putItem(updatedItem);
+      await this.dynamoService.deleteItem({ Key: { PK: pk, SK: sk } });
+    } else {
+      await this.dynamoService.updateItem({
+        Key: { PK: pk, SK: sk },
+        UpdateExpression: 'SET #name = :name, #active = :active, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: { '#name': 'name', '#active': 'active', '#updatedAt': 'updatedAt' },
+        ExpressionAttributeValues: { ':name': updatedItem.name, ':active': updatedItem.active, ':updatedAt': now }
+      });
     }
-    const next = current.map(d => {
-      if (String(d.code).toUpperCase() !== String(code).toUpperCase()) return d;
-      const newCode = updates.code || d.code;
-      return {
-        ...d,
-        code: newCode,
-        name: updates.name !== undefined ? updates.name : d.name,
-        active: updates.active !== undefined ? updates.active : d.active
-      };
-    });
-    await this.dynamoService.updateItem({
-      Key: { PK: pk, SK: 'METADATA' },
-      UpdateExpression: 'SET #departments = :departments, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: { '#departments': 'departments', '#updatedAt': 'updatedAt' },
-      ExpressionAttributeValues: { ':departments': next, ':updatedAt': new Date().toISOString() }
-    });
-    return { PK: pk, SK: 'METADATA', departments: next };
+    return updatedItem;
   }
 
   async deleteDepartment(email, code) {
     const pk = this.clientPkFromEmail(email);
-    const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
-    let current = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
-    if (current.length && typeof current[0] === 'string') {
-      current = current.map(c => ({ code: c, name: c, active: true, createdAt: new Date().toISOString() }));
-    }
-    const next = current.filter(d => String(d.code).toUpperCase() !== String(code).toUpperCase());
-    await this.dynamoService.updateItem({
-      Key: { PK: pk, SK: 'METADATA' },
-      UpdateExpression: 'SET #departments = :departments, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: { '#departments': 'departments', '#updatedAt': 'updatedAt' },
-      ExpressionAttributeValues: { ':departments': next, ':updatedAt': new Date().toISOString() }
-    });
+    const sk = `DEPT#${String(code).trim()}`;
+    await this.dynamoService.deleteItem({ Key: { PK: pk, SK: sk } });
     return true;
   }
 
   async setDepartmentActive(email, code, active) {
     const pk = this.clientPkFromEmail(email);
-    const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
-    let current = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
-    if (current.length && typeof current[0] === 'string') {
-      current = current.map(c => ({ code: c, name: c, active: true, createdAt: new Date().toISOString() }));
-    }
-    const next = current.map(d => (String(d.code).toUpperCase() === String(code).toUpperCase() ? { ...d, active } : d));
-    await this.dynamoService.updateItem({
-      Key: { PK: pk, SK: 'METADATA' },
-      UpdateExpression: 'SET #departments = :departments, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: { '#departments': 'departments', '#updatedAt': 'updatedAt' },
-      ExpressionAttributeValues: { ':departments': next, ':updatedAt': new Date().toISOString() }
+    const sk = `DEPT#${String(code).trim()}`;
+    const now = new Date().toISOString();
+    const res = await this.dynamoService.updateItem({
+      Key: { PK: pk, SK: sk },
+      UpdateExpression: 'SET #active = :active, #updatedAt = :updatedAt',
+      ExpressionAttributeNames: { '#active': 'active', '#updatedAt': 'updatedAt' },
+      ExpressionAttributeValues: { ':active': !!active, ':updatedAt': now },
+      ReturnValues: 'ALL_NEW'
     });
-    return { PK: pk, SK: 'METADATA', departments: next };
+    return res.Attributes;
   }
 
   async repairDepartments(email) {
@@ -222,25 +236,38 @@ class PTOService {
     const meta = await this.dynamoService.getItem({ Key: { PK: pk, SK: 'METADATA' } });
     let current = Array.isArray(meta?.Item?.departments) ? meta.Item.departments : [];
     current = current.map(d => (typeof d === 'string' ? { code: d, name: d, active: true, createdAt: new Date().toISOString() } : d));
-    const next = current.filter(d => {
+    const valid = current.filter(d => {
       const s = String(d.code || '').trim();
       if (!s) return false;
       if (s.toUpperCase() === '[OBJECT OBJECT]') return false;
       return /^[A-Za-z0-9_-]+$/.test(s);
     });
-    await this.dynamoService.updateItem({
-      Key: { PK: pk, SK: 'METADATA' },
-      UpdateExpression: 'SET #departments = :departments, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: { '#departments': 'departments', '#updatedAt': 'updatedAt' },
-      ExpressionAttributeValues: { ':departments': next, ':updatedAt': new Date().toISOString() }
-    });
-    return { PK: pk, SK: 'METADATA', departments: next };
+    const now = new Date().toISOString();
+    for (const d of valid) {
+      const code = String(d.code).trim();
+      await this.dynamoService.putItem({
+        PK: pk,
+        SK: `DEPT#${code}`,
+        id: `DEPARTMENT#${code}`,
+        name: d.name || code,
+        code,
+        active: d.active !== false,
+        createdAt: d.createdAt || now,
+        updatedAt: now
+      });
+    }
+    const deptItems = await this.queryByPrefix(pk, 'DEPT#');
+    return deptItems;
   }
 
   async getStaff(email) {
     const pk = this.clientPkFromEmail(email);
-    const items = await this.queryByPrefix(pk, 'PTS#');
-    return items.map(i => ({
+    const itemsPts = await this.queryByPrefix(pk, 'PTS#').catch(() => []);
+    const itemsStaff = await this.queryByPrefix(pk, 'STAFF#').catch(() => []);
+    const seen = new Set(itemsPts.map(i => String(i.email || '').toLowerCase()));
+    let merged = [...itemsPts, ...itemsStaff.filter(i => !seen.has(String(i.email || '').toLowerCase()))];
+    merged = merged.filter(i => String(i.email || '').toLowerCase() !== String(email || '').toLowerCase());
+    return merged.map(i => ({
       id: i.SK,
       name: i.name,
       email: i.email,
@@ -255,14 +282,17 @@ class PTOService {
     const pk = this.clientPkFromEmail(email);
     const now = new Date().toISOString();
     const clientDomain = (email || '').split('@')[1] || '';
-    const providedRaw = String(data.email || '').trim().toLowerCase();
+    const providedRaw = String(data.email || '').trim();
     if (!providedRaw.includes('@')) {
       throw new Error(`Email must include @ and end with @${clientDomain}`);
     }
-    if (!providedRaw.endsWith(`@${clientDomain}`)) {
+    if (!providedRaw.toLowerCase().endsWith(`@${clientDomain.toLowerCase()}`)) {
       throw new Error(`Staff email must end with @${clientDomain}`);
     }
     const finalEmail = providedRaw;
+    if (finalEmail.toLowerCase() === String(email || '').toLowerCase()) {
+      throw new Error('Cannot create staff using the current PTO email');
+    }
     const id = `PTS#${finalEmail}`;
     const fullName = data.name || [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
     const item = {
@@ -287,16 +317,27 @@ class PTOService {
     try {
       const username = finalEmail;
       const defaultPassword = 'Praskla@123';
-      await this.cognitoClient.send(new AdminCreateUserCommand({
-        UserPoolId: process.env.COGNITO_USER_POOL_ID,
-        Username: username,
-        TemporaryPassword: defaultPassword,
-        UserAttributes: [
-          { Name: 'email', Value: finalEmail },
-          { Name: 'email_verified', Value: 'true' }
-        ],
-        MessageAction: 'SUPPRESS'
-      }));
+      let createFailedButExists = false;
+      try {
+        await this.cognitoClient.send(new AdminCreateUserCommand({
+          UserPoolId: process.env.COGNITO_USER_POOL_ID,
+          Username: username,
+          TemporaryPassword: defaultPassword,
+          UserAttributes: [
+            { Name: 'email', Value: finalEmail },
+            { Name: 'email_verified', Value: 'true' }
+          ],
+          MessageAction: 'SUPPRESS'
+        }));
+      } catch (e) {
+        const msg = (e && e.message) ? e.message : '';
+        const code = e && (e.code || e.name);
+        if ((code && /UsernameExistsException/i.test(String(code))) || /exist/i.test(msg)) {
+          createFailedButExists = true;
+        } else {
+          throw e;
+        }
+      }
       await this.cognitoClient.send(new AdminSetUserPasswordCommand({
         UserPoolId: process.env.COGNITO_USER_POOL_ID,
         Username: username,
@@ -322,118 +363,105 @@ class PTOService {
   async updateStaff(email, id, updates) {
     const pk = this.clientPkFromEmail(email);
     const current = await this.dynamoService.getItem({ Key: { PK: pk, SK: id } });
-    const params = {
-      Key: { PK: pk, SK: id },
-      UpdateExpression: '',
-      ExpressionAttributeNames: {},
-      ExpressionAttributeValues: {},
-      ReturnValues: 'ALL_NEW'
-    };
-    const expression = [];
-    let idx = 0;
-    Object.keys(updates || {}).forEach(k => {
-      if (k === 'firstName' || k === 'lastName' || k === 'email') return;
-      expression.push(`#${k} = :v${idx}`);
-      params.ExpressionAttributeNames[`#${k}`] = k;
-      params.ExpressionAttributeValues[`:v${idx}`] = updates[k];
-      idx++;
-    });
+    if (!current || !current.Item) throw new Error('Staff record not found');
+    const now = new Date().toISOString();
+    const updatedFields = { ...updates };
+    delete updatedFields.email;
+    delete updatedFields.firstName;
+    delete updatedFields.lastName;
+    if (Object.keys(updatedFields).length) {
+      const params = {
+        Key: { PK: pk, SK: id },
+        UpdateExpression: '',
+        ExpressionAttributeNames: {},
+        ExpressionAttributeValues: {},
+        ReturnValues: 'ALL_NEW'
+      };
+      const expression = [];
+      let idx = 0;
+      Object.keys(updatedFields).forEach(k => {
+        expression.push(`#${k} = :v${idx}`);
+        params.ExpressionAttributeNames[`#${k}`] = k;
+        params.ExpressionAttributeValues[`:v${idx}`] = updatedFields[k];
+        idx++;
+      });
+      expression.push('#updatedAt = :updatedAt');
+      params.ExpressionAttributeNames['#updatedAt'] = 'updatedAt';
+      params.ExpressionAttributeValues[':updatedAt'] = now;
+      params.UpdateExpression = `SET ${expression.join(', ')}`;
+      await this.dynamoService.updateItem(params);
+    }
+    let newEmail = null;
     if (updates && updates.email) {
       const clientDomain = (email || '').split('@')[1] || '';
-      const providedRaw = String(updates.email || '').trim().toLowerCase();
+      const providedRaw = String(updates.email || '').trim();
       if (!providedRaw.includes('@')) {
         throw new Error(`Email must include @ and end with @${clientDomain}`);
       }
-      if (!providedRaw.endsWith(`@${clientDomain}`)) {
+      if (!providedRaw.toLowerCase().endsWith(`@${clientDomain.toLowerCase()}`)) {
         throw new Error(`Staff email must end with @${clientDomain}`);
       }
-      const newFinalEmail = providedRaw;
-      const oldEmail = current?.Item?.email || '';
-      params.ExpressionAttributeValues[`:v${idx}`] = newFinalEmail;
-      params.ExpressionAttributeNames[`#email`] = 'email';
-      expression.push(`#email = :v${idx}`);
-      idx++;
-      if (newFinalEmail && oldEmail && newFinalEmail !== oldEmail) {
-        try {
-          await this.cognitoClient.send(new AdminDisableUserCommand({
-            UserPoolId: process.env.COGNITO_USER_POOL_ID,
-            Username: oldEmail
-          }));
-        } catch (e) {}
-        {
-          const username = newFinalEmail;
-          const defaultPassword = 'Praskla@123';
-          let createErrMsg = '';
-          try {
-            await this.cognitoClient.send(new AdminCreateUserCommand({
-              UserPoolId: process.env.COGNITO_USER_POOL_ID,
-              Username: username,
-              TemporaryPassword: defaultPassword,
-              UserAttributes: [
-                { Name: 'email', Value: newFinalEmail },
-                { Name: 'email_verified', Value: 'true' }
-              ],
-              MessageAction: 'SUPPRESS'
-            }));
-          } catch (e) {
-            createErrMsg = (e && e.message) ? e.message : '';
-            if (!/exists/i.test(createErrMsg)) {
-              throw new Error('Cognito re-provision failed: ' + createErrMsg);
-            }
-          }
-          try {
-            await this.cognitoClient.send(new AdminSetUserPasswordCommand({
-              UserPoolId: process.env.COGNITO_USER_POOL_ID,
-              Username: username,
-              Password: defaultPassword,
-              Permanent: true
-            }));
-          } catch (_) {}
-          try { await addUserToGroup(username, 'instructor'); } catch (_) {}
-        }
-        }
+      if (providedRaw.toLowerCase() === String(email || '').toLowerCase()) {
+        throw new Error('Staff email cannot be the current PTO email');
       }
-    if (updates.firstName || updates.lastName) {
-      const newFirst = updates.firstName ?? (current?.Item?.firstName || '');
-      const newLast = updates.lastName ?? (current?.Item?.lastName || '');
-      const combined = [newFirst, newLast].filter(Boolean).join(' ').trim();
-      expression.push(`#name = :name`);
-      params.ExpressionAttributeNames['#name'] = 'name';
-      params.ExpressionAttributeValues[':name'] = combined;
-      expression.push(`#firstName = :firstName`);
-      params.ExpressionAttributeNames['#firstName'] = 'firstName';
-      params.ExpressionAttributeValues[':firstName'] = newFirst;
-      expression.push(`#lastName = :lastName`);
-      params.ExpressionAttributeNames['#lastName'] = 'lastName';
-      params.ExpressionAttributeValues[':lastName'] = newLast;
+      newEmail = providedRaw;
+      const oldEmail = current.Item.email || '';
+      if (newEmail !== oldEmail) {
+        const defaultPassword = 'Praskla@123';
+        try { await this.cognitoClient.send(new AdminDisableUserCommand({ UserPoolId: process.env.COGNITO_USER_POOL_ID, Username: oldEmail })); } catch (_) {}
+        let createErrMsg = '';
+        try {
+          await this.cognitoClient.send(new AdminCreateUserCommand({
+            UserPoolId: process.env.COGNITO_USER_POOL_ID,
+            Username: newEmail,
+            TemporaryPassword: defaultPassword,
+            UserAttributes: [ { Name: 'email', Value: newEmail }, { Name: 'email_verified', Value: 'true' } ],
+            MessageAction: 'SUPPRESS'
+          }));
+        } catch (e) {
+          createErrMsg = (e && e.message) ? e.message : '';
+          if (!/exists/i.test(createErrMsg)) {
+            throw new Error('Cognito re-provision failed: ' + createErrMsg);
+          }
+        }
+        try { await this.cognitoClient.send(new AdminSetUserPasswordCommand({ UserPoolId: process.env.COGNITO_USER_POOL_ID, Username: newEmail, Password: defaultPassword, Permanent: true })); } catch (_) {}
+        try { await addUserToGroup(newEmail, 'instructor'); } catch (_) {}
+        const newSk = `PTS#${newEmail}`;
+        const newItem = { ...current.Item, SK: newSk, email: newEmail, updatedAt: now };
+        if (updates.firstName !== undefined) newItem.firstName = updates.firstName;
+        if (updates.lastName !== undefined) newItem.lastName = updates.lastName;
+        if (updates.firstName !== undefined || updates.lastName !== undefined) {
+          const combined = [newItem.firstName || '', newItem.lastName || ''].filter(Boolean).join(' ').trim();
+          newItem.name = combined;
+        }
+        await this.dynamoService.putItem(newItem);
+        await this.dynamoService.deleteItem({ Key: { PK: pk, SK: id } });
+      }
     }
-    expression.push('#updatedAt = :updatedAt');
-    params.ExpressionAttributeNames['#updatedAt'] = 'updatedAt';
-    params.ExpressionAttributeValues[':updatedAt'] = new Date().toISOString();
-    params.UpdateExpression = `SET ${expression.join(', ')}`;
-    const res = await this.dynamoService.updateItem(params);
-
-    const updated = res.Attributes || {};
-    let usernameForUpdate = updated.email || (current?.Item?.email || '');
-    // If email changed above, ensure using new email
-    if (updates && updates.email) {
-      usernameForUpdate = String(updates.email || '').trim().toLowerCase();
-    }
+    const usernameForUpdate = newEmail || current.Item.email;
+    const finalItem = await this.dynamoService.getItem({ Key: { PK: pk, SK: newEmail ? `PTS#${newEmail}` : id } });
+    const attrs = finalItem?.Item || current.Item;
     await this.updateCognitoAttributes(usernameForUpdate, {
-      firstName: updated.firstName,
-      lastName: updated.lastName,
-      fullName: updated.name,
-      role: updated.role,
-      department: updated.department,
-      email: updated.email
+      firstName: attrs.firstName,
+      lastName: attrs.lastName,
+      fullName: attrs.name,
+      role: attrs.role,
+      department: attrs.department,
+      email: attrs.email
     });
-
-    return updated;
+    return attrs;
   }
 
   async deleteStaff(email, id) {
     const pk = this.clientPkFromEmail(email);
-    await this.dynamoService.deleteItem({ Key: { PK: pk, SK: id } });
+    const exists = await this.dynamoService.getItem({ Key: { PK: pk, SK: id } });
+    if (exists && exists.Item) {
+      await this.dynamoService.deleteItem({ Key: { PK: pk, SK: id } });
+    } else {
+      const altId = id.startsWith('STAFF#') ? id.replace('STAFF#','PTS#') : id.replace('PTS#','STAFF#');
+      const alt = await this.dynamoService.getItem({ Key: { PK: pk, SK: altId } });
+      if (alt && alt.Item) await this.dynamoService.deleteItem({ Key: { PK: pk, SK: altId } });
+    }
     return true;
   }
 
@@ -441,69 +469,62 @@ class PTOService {
     const pk = this.clientPkFromEmail(email);
     const emailOriginal = String((data.email || email) || '').trim();
     const userEmail = emailOriginal.toLowerCase();
-    const ptoItems = await this.queryByPrefix(pk, 'PTO#').catch(() => []);
-    let targetSk = '';
-    const employeeId = String(data.employeeId || '').trim();
-    if (employeeId) {
-      const idSk = `PTO#${employeeId}`;
-      const idMatch = (Array.isArray(ptoItems) ? ptoItems : []).find(it => String(it.SK || '') === idSk);
-      if (idMatch) targetSk = idSk;
-    }
-    if (!targetSk) {
-      const emailMatch = (Array.isArray(ptoItems) ? ptoItems : []).find(it => String(it.email || '').toLowerCase() === userEmail);
-      if (emailMatch && emailMatch.SK) targetSk = emailMatch.SK;
-    }
-    if (!targetSk) {
-      const first = (Array.isArray(ptoItems) ? ptoItems : [])[0];
-      if (first && first.SK) targetSk = first.SK;
-    }
-    if (!targetSk) throw new Error('PTO profile not found in existing table');
+    const targetSk = `PTO#${userEmail}`;
     const firstName = String(data.firstName || '').trim();
     const lastName = String(data.lastName || '').trim();
     const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
-    const params = {
-      Key: { PK: pk, SK: targetSk },
-      UpdateExpression: 'SET #name = :name, #firstName = :firstName, #lastName = :lastName, #email = :email, #phone = :phone, #designation = :designation, #department = :department, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#name': 'name',
-        '#firstName': 'firstName',
-        '#lastName': 'lastName',
-        '#email': 'email',
-        '#phone': 'phone',
-        '#designation': 'designation',
-        '#department': 'department',
-        '#updatedAt': 'updatedAt'
-      },
-      ExpressionAttributeValues: {
-        ':name': fullName,
-        ':firstName': firstName,
-        ':lastName': lastName,
-        ':email': emailOriginal,
-        ':phone': String(data.phone || ''),
-        ':designation': String(data.designation || 'Placement Training Officer'),
-        ':department': String(data.department || ''),
-        ':updatedAt': new Date().toISOString()
-      },
-      ReturnValues: 'ALL_NEW'
-    };
-    const res = await this.dynamoService.updateItem(params);
-    await this.updateCognitoAttributes(userEmail, {
+    const now = new Date().toISOString();
+    const existing = await this.dynamoService.getItem({ Key: { PK: pk, SK: targetSk } });
+    const item = {
+      PK: pk,
+      SK: targetSk,
+      name: fullName,
       firstName,
       lastName,
-      fullName,
+      email: emailOriginal,
+      phone: String(data.phone || ''),
+      designation: String(data.designation || 'Placement Training Officer'),
       role: 'Placement Training Officer',
       department: String(data.department || ''),
-      email: emailOriginal
-    });
-    return res.Attributes;
+      updatedAt: now
+    };
+    if (existing && existing.Item) {
+      await this.dynamoService.updateItem({
+        Key: { PK: pk, SK: targetSk },
+        UpdateExpression: 'SET #name = :name, #firstName = :firstName, #lastName = :lastName, #email = :email, #phone = :phone, #designation = :designation, #department = :department, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: { '#name': 'name', '#firstName': 'firstName', '#lastName': 'lastName', '#email': 'email', '#phone': 'phone', '#designation': 'designation', '#department': 'department', '#updatedAt': 'updatedAt' },
+        ExpressionAttributeValues: { ':name': fullName, ':firstName': firstName, ':lastName': lastName, ':email': emailOriginal, ':phone': item.phone, ':designation': item.designation, ':department': item.department, ':updatedAt': now },
+        ReturnValues: 'ALL_NEW'
+      });
+    } else {
+      await this.dynamoService.putItem(item);
+    }
+    const staffSkNew = `STAFF#${emailOriginal}`;
+    const staffSkLegacy = `PTS#${emailOriginal}`;
+    const s1 = await this.dynamoService.getItem({ Key: { PK: pk, SK: staffSkNew } }).catch(() => null);
+    if (s1 && s1.Item) await this.dynamoService.deleteItem({ Key: { PK: pk, SK: staffSkNew } }).catch(() => null);
+    const s2 = await this.dynamoService.getItem({ Key: { PK: pk, SK: staffSkLegacy } }).catch(() => null);
+    if (s2 && s2.Item) await this.dynamoService.deleteItem({ Key: { PK: pk, SK: staffSkLegacy } }).catch(() => null);
+    const legacyStaff = await this.queryByPrefix(pk, 'PTS#').catch(() => []);
+    for (const it of legacyStaff) {
+      if (String(it.email || '').toLowerCase() === userEmail) {
+        await this.dynamoService.deleteItem({ Key: { PK: pk, SK: it.SK } }).catch(() => null);
+      }
+    }
+    await this.updateCognitoAttributes(userEmail, { firstName, lastName, fullName, role: 'Placement Training Officer', department: String(data.department || ''), email: emailOriginal });
+    try { await this.cognitoClient.send(new AdminRemoveUserFromGroupCommand({ UserPoolId: process.env.COGNITO_USER_POOL_ID, Username: userEmail, GroupName: 'instructor' })); } catch (_) {}
+    try { const { addUserToGroup } = require('../auth/cognito'); await addUserToGroup(userEmail, 'PTO'); } catch (_) {}
+    return item;
   }
 
   async getPtoProfile(email) {
     const pk = this.clientPkFromEmail(email);
     const userEmail = String(email || '').trim().toLowerCase();
+    const sk = `PTO#${userEmail}`;
+    const res = await this.dynamoService.getItem({ Key: { PK: pk, SK: sk } });
+    if (res && res.Item) return res.Item;
     const ptoItems = await this.queryByPrefix(pk, 'PTO#').catch(() => []);
-    let item = (Array.isArray(ptoItems) ? ptoItems : []).find(it => String(it.email || '').toLowerCase() === userEmail) || null;
-    if (!item) item = (Array.isArray(ptoItems) ? ptoItems : [])[0] || null;
+    const item = (Array.isArray(ptoItems) ? ptoItems : []).find(it => String(it.email || '').toLowerCase() === userEmail) || null;
     if (item) return item;
     throw new Error('PTO profile not found');
   }
