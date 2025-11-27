@@ -17,8 +17,26 @@ class StudentService {
 
     constructor(tableName: string) {
         this.tableName = tableName;
-        this.clientPK = 'CLIENT#ksrce.ac.in'; // Multi-tenant partition key
+        // We'll set clientPK dynamically based on email domain
+        this.clientPK = 'CLIENT#ksrce.ac.in'; // Default value, will be updated dynamically
         this.userPoolId = process.env.COGNITO_USER_POOL_ID;
+    }
+
+    /**
+     * Extract domain from email address
+     */
+    private getDomainFromEmail(email: string): string {
+        if (!email || !email.includes('@')) {
+            return 'ksrce.ac.in'; // Default domain
+        }
+        return email.split('@')[1];
+    }
+
+    /**
+     * Set client PK based on email domain
+     */
+    private setClientPK(email: string): void {
+        this.clientPK = `CLIENT#${this.getDomainFromEmail(email)}`;
     }
 
     /**
@@ -26,7 +44,8 @@ class StudentService {
      */
     private validateEmail(email) {
         const domain = email.split('@')[1];
-        return domain === 'ksrce.ac.in';
+        // Allow any valid domain, not just ksrce.ac.in
+        return domain && domain.length > 0;
     }
 
     /**
@@ -125,8 +144,11 @@ class StudentService {
     /**
      * Get all students
      */
-    async getAllStudents() {
+    async getAllStudents(email: string) {
         try {
+            // Set client PK based on email domain
+            this.setClientPK(email);
+            
             const params = {
                 TableName: this.tableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
@@ -146,8 +168,11 @@ class StudentService {
     /**
      * Get student by email
      */
-    async getStudentByEmail(email) {
+    async getStudentByEmail(email: string, requesterEmail: string) {
         try {
+            // Set client PK based on requester's email domain
+            this.setClientPK(requesterEmail);
+            
             const params = {
                 TableName: this.tableName,
                 Key: {
@@ -168,13 +193,16 @@ class StudentService {
      */
     async upsertStudent(studentData, createdByEmail) {
         try {
+            // Set client PK based on creator's email domain
+            this.setClientPK(createdByEmail);
+            
             // Validate email domain
             if (!this.validateEmail(studentData.email)) {
-                throw new Error('Email must be from @ksrce.ac.in domain');
+                throw new Error('Email must be from a valid domain');
             }
 
             // Check if student exists
-            const existingStudent = await this.getStudentByEmail(studentData.email);
+            const existingStudent = await this.getStudentByEmail(studentData.email, createdByEmail);
             const now = new Date().toISOString();
 
             const student = {
@@ -208,17 +236,18 @@ class StudentService {
                     // If Cognito creation fails, we should rollback the DynamoDB entry
                     console.error('Cognito user creation failed, rolling back DynamoDB entry');
                     try {
-                        await this.deleteStudent(studentData.email);
+                        await this.deleteStudent(studentData.email, createdByEmail);
                     } catch (deleteError) {
                         console.error('Failed to rollback DynamoDB entry:', deleteError.message);
                     }
-                    throw cognitoError;
+                    throw new Error('Failed to create user in authentication system: ' + cognitoError.message);
                 }
             }
 
             return student;
         } catch (error) {
-            throw new Error('Failed to save student: ' + error.message);
+            console.error('Error in upsertStudent:', error);
+            throw new Error('Failed to create/update student: ' + error.message);
         }
     }
 
@@ -227,7 +256,10 @@ class StudentService {
      */
     async updateStudentStatus(email, status, updatedByEmail) {
         try {
-            const student = await this.getStudentByEmail(email);
+            // Set client PK based on updater's email domain
+            this.setClientPK(updatedByEmail);
+            
+            const student = await this.getStudentByEmail(email, updatedByEmail);
             if (!student) {
                 throw new Error('Student not found');
             }
@@ -261,23 +293,13 @@ class StudentService {
     }
 
     /**
-     * Delete student
+     * Delete student by email
      */
-    async deleteStudent(email) {
+    async deleteStudent(email: string, requesterEmail: string) {
         try {
-            // First delete from Cognito
-            try {
-                await cognito.adminDeleteUser({
-                    UserPoolId: this.userPoolId,
-                    Username: email
-                }).promise();
-                console.log(`Successfully deleted user ${email} from Cognito`);
-            } catch (cognitoError) {
-                // Log the error but don't fail the operation if Cognito deletion fails
-                console.warn(`Failed to delete user ${email} from Cognito:`, cognitoError.message);
-            }
-
-            // Then delete from DynamoDB
+            // Set client PK based on requester's email domain
+            this.setClientPK(requesterEmail);
+            
             const params = {
                 TableName: this.tableName,
                 Key: {
@@ -287,7 +309,7 @@ class StudentService {
             };
 
             await dynamodb.delete(params).promise();
-            return true;
+            return { message: 'Student deleted successfully' };
         } catch (error) {
             throw new Error('Failed to delete student: ' + error.message);
         }

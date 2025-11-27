@@ -10,7 +10,9 @@ const { authenticateToken } = require('../auth/auth.middleware');
  */
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        const students = await studentService.getAllStudents();
+        // Get email from authenticated user
+        const requesterEmail = req.user?.email || req.user?.username || req.user?.sub || '';
+        const students = await studentService.getAllStudents(requesterEmail);
         res.status(200).json({
             success: true,
             data: students
@@ -30,7 +32,9 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:email', authenticateToken, async (req, res) => {
     try {
         const { email } = req.params;
-        const student = await studentService.getStudentByEmail(email);
+        // Get email from authenticated user
+        const requesterEmail = req.user?.email || req.user?.username || req.user?.sub || '';
+        const student = await studentService.getStudentByEmail(email, requesterEmail);
         
         if (!student) {
             return res.status(404).json({
@@ -135,11 +139,14 @@ router.put('/:email/status', authenticateToken, async (req, res) => {
 router.delete('/:email', authenticateToken, async (req, res) => {
     try {
         const { email } = req.params;
-        await studentService.deleteStudent(email);
+        // Get email from authenticated user
+        const requesterEmail = req.user?.email || req.user?.username || req.user?.sub || '';
+        const result = await studentService.deleteStudent(email, requesterEmail);
         
         res.status(200).json({
             success: true,
-            message: 'Student deleted successfully'
+            message: 'Student deleted successfully',
+            data: result
         });
     } catch (error) {
         res.status(400).json({

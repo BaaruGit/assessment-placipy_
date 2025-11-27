@@ -147,9 +147,47 @@ const authorizeRole = (...roles) => {
 
             // Get user groups from token
             const userGroups = req.user['cognito:groups'] || [];
+            
+            // Also check for role in custom attributes
+            const customRole = req.user['custom:role'] || req.user['role'];
+            if (customRole && !userGroups.includes(customRole)) {
+                userGroups.push(customRole);
+            }
+            
+            // Log user information for debugging
+            console.log('=== Authorization Debug Info ===');
+            console.log('Required roles:', roles);
+            console.log('User groups from token:', userGroups);
+            console.log('Full user token:', JSON.stringify(req.user, null, 2));
+            
+            // Map frontend roles to backend roles
+            const roleMapping = {
+                'Student': 'student',
+                'Placement Training Officer': 'pto',
+                'Placement Training Staff': 'pts',
+                'Administrator': 'admin',
+                'Instructor': 'instructor'
+            };
+            
+            // Also check for direct role matches (in case roles are already in the correct format)
+            const normalizedUserGroups = userGroups.map(group => {
+                // If it's already a known backend role, keep it
+                if (['instructor', 'admin', 'student', 'pto', 'pts'].includes(group)) {
+                    return group;
+                }
+                // Otherwise, try to map it
+                return roleMapping[group] || group.toLowerCase();
+            });
+            
+            console.log('Normalized user groups:', normalizedUserGroups);
 
             // Check if user has any of the required roles
-            const hasRole = roles.some(role => userGroups.includes(role));
+            const hasRole = roles.some(role => 
+                normalizedUserGroups.includes(role) || 
+                normalizedUserGroups.includes(role.toLowerCase())
+            );
+            
+            console.log('User has required role:', hasRole);
 
             if (!hasRole) {
                 return res.status(403).json({
@@ -160,6 +198,7 @@ const authorizeRole = (...roles) => {
 
             next();
         } catch (error) {
+            console.error('Authorization error:', error);
             return res.status(500).json({
                 error: 'Internal Server Error',
                 message: 'Authorization failed'

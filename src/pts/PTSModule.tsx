@@ -2,7 +2,6 @@ import React, { useState, useMemo, memo } from "react";
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Dashboard from "./Dashboard";
 import AssessmentCreation from "./AssessmentCreation";
-import AssessmentScheduling from "./AssessmentScheduling";
 import StudentStats from "./StudentStats";
 import StudentManagement from "./StudentManagement";
 import Profile from "./Profile";
@@ -19,8 +18,8 @@ const PTSModule: React.FC = () => {
   // Navigation items
   const navItems = useMemo(() => [
     { id: 'dashboard', label: 'Dashboard', path: '/pts' },
-    { id: 'create', label: 'Create Assessment', path: '/pts/create' },
-    { id: 'schedule', label: 'Assessment Scheduling', path: '/pts/schedule' },
+    { id: 'create', label: 'Assessment Creation and Scheduling', path: '/pts/create' },
+    // Removed Assessment Scheduling as it's now integrated into Assessment Creation
     { id: 'students', label: 'Student Management', path: '/pts/students' },
     { id: 'stats', label: 'Student Analytics', path: '/pts/stats' },
     { id: 'profile', label: 'Profile Settings', path: '/pts/profile' },
@@ -142,7 +141,6 @@ const PTSModule: React.FC = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/create" element={<AssessmentCreation />} />
-            <Route path="/schedule" element={<AssessmentScheduling />} />
             <Route path="/students" element={<StudentManagement />} />
             <Route path="/stats" element={<StudentStats />} />
             <Route path="/profile" element={<Profile />} />
