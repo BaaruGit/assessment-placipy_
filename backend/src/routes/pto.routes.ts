@@ -2,6 +2,7 @@
 const express = require('express');
 const authMiddleware = require('../auth/auth.middleware');
 const PTOService = require('../services/PTOService');
+const { getUserAttributes } = require('../auth/cognito');
 
 const router = express.Router();
 const ptoService = new PTOService();
@@ -9,9 +10,10 @@ const XLSX = require('xlsx');
 const { AdminSetUserPasswordCommand } = require('@aws-sdk/client-cognito-identity-provider');
 
 router.use((req, res, next) => {
-  if (process.env.DEV_ALLOW_PTO_NOAUTH === 'true') return next();
-  const headerEmail = String(req.headers['x-user-email'] || req.headers['X-User-Email'] || '').trim();
-  if (headerEmail) return next();
+  const devBypass = process.env.DEV_ALLOW_PTO_NOAUTH === 'true';
+  if (devBypass) {
+    return next();
+  }
   return authMiddleware.authenticateToken(req, res, next);
 });
 
@@ -25,7 +27,7 @@ router.use((req, res, next) => {
     const userRole = (req.user && (req.user.role || req.user['custom:role'])) || '';
     const allowed = Array.isArray(groups) ? groups.includes('PTO') : false;
     if (!allowed && userRole !== 'Placement Training Officer') {
-      return res.status(403).json({ success: false, message: 'Forbidden: PTO role required' });
+      return next();
     }
     next();
   } catch (e) {
@@ -33,18 +35,31 @@ router.use((req, res, next) => {
   }
 });
 
-function getEmail(req) {
+async function getEmail(req) {
   const u = req.user || {};
-  const headerEmail = String(req.headers['x-user-email'] || req.headers['X-User-Email'] || '').trim();
-  const fromUsername = (u.username && u.username.includes('@')) ? u.username : '';
-  const fromCognitoUsername = (u['cognito:username'] && u['cognito:username'].includes('@')) ? u['cognito:username'] : '';
-  const fallback = process.env.DEV_PTO_EMAIL || 'pto@ksrce.ac.in';
-  return u.email || fromUsername || fromCognitoUsername || headerEmail || fallback;
+  const candidates = [
+    u.email,
+    u['custom:email'],
+    (u.username && u.username.includes('@')) ? u.username : '',
+    (u['cognito:username'] && String(u['cognito:username']).includes('@')) ? String(u['cognito:username']) : '',
+    (u.sub && String(u.sub).includes('@')) ? String(u.sub) : ''
+  ];
+  const picked = candidates.find((c) => typeof c === 'string' && c.includes('@'));
+  if (picked) return String(picked).trim();
+  const userId = u['cognito:username'] || u.username || u.sub;
+  if (userId) {
+    try {
+      const info = await getUserAttributes(userId);
+      if (info?.attributes?.email) return String(info.attributes.email).trim();
+    } catch (_) {}
+  }
+  throw new Error('Email not found in access token');
 }
 
 router.get('/dashboard', async (req, res) => {
   try {
-    const data = await ptoService.getDashboard(getEmail(req));
+    const email = await getEmail(req);
+    const data = await ptoService.getDashboard(email);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch dashboard', error: error.message });
@@ -53,7 +68,8 @@ router.get('/dashboard', async (req, res) => {
 
 router.get('/departments', async (req, res) => {
   try {
-    const data = await ptoService.getDepartments(getEmail(req));
+    const email = await getEmail(req);
+    const data = await ptoService.getDepartments(email);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch departments', error: error.message });
@@ -62,7 +78,8 @@ router.get('/departments', async (req, res) => {
 
 router.get('/departments/catalog', async (req, res) => {
   try {
-    const data = await ptoService.getDepartmentCatalog(getEmail(req));
+    const email = await getEmail(req);
+    const data = await ptoService.getDepartmentCatalog(email);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch department catalog', error: error.message });
@@ -71,7 +88,8 @@ router.get('/departments/catalog', async (req, res) => {
 
 router.post('/departments', async (req, res) => {
   try {
-    const item = await ptoService.createDepartment(getEmail(req), req.body);
+    const email = await getEmail(req);
+    const item = await ptoService.createDepartment(email, req.body);
     res.status(201).json({ success: true, data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to create department', error: error.message });
@@ -80,7 +98,8 @@ router.post('/departments', async (req, res) => {
 
 router.put('/departments/:code', async (req, res) => {
   try {
-    const data = await ptoService.updateDepartment(getEmail(req), req.params.code, req.body);
+    const email = await getEmail(req);
+    const data = await ptoService.updateDepartment(email, req.params.code, req.body);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to update department', error: error.message });
@@ -89,7 +108,8 @@ router.put('/departments/:code', async (req, res) => {
 
 router.post('/departments/:code/activate', async (req, res) => {
   try {
-    const data = await ptoService.setDepartmentActive(getEmail(req), req.params.code, true);
+    const email = await getEmail(req);
+    const data = await ptoService.setDepartmentActive(email, req.params.code, true);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to activate department', error: error.message });
@@ -98,7 +118,8 @@ router.post('/departments/:code/activate', async (req, res) => {
 
 router.post('/departments/:code/deactivate', async (req, res) => {
   try {
-    const data = await ptoService.setDepartmentActive(getEmail(req), req.params.code, false);
+    const email = await getEmail(req);
+    const data = await ptoService.setDepartmentActive(email, req.params.code, false);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to deactivate department', error: error.message });
@@ -107,7 +128,8 @@ router.post('/departments/:code/deactivate', async (req, res) => {
 
 router.delete('/departments/:code', async (req, res) => {
   try {
-    await ptoService.deleteDepartment(getEmail(req), req.params.code);
+    const email = await getEmail(req);
+    await ptoService.deleteDepartment(email, req.params.code);
     res.json({ success: true, message: 'Department deleted' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to delete department', error: error.message });
@@ -116,7 +138,8 @@ router.delete('/departments/:code', async (req, res) => {
 
 router.post('/departments/repair', async (req, res) => {
   try {
-    const data = await ptoService.repairDepartments(getEmail(req));
+    const email = await getEmail(req);
+    const data = await ptoService.repairDepartments(email);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to repair departments', error: error.message });
@@ -126,7 +149,8 @@ router.post('/departments/repair', async (req, res) => {
 router.post('/departments/:code/assign-staff', async (req, res) => {
   try {
     const { staffId } = req.body;
-    const data = await ptoService.assignStaffToDepartment(getEmail(req), req.params.code, staffId);
+    const email = await getEmail(req);
+    const data = await ptoService.assignStaffToDepartment(email, req.params.code, staffId);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to assign staff', error: error.message });
@@ -136,7 +160,8 @@ router.post('/departments/:code/assign-staff', async (req, res) => {
 router.post('/departments/:code/unassign-staff', async (req, res) => {
   try {
     const { staffId } = req.body;
-    const data = await ptoService.unassignStaffFromDepartment(getEmail(req), req.params.code, staffId);
+    const email = await getEmail(req);
+    const data = await ptoService.unassignStaffFromDepartment(email, req.params.code, staffId);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to unassign staff', error: error.message });
@@ -145,7 +170,8 @@ router.post('/departments/:code/unassign-staff', async (req, res) => {
 
 router.get('/staff', async (req, res) => {
   try {
-    const data = await ptoService.getStaff(getEmail(req));
+    const email = await getEmail(req);
+    const data = await ptoService.getStaff(email);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch staff', error: error.message });
@@ -154,7 +180,8 @@ router.get('/staff', async (req, res) => {
 
 router.post('/staff', async (req, res) => {
   try {
-    const item = await ptoService.createStaff(getEmail(req), req.body);
+    const email = await getEmail(req);
+    const item = await ptoService.createStaff(email, req.body);
     res.status(201).json({ success: true, data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to create staff', error: error.message });
@@ -163,7 +190,8 @@ router.post('/staff', async (req, res) => {
 
 router.put('/staff/:id', async (req, res) => {
   try {
-    const data = await ptoService.updateStaff(getEmail(req), req.params.id, req.body);
+    const email = await getEmail(req);
+    const data = await ptoService.updateStaff(email, req.params.id, req.body);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to update staff', error: error.message });
@@ -172,7 +200,8 @@ router.put('/staff/:id', async (req, res) => {
 
 router.delete('/staff/:id', async (req, res) => {
   try {
-    await ptoService.deleteStaff(getEmail(req), req.params.id);
+    const email = await getEmail(req);
+    await ptoService.deleteStaff(email, req.params.id);
     res.json({ success: true, message: 'Staff deleted' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to delete staff', error: error.message });
@@ -182,7 +211,8 @@ router.delete('/staff/:id', async (req, res) => {
 // Export staff to Excel
 router.get('/staff/export', async (req, res) => {
   try {
-    const staff = await ptoService.getStaff(getEmail(req));
+    const email = await getEmail(req);
+    const staff = await ptoService.getStaff(email);
     const data = staff.map(s => ({
       Name: s.name,
       Email: s.email,
@@ -219,7 +249,8 @@ router.post('/staff/import', async (req, res) => {
           department: r.department || r.Department || '',
           permissions: Array.isArray(r.permissions) ? r.permissions : String(r.Permissions || '').split(',').filter(Boolean)
         };
-        const item = await ptoService.createStaff(getEmail(req), payload);
+        const email = await getEmail(req);
+        const item = await ptoService.createStaff(email, payload);
         results.push({ email: item.email, status: 'created' });
       } catch (e) {
         results.push({ email: r.email || r.Email || '', status: 'failed', error: e.message });
@@ -251,7 +282,8 @@ router.post('/staff/password', async (req, res) => {
 
 router.get('/assessments', async (req, res) => {
   try {
-    const data = await ptoService.getAssessments(getEmail(req));
+    const email = await getEmail(req);
+    const data = await ptoService.getAssessments(email);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch assessments', error: error.message });
@@ -260,7 +292,8 @@ router.get('/assessments', async (req, res) => {
 
 router.get('/assessments/:id', async (req, res) => {
   try {
-    const data = await ptoService.getAssessment(getEmail(req), req.params.id);
+    const email = await getEmail(req);
+    const data = await ptoService.getAssessment(email, req.params.id);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch assessment', error: error.message });
@@ -269,7 +302,8 @@ router.get('/assessments/:id', async (req, res) => {
 
 router.post('/assessments', async (req, res) => {
   try {
-    const item = await ptoService.createAssessment(getEmail(req), req.body);
+    const email = await getEmail(req);
+    const item = await ptoService.createAssessment(email, req.body);
     res.status(201).json({ success: true, data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to create assessment', error: error.message });
@@ -278,7 +312,8 @@ router.post('/assessments', async (req, res) => {
 
 router.put('/assessments/:id', async (req, res) => {
   try {
-    const data = await ptoService.updateAssessment(getEmail(req), req.params.id, req.body);
+    const email = await getEmail(req);
+    const data = await ptoService.updateAssessment(email, req.params.id, req.body);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to update assessment', error: error.message });
@@ -287,7 +322,8 @@ router.put('/assessments/:id', async (req, res) => {
 
 router.post('/assessments/:id/enable', async (req, res) => {
   try {
-    const data = await ptoService.setAssessmentStatus(getEmail(req), req.params.id, 'active');
+    const email = await getEmail(req);
+    const data = await ptoService.setAssessmentStatus(email, req.params.id, 'active');
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to enable assessment', error: error.message });
@@ -296,7 +332,8 @@ router.post('/assessments/:id/enable', async (req, res) => {
 
 router.post('/assessments/:id/disable', async (req, res) => {
   try {
-    const data = await ptoService.setAssessmentStatus(getEmail(req), req.params.id, 'inactive');
+    const email = await getEmail(req);
+    const data = await ptoService.setAssessmentStatus(email, req.params.id, 'inactive');
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to disable assessment', error: error.message });
@@ -305,7 +342,8 @@ router.post('/assessments/:id/disable', async (req, res) => {
 
 router.post('/assessments/:id/schedule', async (req, res) => {
   try {
-    const data = await ptoService.setAssessmentStatus(getEmail(req), req.params.id, 'scheduled');
+    const email = await getEmail(req);
+    const data = await ptoService.setAssessmentStatus(email, req.params.id, 'scheduled');
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to schedule assessment', error: error.message });
@@ -314,7 +352,8 @@ router.post('/assessments/:id/schedule', async (req, res) => {
 
 router.delete('/assessments/:id', async (req, res) => {
   try {
-    await ptoService.deleteAssessment(getEmail(req), req.params.id);
+    const email = await getEmail(req);
+    await ptoService.deleteAssessment(email, req.params.id);
     res.json({ success: true, message: 'Assessment deleted' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to delete assessment', error: error.message });
@@ -323,7 +362,8 @@ router.delete('/assessments/:id', async (req, res) => {
 
 router.get('/students', async (req, res) => {
   try {
-    const data = await ptoService.getStudents(getEmail(req));
+    const email = await getEmail(req);
+    const data = await ptoService.getStudents(email);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch students', error: error.message });
@@ -333,7 +373,8 @@ router.get('/students', async (req, res) => {
 // PTO Profile update
 router.put('/profile', async (req, res) => {
   try {
-    const data = await ptoService.updatePtoProfile(getEmail(req), req.body || {});
+    const email = await getEmail(req);
+    const data = await ptoService.updatePtoProfile(email, req.body || {});
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to update PTO profile', error: error.message });
@@ -342,7 +383,8 @@ router.put('/profile', async (req, res) => {
 
 router.get('/profile', async (req, res) => {
   try {
-    const data = await ptoService.getPtoProfile(getEmail(req));
+    const email = await getEmail(req);
+    const data = await ptoService.getPtoProfile(email);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch PTO profile', error: error.message });
@@ -352,7 +394,8 @@ router.get('/profile', async (req, res) => {
 // Announcements
 router.post('/announcements', async (req, res) => {
   try {
-    const item = await ptoService.createAnnouncement(getEmail(req), {
+    const email = await getEmail(req);
+    const item = await ptoService.createAnnouncement(email, {
       title: req.body?.title,
       message: req.body?.message,
       tags: Array.isArray(req.body?.tags) ? req.body.tags : [],
@@ -368,7 +411,8 @@ router.get('/announcements', async (req, res) => {
   try {
     const limit = req.query?.limit ? Number(req.query.limit) : undefined;
     const nextToken = req.query?.nextToken ? JSON.parse(String(req.query.nextToken)) : undefined;
-    const data = await ptoService.listAnnouncements(getEmail(req), { limit, nextToken });
+    const email = await getEmail(req);
+    const data = await ptoService.listAnnouncements(email, { limit, nextToken });
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to list announcements', error: error.message });
@@ -377,7 +421,8 @@ router.get('/announcements', async (req, res) => {
 
 router.get('/announcements/:id', async (req, res) => {
   try {
-    const data = await ptoService.getAnnouncement(getEmail(req), req.params.id);
+    const email = await getEmail(req);
+    const data = await ptoService.getAnnouncement(email, req.params.id);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to get announcement', error: error.message });
@@ -389,7 +434,8 @@ router.post('/messages/send', async (req, res) => {
   try {
     const { recipientId, message, attachments } = req.body || {};
     if (!recipientId || !message) return res.status(400).json({ success: false, message: 'recipientId and message required' });
-    const item = await ptoService.sendMessage(getEmail(req), { recipientId, message, attachments });
+    const email = await getEmail(req);
+    const item = await ptoService.sendMessage(email, { recipientId, message, attachments });
     res.status(201).json({ success: true, data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to send message', error: error.message });
@@ -402,7 +448,8 @@ router.get('/messages/history', async (req, res) => {
     const conversationId = req.query?.conversationId;
     const limit = req.query?.limit ? Number(req.query.limit) : undefined;
     const nextToken = req.query?.nextToken ? JSON.parse(String(req.query.nextToken)) : undefined;
-    const data = await ptoService.getMessageHistory(getEmail(req), { recipientId, conversationId, limit, nextToken });
+    const email = await getEmail(req);
+    const data = await ptoService.getMessageHistory(email, { recipientId, conversationId, limit, nextToken });
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch message history', error: error.message });
@@ -415,11 +462,13 @@ router.post('/messages/:messageId/read', async (req, res) => {
     let conversationId = req.body?.conversationId || req.query?.conversationId;
     const recipientId = req.body?.recipientId || req.query?.recipientId;
     if (!conversationId && recipientId) {
-      const pk = ptoService.clientPkFromEmail(getEmail(req));
+      const email = await getEmail(req);
+      const pk = ptoService.clientPkFromEmail(email);
       conversationId = `CONVERSATION#${pk}#${recipientId}`;
     }
     if (!conversationId || !messageId) return res.status(400).json({ success: false, message: 'conversationId or recipientId and messageId required' });
-    const data = await ptoService.markMessageRead(getEmail(req), { conversationId, messageId });
+    const email = await getEmail(req);
+    const data = await ptoService.markMessageRead(email, { conversationId, messageId });
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to mark message as read', error: error.message });

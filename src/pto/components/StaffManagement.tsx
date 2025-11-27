@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { FaUser, FaTrash, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import PTOService, { type StaffMember as StaffDto } from '../../services/pto.service';
+import { useUser } from '../../contexts/UserContext';
 
 interface StaffMember {
   id: string;
@@ -21,6 +22,7 @@ const StaffManagement: React.FC = () => {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useUser();
 
   useEffect(() => {
     const load = async () => {
@@ -71,8 +73,8 @@ const StaffManagement: React.FC = () => {
     }
   });
   const isCreateValid = () => {
-    const email = String(formData.email || '').trim().toLowerCase();
-    const domainOk = !!email && email.includes('@') && email.endsWith(`@${collegeDomain}`);
+    const email = String(formData.email || '').trim();
+    const domainOk = !!email && email.includes('@') && email.toLowerCase().endsWith(`@${collegeDomain.toLowerCase()}`);
     return Boolean(
       String(formData.firstName || '').trim() &&
       domainOk &&
@@ -82,12 +84,11 @@ const StaffManagement: React.FC = () => {
   };
 
   const departments = ['Computer Science', 'Electronics', 'Mechanical', 'Civil', 'All Departments'];
-  const ptoEmail = (localStorage.getItem('ptoDevEmail') || localStorage.getItem('ptoEmail') || '') as string;
-  const collegeDomain = (ptoEmail.includes('@') ? ptoEmail.split('@')[1] : 'ksrce.ac.in');
+  const collegeDomain = ((user?.email || '').includes('@') ? (user!.email.split('@')[1]) : 'ksrce.ac.in');
 
   const handleAddStaff = async () => {
-    const email = String(formData.email || '').trim().toLowerCase();
-    if (!email || !email.includes('@') || !email.endsWith(`@${collegeDomain}`)) {
+    const email = String(formData.email || '').trim();
+    if (!email || !email.includes('@') || !email.toLowerCase().endsWith(`@${collegeDomain.toLowerCase()}`)) {
       setError(`Email must end with @${collegeDomain}`);
       return;
     }

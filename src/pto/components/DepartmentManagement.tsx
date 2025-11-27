@@ -36,7 +36,10 @@ const DepartmentManagement: React.FC = () => {
         }));
         setDepartments(mapped);
       } catch (e: any) {
-        setError(e.message || 'Failed to load departments');
+        const msg = (e?.response?.status === 403)
+          ? 'Access denied (403). Please login as PTO for this college.'
+          : (e.message || 'Failed to load departments');
+        setError(msg);
       } finally {
         setLoading(false);
       }
@@ -285,6 +288,13 @@ const DepartmentManagement: React.FC = () => {
                 </td>
               </tr>
             ))}
+            {(!loading && !error && departments.length === 0) && (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '16px' }}>
+                  No departments added yet — click "Add Department" to create one.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -11,8 +11,6 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  const devEmail = localStorage.getItem('ptoDevEmail') || 'pto@ksrce.ac.in';
-  (config.headers as any)['X-User-Email'] = devEmail;
   return config;
 });
 
