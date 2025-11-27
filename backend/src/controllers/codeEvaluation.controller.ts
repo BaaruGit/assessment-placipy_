@@ -13,9 +13,11 @@ const dynamodb = new AWS.DynamoDB.DocumentClient({
 
 class CodeEvaluationController {
     private assessmentsTableName: string;
+    private questionsTableName: string;
 
     constructor() {
         this.assessmentsTableName = process.env.ASSESSMENTS_TABLE_NAME || 'Assesment_placipy_assesments';
+        this.questionsTableName = process.env.QUESTIONS_TABLE_NAME || 'Assessment_placipy_assesessment_questions';
     }
 
     /**
@@ -54,31 +56,22 @@ class CodeEvaluationController {
                 });
             }
 
-            // Get assessment with embedded questions from database
-            const assessmentParams = {
-                TableName: this.assessmentsTableName,
-                FilterExpression: 'begins_with(PK, :pk_prefix) AND begins_with(SK, :sk_prefix)',
+            // Get question with test cases from database
+            // We need to scan for the question since we don't know the exact PK structure
+            const questionParams = {
+                TableName: this.questionsTableName,
+                FilterExpression: 'begins_with(PK, :pk_prefix) AND SK = :sk',
                 ExpressionAttributeValues: {
                     ':pk_prefix': `ASSESSMENT#${assessmentId}`,
-                    ':sk_prefix': 'CLIENT#'
+                    ':sk': `CLIENT#${this.getDomainFromEmail(userEmail)}`
                 }
             };
 
-            const assessmentResult = await dynamodb.scan(assessmentParams).promise();
-            const assessments = assessmentResult.Items || [];
+            const questionResult = await dynamodb.scan(questionParams).promise();
+            const questions = questionResult.Items || [];
             
-            // Find the specific assessment
-            const assessment = assessments.find(a => a.assessmentId === assessmentId);
-            
-            if (!assessment) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Assessment not found'
-                });
-            }
-            
-            // Find the specific question from embedded questions
-            const question = assessment.questions?.find((q: any) => q.questionId === questionId);
+            // Find the specific question
+            const question = questions.find(q => q.questionId === questionId);
             
             if (!question) {
                 return res.status(404).json({

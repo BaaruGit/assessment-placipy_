@@ -94,6 +94,42 @@ class AssessmentService {
       throw new Error(error.response?.data?.message || 'Failed to delete assessment');
     }
   }
+
+  async exportAssessmentsToCSV(filters: any = {}): Promise<Blob> {
+    try {
+      const params = new URLSearchParams();
+      if (filters.department) params.append('department', filters.department);
+      if (filters.status) params.append('status', filters.status);
+      
+      const response = await axios.get(
+        `${API_BASE_URL}/api/assessments/export/csv?${params.toString()}`,
+        { 
+          headers: this.getAuthHeaders(),
+          responseType: 'blob'
+        }
+      );
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error exporting assessments to CSV:', error);
+      throw new Error(error.response?.data?.message || 'Failed to export assessments to CSV');
+    }
+  }
+
+  async importAssessmentsFromCSV(rows: any[]): Promise<any> {
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/assessments/import/csv`,
+        { rows },
+        { headers: this.getAuthHeaders() }
+      );
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error importing assessments from CSV:', error);
+      throw new Error(error.response?.data?.message || 'Failed to import assessments from CSV');
+    }
+  }
 }
 
 export default new AssessmentService();

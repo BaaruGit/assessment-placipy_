@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AssessmentService from "../services/assessment.service";
+import { useUser } from '../contexts/UserContext';
 
 interface TestCase {
   id: string;
@@ -76,6 +77,7 @@ interface AssessmentData {
 }
 
 const AssessmentCreation: React.FC = () => {
+  const { user } = useUser(); // Get user context
   const [assessmentData, setAssessmentData] = useState<AssessmentData>({
     title: "",
     description: "",
@@ -118,7 +120,7 @@ const AssessmentCreation: React.FC = () => {
     id: 0,
     text: "",
     options: ["", "", "", ""],
-    correctAnswer: [], // Updated to support array format
+    correctAnswer: [], // Initialize as empty array
     marks: 1,
     subcategory: "", // Updated from mcqSubcategory
     starterCode: "", // Initialize starter code
@@ -151,13 +153,18 @@ const AssessmentCreation: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Add CSV import state variables
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResults, setImportResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const departments = ["Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil", "All Departments"];
   // Updated categories to match requirements
   const categories = ["MCQ", "Coding"];
-  
+
   // Subcategories for MCQ - including all four types
   const mcqSubcategories = ["ALL", "Technical", "Aptitude", "Verbal"];
-  
+
   // Status options
   const statusOptions = ["active", "inactive"];
 
@@ -214,12 +221,12 @@ const AssessmentCreation: React.FC = () => {
       // Return current date/time if not provided
       return new Date().toISOString();
     }
-    
+
     // Convert 12-hour format to 24-hour format
     let [hours, minutes] = time.split(':').map(Number);
     if (period === 'PM' && hours < 12) hours += 12;
     if (period === 'AM' && hours === 12) hours = 0;
-    
+
     // Format as ISO string
     const dateTime = new Date(`${date}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`);
     return dateTime.toISOString();
@@ -228,19 +235,19 @@ const AssessmentCreation: React.FC = () => {
   // Helper function to extract time components from ISO string
   const extractTimeComponents = (isoString: string) => {
     if (!isoString) return { date: '', time: '', period: 'AM' };
-    
+
     const dateObj = new Date(isoString);
     const date = dateObj.toISOString().split('T')[0];
     let hours = dateObj.getHours();
     const minutes = dateObj.getMinutes();
     const period = hours >= 12 ? 'PM' : 'AM';
-    
+
     // Convert to 12-hour format
     if (hours === 0) hours = 12;
     if (hours > 12) hours -= 12;
-    
+
     const time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-    
+
     return { date, time, period };
   };
 
@@ -301,6 +308,196 @@ const AssessmentCreation: React.FC = () => {
     handleSchedulingChange('endDate', isoString);
   };
 
+  // CSV Import/Export Functions
+  // Parse CSV string into array of objects
+  const parseCSV = (csvString: string): any[] => {
+    const lines = csvString.split('\n').filter(line => line.trim() !== '');
+
+    if (lines.length <= 1) {
+      return [];
+    }
+
+    // Parse headers
+    const headers = lines[0].split(',').map(header => header.trim().replace(/"/g, ''));
+
+    // Parse data rows
+    const dataRows = lines.slice(1);
+    const result = [];
+
+    for (const row of dataRows) {
+      if (!row.trim()) continue;
+
+      // Simple CSV parsing - handles quoted values
+      const values: string[] = [];
+      let currentValue = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < row.length; i++) {
+        const char = row[i];
+
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(currentValue.trim().replace(/"/g, ''));
+          currentValue = '';
+        } else {
+          currentValue += char;
+        }
+      }
+
+      // Add the last value
+      values.push(currentValue.trim().replace(/"/g, ''));
+
+      // Create object mapping headers to values
+      const rowData: any = {};
+      headers.forEach((header, index) => {
+        rowData[header] = values[index] || '';
+      });
+
+      result.push(rowData);
+    }
+
+    return result;
+  };
+
+  // Convert array of objects to CSV string
+  const convertToCSV = (data: any[]): string => {
+    if (!data || data.length === 0) {
+      return '';
+    }
+
+    // Determine headers
+    const allHeaders = Object.keys(data[0]);
+
+    // Create CSV content
+    let csvContent = allHeaders.map(header => `"${header}"`).join(',') + '\n';
+
+    // Add data rows
+    data.forEach(row => {
+      const values = allHeaders.map(header => {
+        const value = row[header];
+        if (value === null || value === undefined) {
+          return '""';
+        }
+        // Escape quotes and wrap in quotes
+        return `"${String(value).replace(/"/g, '""')}"`;
+      });
+      csvContent += values.join(',') + '\n';
+    });
+
+    return csvContent;
+  };
+
+  // Handle CSV file import
+  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setImportLoading(true);
+      setImportResults(null);
+
+      // Read CSV file
+      const text = await file.text();
+      const parsedData = parseCSV(text);
+
+      if (parsedData.length === 0) {
+        throw new Error('No data found in CSV file');
+      }
+
+      // Use the first row for single assessment import
+      const rowData = parsedData[0];
+
+      // Update assessment data with imported values
+      setAssessmentData(prev => ({
+        ...prev,
+        title: rowData.Title || prev.title,
+        description: rowData.Description || prev.description,
+        department: rowData.Department || prev.department,
+        duration: rowData.Duration ? parseInt(rowData.Duration) : prev.duration,
+        difficulty: rowData.Difficulty || prev.difficulty,
+        category: rowData.Category ? (Array.isArray(rowData.Category) ? rowData.Category : rowData.Category.split(';')) : prev.category,
+        status: rowData.Status || prev.status,
+        scheduling: {
+          ...prev.scheduling,
+          startDate: rowData.StartDate || prev.scheduling.startDate,
+          endDate: rowData.EndDate || prev.scheduling.endDate,
+          timezone: rowData.Timezone || prev.scheduling.timezone
+        },
+        configuration: {
+          ...prev.configuration,
+          maxAttempts: rowData.MaxAttempts ? parseInt(rowData.MaxAttempts) : prev.configuration.maxAttempts,
+          passingScore: rowData.PassingScore ? parseInt(rowData.PassingScore) : prev.configuration.passingScore,
+          randomizeQuestions: rowData.RandomizeQuestions ? rowData.RandomizeQuestions.toLowerCase() === 'true' : prev.configuration.randomizeQuestions
+        }
+      }));
+
+      setImportResults({ success: 1, failed: 0, errors: [] });
+      alert('Assessment imported successfully!');
+    } catch (err: any) {
+      console.error('Error importing CSV file:', err);
+      setImportResults({ success: 0, failed: 1, errors: [err.message || 'Unknown error'] });
+      alert('Failed to import assessment: ' + err.message);
+    } finally {
+      setImportLoading(false);
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Export to CSV function
+  const exportToCSV = async () => {
+    try {
+      // Create data array with current assessment data
+      const exportData = [{
+        Title: assessmentData.title,
+        Description: assessmentData.description,
+        Department: assessmentData.department,
+        Duration: assessmentData.duration,
+        Difficulty: assessmentData.difficulty,
+        Category: assessmentData.category.join(';'),
+        Status: assessmentData.status,
+        StartDate: assessmentData.scheduling.startDate,
+        EndDate: assessmentData.scheduling.endDate,
+        Timezone: assessmentData.scheduling.timezone,
+        MaxAttempts: assessmentData.configuration.maxAttempts,
+        PassingScore: assessmentData.configuration.passingScore,
+        RandomizeQuestions: assessmentData.configuration.randomizeQuestions
+      }];
+
+      // Convert to CSV
+      const csvContent = convertToCSV(exportData);
+
+      // Create blob and download using the service
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `assessment_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert('Assessment exported successfully!');
+    } catch (err: any) {
+      console.error('Error exporting CSV:', err);
+      alert('Failed to export assessment: ' + err.message);
+    }
+  };
+
+  // Trigger file input click
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   const addQuestion = () => {
     if (!currentQuestion.text.trim()) {
       alert("Please enter a question text");
@@ -314,7 +511,7 @@ const AssessmentCreation: React.FC = () => {
         alert("Please select a subcategory for MCQ");
         return;
       }
-      
+
       // Create MCQ question with proper structure
       const newMcqQuestion: Question = {
         ...currentQuestion,
@@ -328,8 +525,14 @@ const AssessmentCreation: React.FC = () => {
         language: "", // Empty string for MCQ questions
         starterCode: "", // Empty string for MCQ questions
         testCases: [], // Empty array for MCQ questions,
-        // Convert correctAnswer from index to array of option IDs
-        correctAnswer: [String.fromCharCode(65 + (currentQuestion.correctAnswer as number))]
+        // Convert correctAnswer to proper array format
+        correctAnswer: Array.isArray(currentQuestion.correctAnswer)
+          ? currentQuestion.correctAnswer
+          : typeof currentQuestion.correctAnswer === 'number'
+            ? [String.fromCharCode(65 + currentQuestion.correctAnswer)]
+            : currentQuestion.correctAnswer
+              ? [currentQuestion.correctAnswer]
+              : []
       };
 
       setAssessmentData(prev => ({
@@ -356,7 +559,7 @@ const AssessmentCreation: React.FC = () => {
       });
 
       setShowMcqForm(false);
-    } 
+    }
     // Check if we're adding a Programming question
     else if (showProgrammingForm) {
       // Create Programming question with proper structure
@@ -463,9 +666,9 @@ const AssessmentCreation: React.FC = () => {
 
     setAssessmentData(prev => ({
       ...prev,
-      questions: prev.questions.map(q => 
-        q.id === questionId 
-          ? { ...q, testCases: [...(q.testCases || []), newTestCase] } 
+      questions: prev.questions.map(q =>
+        q.id === questionId
+          ? { ...q, testCases: [...(q.testCases || []), newTestCase] }
           : q
       )
     }));
@@ -484,9 +687,9 @@ const AssessmentCreation: React.FC = () => {
   const removeTestCase = (questionId: number, testCaseId: string) => {
     setAssessmentData(prev => ({
       ...prev,
-      questions: prev.questions.map(q => 
-        q.id === questionId 
-          ? { ...q, testCases: q.testCases?.filter(tc => tc.id !== testCaseId) } 
+      questions: prev.questions.map(q =>
+        q.id === questionId
+          ? { ...q, testCases: q.testCases?.filter(tc => tc.id !== testCaseId) }
           : q
       )
     }));
@@ -495,31 +698,31 @@ const AssessmentCreation: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       console.log('=== Submitting Assessment ===');
       console.log('Current assessmentData:', JSON.stringify(assessmentData, null, 2));
       console.log('Current scheduling data:', assessmentData.scheduling);
-      
+
       // Validate required fields
       if (!assessmentData.title.trim()) {
         alert("Please enter an assessment title");
         setIsSubmitting(false);
         return;
       }
-      
+
       if (!assessmentData.department) {
         alert("Please select a department");
         setIsSubmitting(false);
         return;
       }
-      
+
       if (assessmentData.questions.length === 0) {
         alert("Please add at least one question");
         setIsSubmitting(false);
         return;
       }
-      
+
       // Validate all questions
       for (const question of assessmentData.questions) {
         if (!question.text.trim()) {
@@ -527,7 +730,7 @@ const AssessmentCreation: React.FC = () => {
           setIsSubmitting(false);
           return;
         }
-        
+
         // Check if this is an MCQ question by seeing if it has meaningful options
         if (question.hasOwnProperty('options') && question.options && question.options.length > 0 && question.options.some(opt => opt.trim() !== "")) {
           // This is an MCQ question with actual options
@@ -543,14 +746,14 @@ const AssessmentCreation: React.FC = () => {
           }
         }
       }
-      
+
       // Analyze questions to determine entity types and subcategories
       const entities: any[] = [];
       const mcqSubcategories = new Set<string>();
       let hasCoding = false;
       let mcqCount = 0;
       let codingCount = 0;
-      
+
       // Analyze questions to determine entity types and subcategories
       assessmentData.questions.forEach((question) => {
         // Check if this is an MCQ question by seeing if it has meaningful options
@@ -565,7 +768,7 @@ const AssessmentCreation: React.FC = () => {
           codingCount++;
         }
       });
-      
+
       // Add MCQ entity with proper batching (50 questions per batch)
       if (mcqCount > 0) {
         const mcqBatches = Math.ceil(mcqCount / 50);
@@ -577,7 +780,7 @@ const AssessmentCreation: React.FC = () => {
           });
         }
       }
-      
+
       // Add Coding entity (no batching limit)
       if (hasCoding) {
         entities.push({
@@ -586,7 +789,7 @@ const AssessmentCreation: React.FC = () => {
           batch: `programming_batch_1`
         });
       }
-      
+
       // Update totalQuestions in configuration before submitting
       const assessmentDataToSend = {
         ...assessmentData,
@@ -595,18 +798,23 @@ const AssessmentCreation: React.FC = () => {
           totalQuestions: assessmentData.questions.length
         },
         entities: entities,
+        // Add createdBy and createdByName from user context
+        ...(user && { 
+          createdBy: user.email,
+          createdByName: user.name
+        }),
         // Add publishedAt if the assessment is published
         ...(assessmentData.isPublished && { publishedAt: new Date().toISOString() })
       };
-      
+
       // Log the data being sent
       console.log('Sending assessment data to backend:', JSON.stringify(assessmentDataToSend, null, 2));
       console.log('Scheduling data in assessmentDataToSend:', assessmentDataToSend.scheduling);
-      
+
       const response = await AssessmentService.createAssessment(assessmentDataToSend);
       console.log('Assessment created successfully:', response);
       setSuccessMessage("Assessment created successfully!");
-      
+
       // Reset form
       setAssessmentData({
         title: "",
@@ -645,11 +853,11 @@ const AssessmentCreation: React.FC = () => {
         entities: [],
         isPublished: false
       });
-      
+
       // Reset date/time components
       setStartDateComponents(extractTimeComponents(new Date().toISOString()));
       setEndDateComponents(extractTimeComponents(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()));
-      
+
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (error: any) {
       console.error("❌ Failed to create assessment:", error);
@@ -667,9 +875,98 @@ const AssessmentCreation: React.FC = () => {
         </div>
       )}
 
+      {/* Hidden file input for CSV import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".csv"
+        onChange={handleImportCSV}
+        style={{ display: 'none' }}
+      />
+
+      {/* Import Results */}
+      {importResults && (
+        <div
+          style={{
+            padding: '15px',
+            marginBottom: '20px',
+            background: importResults.failed > 0 ? '#f8d7da' : '#d4edda',
+            color: importResults.failed > 0 ? '#721c24' : '#155724',
+            borderRadius: '8px',
+            border: `1px solid ${importResults.failed > 0 ? '#f5c6cb' : '#c3e6cb'}`
+          }}
+        >
+          <div>
+            Import Results: {importResults.success} successful, {importResults.failed} failed
+          </div>
+          {importResults.errors.length > 0 && (
+            <details style={{ marginTop: '10px' }}>
+              <summary>Errors</summary>
+              <ul style={{ marginTop: '5px', maxHeight: '150px', overflowY: 'auto' }}>
+                {importResults.errors.map((error, index) => (
+                  <li key={index} style={{ fontSize: '0.9rem' }}>{error}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* Import Loading Indicator */}
+      {importLoading && (
+        <div
+          style={{
+            padding: '15px',
+            marginBottom: '20px',
+            background: '#d1ecf1',
+            color: '#0c5460',
+            borderRadius: '8px',
+            border: '1px solid #bee5eb'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>Importing assessment...</span>
+            <div style={{ width: '200px', height: '8px', background: '#e9ecef', borderRadius: '4px', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  background: '#0c5460',
+                  animation: 'loading 1s infinite'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes loading {
+          0% { width: 0%; }
+          100% { width: 100%; }
+        }
+      `}</style>
+
       <div className="pts-form-container">
+        {/* Add Import/Export buttons */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
+          <button
+            className="pts-btn-secondary"
+            onClick={triggerFileInput}
+            disabled={importLoading}
+          >
+            Import CSV
+          </button>
+          <button
+            className="pts-btn-secondary"
+            onClick={exportToCSV}
+          >
+            Export CSV
+          </button>
+        </div>
+
         <h2 className="pts-form-title">Create New Assessment</h2>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="pts-form-grid">
             <div className="pts-form-group">
@@ -751,7 +1048,7 @@ const AssessmentCreation: React.FC = () => {
                 required
               />
             </div>
-            
+
             <div className="pts-form-group">
               <label className="pts-form-label">Status</label>
               <select
@@ -897,10 +1194,10 @@ const AssessmentCreation: React.FC = () => {
             {assessmentData.referenceMaterials.length > 0 && (
               <div style={{ marginBottom: "20px" }}>
                 {assessmentData.referenceMaterials.map((material) => (
-                  <div key={material.id} style={{ 
-                    background: "white", 
-                    padding: "15px", 
-                    borderRadius: "8px", 
+                  <div key={material.id} style={{
+                    background: "white",
+                    padding: "15px",
+                    borderRadius: "8px",
                     marginBottom: "10px",
                     boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                     display: "flex",
@@ -912,9 +1209,9 @@ const AssessmentCreation: React.FC = () => {
                         {material.name} ({material.type.toUpperCase()})
                       </h4>
                       <p style={{ color: "#523C48", margin: "0", fontSize: "0.9rem" }}>
-                        <a 
-                          href={material.url} 
-                          target="_blank" 
+                        <a
+                          href={material.url}
+                          target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => {
                             // Validate URL before opening
@@ -925,8 +1222,8 @@ const AssessmentCreation: React.FC = () => {
                               alert("Invalid URL format. Please check the reference material link.");
                             }
                           }}
-                          style={{ 
-                            color: "#007bff", 
+                          style={{
+                            color: "#007bff",
                             textDecoration: "underline",
                             cursor: "pointer"
                           }}
@@ -935,7 +1232,7 @@ const AssessmentCreation: React.FC = () => {
                         </a>
                       </p>
                     </div>
-                    
+
                     <button
                       type="button"
                       className="pts-btn-danger"
@@ -950,10 +1247,10 @@ const AssessmentCreation: React.FC = () => {
             )}
 
             {assessmentData.referenceMaterials.length === 0 && (
-              <div style={{ 
-                textAlign: "center", 
-                padding: "40px", 
-                background: "#f8f9fa", 
+              <div style={{
+                textAlign: "center",
+                padding: "40px",
+                background: "#f8f9fa",
                 borderRadius: "8px",
                 border: "2px dashed #dee2e6"
               }}>
@@ -990,7 +1287,7 @@ const AssessmentCreation: React.FC = () => {
                 <h3 style={{ color: "#523C48", marginTop: 0 }}>
                   Add Reference Material
                 </h3>
-                
+
                 <div className="pts-form-group">
                   <label className="pts-form-label">Name *</label>
                   <input
@@ -1079,9 +1376,9 @@ const AssessmentCreation: React.FC = () => {
                   </button>
                 )}
                 {!assessmentData.category.includes("MCQ") && !assessmentData.category.includes("Coding") && (
-                  <div style={{ 
-                    padding: "8px 12px", 
-                    background: '#f8f9fa', 
+                  <div style={{
+                    padding: "8px 12px",
+                    background: '#f8f9fa',
                     borderRadius: '4px',
                     color: '#6c757d',
                     fontSize: '0.9rem'
@@ -1095,10 +1392,10 @@ const AssessmentCreation: React.FC = () => {
             {assessmentData.questions.length > 0 && (
               <div style={{ marginBottom: "20px" }}>
                 {assessmentData.questions.map((question, index) => (
-                  <div key={question.id} style={{ 
-                    background: "white", 
-                    padding: "20px", 
-                    borderRadius: "8px", 
+                  <div key={question.id} style={{
+                    background: "white",
+                    padding: "20px",
+                    borderRadius: "8px",
                     marginBottom: "15px",
                     boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
                   }}>
@@ -1110,25 +1407,25 @@ const AssessmentCreation: React.FC = () => {
                           {question.language && ` (${question.language})`}
                         </h4>
                         <p style={{ color: "#523C48", margin: "0 0 15px 0" }}>{question.text}</p>
-                        
+
                         {/* Show options only for MCQ questions */}
                         {question.hasOwnProperty('options') && question.options && question.options.length > 0 && question.options.some(opt => opt.trim() !== "") && (
                           <>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
                               {question.options.map((option, optIndex) => (
-                                <div key={optIndex} style={{ 
-                                  padding: "8px", 
-                                  background: (question.correctAnswer as string[]).includes(String.fromCharCode(65 + optIndex)) ? "#d4edda" : "#f8f9fa",
+                                <div key={optIndex} style={{
+                                  padding: "8px",
+                                  background: Array.isArray(question.correctAnswer) && question.correctAnswer.includes(String.fromCharCode(65 + optIndex)) ? "#d4edda" : "#f8f9fa",
                                   borderRadius: "4px",
-                                  border: (question.correctAnswer as string[]).includes(String.fromCharCode(65 + optIndex)) ? "1px solid #28a745" : "1px solid #dee2e6"
+                                  border: Array.isArray(question.correctAnswer) && question.correctAnswer.includes(String.fromCharCode(65 + optIndex)) ? "1px solid #28a745" : "1px solid #dee2e6"
                                 }}>
                                   <strong>{String.fromCharCode(65 + optIndex)}.</strong> {option}
-                                  {(question.correctAnswer as string[]).includes(String.fromCharCode(65 + optIndex)) && (
-                                    <span style={{ 
-                                      background: "#28a745", 
-                                      color: "white", 
-                                      padding: "2px 6px", 
-                                      borderRadius: "4px", 
+                                  {Array.isArray(question.correctAnswer) && question.correctAnswer.includes(String.fromCharCode(65 + optIndex)) && (
+                                    <span style={{
+                                      background: "#28a745",
+                                      color: "white",
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
                                       fontSize: "0.8rem",
                                       marginLeft: "8px"
                                     }}>
@@ -1140,21 +1437,21 @@ const AssessmentCreation: React.FC = () => {
                             </div>
                           </>
                         )}
-                        
+
                         {/* For Programming questions, show starter code (without language) */}
                         {question.starterCode && question.starterCode.trim() !== "" && (
-                          <div style={{ 
-                            padding: "10px", 
-                            background: "#e9ecef", 
+                          <div style={{
+                            padding: "10px",
+                            background: "#e9ecef",
                             borderRadius: "4px",
                             fontStyle: "italic",
                             marginBottom: "15px"
                           }}>
                             Programming Question
-                            <div style={{ 
-                              marginTop: "8px", 
-                              padding: "8px", 
-                              background: "#fff", 
+                            <div style={{
+                              marginTop: "8px",
+                              padding: "8px",
+                              background: "#fff",
                               borderRadius: "4px",
                               fontFamily: "monospace",
                               fontSize: "0.9rem"
@@ -1188,18 +1485,18 @@ const AssessmentCreation: React.FC = () => {
                               </button>
                             </div>
 
-                            <div style={{ 
-                              background: "#f8f9fa", 
-                              borderRadius: "4px", 
+                            <div style={{
+                              background: "#f8f9fa",
+                              borderRadius: "4px",
                               padding: "10px",
                               maxHeight: "200px",
                               overflowY: "auto"
                             }}>
                               {question.testCases && question.testCases.length > 0 ? (
                                 question.testCases.map((testCase) => (
-                                  <div key={testCase.id} style={{ 
-                                    display: "flex", 
-                                    justifyContent: "space-between", 
+                                  <div key={testCase.id} style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
                                     alignItems: "center",
                                     padding: "8px",
                                     borderBottom: "1px solid #dee2e6"
@@ -1228,7 +1525,7 @@ const AssessmentCreation: React.FC = () => {
                         )}
 
                       </div>
-                      
+
                       <button
                         type="button"
                         className="pts-btn-danger"
@@ -1244,10 +1541,10 @@ const AssessmentCreation: React.FC = () => {
             )}
 
             {assessmentData.questions.length === 0 && (
-              <div style={{ 
-                textAlign: "center", 
-                padding: "40px", 
-                background: "#f8f9fa", 
+              <div style={{
+                textAlign: "center",
+                padding: "40px",
+                background: "#f8f9fa",
                 borderRadius: "8px",
                 border: "2px dashed #dee2e6"
               }}>
@@ -1284,7 +1581,7 @@ const AssessmentCreation: React.FC = () => {
                 <h3 style={{ color: "#523C48", marginTop: 0 }}>
                   Add MCQ Question
                 </h3>
-                
+
                 <div className="pts-form-group">
                   <label className="pts-form-label">Question Text *</label>
                   <textarea
@@ -1317,7 +1614,7 @@ const AssessmentCreation: React.FC = () => {
                   <label className="pts-form-label">Correct Answer *</label>
                   <select
                     className="pts-form-select"
-                    value={(currentQuestion.correctAnswer as string[])[0] || ""}
+                    value={Array.isArray(currentQuestion.correctAnswer) ? currentQuestion.correctAnswer[0] || "" : ""}
                     onChange={(e) => handleQuestionChange("correctAnswer", [e.target.value])}
                     required
                   >
@@ -1329,7 +1626,7 @@ const AssessmentCreation: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                
+
                 {/* MCQ Subcategory Selection */}
                 <div className="pts-form-group">
                   <label className="pts-form-label">MCQ Subcategory *</label>
@@ -1407,7 +1704,7 @@ const AssessmentCreation: React.FC = () => {
                 <h3 style={{ color: "#523C48", marginTop: 0 }}>
                   Add Programming Question
                 </h3>
-                
+
                 <div className="pts-form-group">
                   <label className="pts-form-label">Question Text *</label>
                   <textarea
@@ -1491,7 +1788,7 @@ const AssessmentCreation: React.FC = () => {
                 <h3 style={{ color: "#523C48", marginTop: 0 }}>
                   Add Test Case
                 </h3>
-                
+
                 <div className="pts-form-group">
                   <label className="pts-form-label">Input *</label>
                   <textarea
@@ -1591,15 +1888,15 @@ const AssessmentCreation: React.FC = () => {
                   entities: [],
                   isPublished: false
                 });
-                
+
                 // Reset date/time components
                 setStartDateComponents(extractTimeComponents(new Date().toISOString()));
                 setEndDateComponents(extractTimeComponents(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()));
-                
+
                 // Reset question forms
                 setShowMcqForm(false);
                 setShowProgrammingForm(false);
-                
+
                 // Reset current question
                 setCurrentQuestion({
                   id: 0,
