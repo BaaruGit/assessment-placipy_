@@ -33,7 +33,7 @@ function initializeCognitoClient() {
             console.error('Please set COGNITO_CLIENT_ID in your .env file');
         }
 
-        cognitoRegion = process.env.COGNITO_REGION || process.env.AWS_REGION || 'us-east-1';
+        cognitoRegion = process.env.COGNITO_REGION || process.env.AWS_REGION;
         
         console.log(`Initializing Cognito client for region: ${cognitoRegion}`);
         

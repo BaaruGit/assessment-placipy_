@@ -12,7 +12,7 @@ class PTOService {
     this.messagesTable = new DynamoDBService(process.env.DYNAMODB_MESSAGES_TABLE_NAME || 'Assesment_placipy_messages');
     this.resultsTable = new DynamoDBService(process.env.DYNAMODB_RESULTS_TABLE_NAME || 'assessment_placipy_assessment_result');
     this.cognitoClient = new CognitoIdentityProviderClient({
-      region: process.env.COGNITO_REGION || process.env.AWS_REGION || 'us-east-1',
+      region: process.env.COGNITO_REGION || process.env.AWS_REGION,
       credentials: fromEnv()
     });
   }

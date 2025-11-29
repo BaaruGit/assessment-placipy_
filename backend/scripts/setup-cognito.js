@@ -8,7 +8,7 @@
 const AWS = require('aws-sdk');
 
 // Configure AWS
-AWS.config.update({ region: process.env.COGNITO_REGION || 'us-east-1' });
+AWS.config.update({ region: process.env.COGNITO_REGION});
 
 const cognito = new AWS.CognitoIdentityServiceProvider();
 
@@ -81,7 +81,7 @@ async function createCognitoResources() {
         console.log('Update your .env file with the following values:');
         console.log(`COGNITO_USER_POOL_ID=${userPoolId}`);
         console.log(`COGNITO_CLIENT_ID=${clientId}`);
-        console.log(`COGNITO_JWKS_URL=https://cognito-idp.${process.env.COGNITO_REGION || 'us-east-1'}.amazonaws.com/${userPoolId}/.well-known/jwks.json`);
+        console.log(`COGNITO_JWKS_URL=https://cognito-idp.${process.env.COGNITO_REGION}.amazonaws.com/${userPoolId}/.well-known/jwks.json`);
 
     } catch (error) {
         console.error('Error setting up Cognito resources:', error);

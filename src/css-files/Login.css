@@ -355,7 +355,21 @@
 }
 
 .login-button-secondary{
+   margin-top: 20px;
   margin-left: 55px;
+   background: linear-gradient(135deg, #523C48 0%, #9768E1 100%);
+  color: rgb(245, 238, 238);
+  border: none;
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-top: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  
 }
 
 @keyframes ripple {

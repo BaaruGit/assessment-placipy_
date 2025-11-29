@@ -26,7 +26,7 @@ async function fetchJwks() {
             throw new Error('COGNITO_USER_POOL_ID is not configured. Please set it in your .env file.');
         }
 
-        const region = process.env.COGNITO_REGION || process.env.AWS_REGION || 'us-east-1';
+        const region = process.env.COGNITO_REGION || process.env.AWS_REGION;
         const jwksUrl = process.env.COGNITO_JWKS_URL ||
             `https://cognito-idp.${region}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}/.well-known/jwks.json`;
 
