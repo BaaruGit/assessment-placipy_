@@ -36,7 +36,8 @@ class StudentService {
      * Set client PK based on email domain
      */
     private setClientPK(email: string): void {
-        this.clientPK = `CLIENT#${this.getDomainFromEmail(email)}`;
+        const domain = this.getDomainFromEmail(email);
+        this.clientPK = `CLIENT#${domain}`;
     }
 
     /**
@@ -168,32 +169,42 @@ class StudentService {
     /**
      * Get student by email
      */
-    async getStudentByEmail(email: string, requesterEmail: string) {
-        try {
-            // Set client PK based on requester's email domain
-            this.setClientPK(requesterEmail);
-            
-            const params = {
-                TableName: this.tableName,
-                Key: {
-                    PK: this.clientPK,
-                    SK: `STUDENT#${email}`
-                }
-            };
+async getStudentByEmail(email: string) {
+    try {
+        // Always use student's domain
+        this.setClientPK(email);
 
-            const result = await dynamodb.get(params).promise();
-            return result.Item || null;
-        } catch (error) {
-            throw new Error('Failed to fetch student: ' + error.message);
-        }
+        const params = {
+            TableName: this.tableName,
+            Key: {
+                PK: this.clientPK,
+                SK: `STUDENT#${email}`
+            }
+        };
+
+        const result = await dynamodb.get(params).promise();
+        return result.Item || null;
+
+    } catch (error) {
+        throw new Error('Failed to fetch student: ' + error.message);
     }
+}
 
     /**
      * Create or update student (Upsert)
      */
     async upsertStudent(studentData, createdByEmail) {
         try {
-            // Set client PK based on student's email domain (not creator's domain)
+            // Extract domains from emails
+            const studentDomain = this.getDomainFromEmail(studentData.email);
+            const creatorDomain = this.getDomainFromEmail(createdByEmail);
+            
+            // Restrict PTS users to only add students from their own domain
+            if (studentDomain !== creatorDomain) {
+                throw new Error(`You can only add students from your own domain (${creatorDomain}). Cannot add student from domain ${studentDomain}.`);
+            }
+            
+            // Set client PK based on student's email domain
             this.setClientPK(studentData.email);
             
             // Validate email domain
@@ -256,6 +267,15 @@ class StudentService {
      */
     async updateStudentStatus(email, status, updatedByEmail) {
         try {
+            // Extract domains from emails
+            const studentDomain = this.getDomainFromEmail(email);
+            const updaterDomain = this.getDomainFromEmail(updatedByEmail);
+            
+            // Restrict PTS users to only update students from their own domain
+            if (studentDomain !== updaterDomain) {
+                throw new Error(`You can only update students from your own domain (${updaterDomain}). Cannot update student from domain ${studentDomain}.`);
+            }
+            
             // Set client PK based on updater's email domain
             this.setClientPK(updatedByEmail);
             
@@ -297,6 +317,15 @@ class StudentService {
      */
     async deleteStudent(email: string, requesterEmail: string) {
         try {
+            // Extract domains from emails
+            const studentDomain = this.getDomainFromEmail(email);
+            const requesterDomain = this.getDomainFromEmail(requesterEmail);
+            
+            // Restrict PTS users to only delete students from their own domain
+            if (studentDomain !== requesterDomain) {
+                throw new Error(`You can only delete students from your own domain (${requesterDomain}). Cannot delete student from domain ${studentDomain}.`);
+            }
+            
             // Set client PK based on requester's email domain
             this.setClientPK(requesterEmail);
             

@@ -22,6 +22,7 @@ const StudentManagement: React.FC = () => {
   const [importLoading, setImportLoading] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [importResults, setImportResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const [domainAlert, setDomainAlert] = useState<{ show: boolean; emailDomain: string; userDomain: string }>({ show: false, emailDomain: '', userDomain: '' });
 
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -44,6 +45,23 @@ const StudentManagement: React.FC = () => {
     if (!emailRegex.test(formData.email)) {
       alert('Please enter a valid email address');
       return;
+    }
+
+    // Check if the email domain matches the logged-in user's domain
+    const emailDomain = formData.email.split('@')[1];
+    // In a real app, you would get the logged-in user's domain from auth context
+    // For now, we'll simulate this by extracting domain from the first student in the list
+    const userDomain = students.length > 0 ? students[0].email.split('@')[1] : emailDomain;
+    
+    if (emailDomain !== userDomain) {
+      const confirm = window.confirm(
+        `Warning: You are adding a student from domain '${emailDomain}' while you are logged in from domain '${userDomain}'. ` +
+        `This student will only be visible to users from the same domain. Are you sure you want to proceed?`
+      );
+      
+      if (!confirm) {
+        return;
+      }
     }
 
     try {
@@ -241,6 +259,34 @@ const StudentManagement: React.FC = () => {
       
       if (jsonData.length === 0) {
         throw new Error('No data found in Excel file');
+      }
+
+      // Check domains before importing
+      const userDomain = students.length > 0 ? students[0].email.split('@')[1] : '';
+      const differentDomains = [];
+      
+      for (let i = 0; i < jsonData.length; i++) {
+        const row: any = jsonData[i];
+        const email = row.Email || row.email || row['Email Address'] || '';
+        if (email) {
+          const emailDomain = email.split('@')[1];
+          if (emailDomain && userDomain && emailDomain !== userDomain) {
+            differentDomains.push({ row: i + 1, email, domain: emailDomain });
+          }
+        }
+      }
+      
+      if (differentDomains.length > 0) {
+        const confirm = window.confirm(
+          `Warning: You are importing students from different domains:\n` +
+          `${differentDomains.map(d => `  • Row ${d.row}: ${d.email} (${d.domain})`).join('\n')}\n\n` +
+          `These students will only be visible to users from their respective domains. Do you want to proceed?`
+        );
+        
+        if (!confirm) {
+          setImportLoading(false);
+          return;
+        }
       }
 
       // Process students

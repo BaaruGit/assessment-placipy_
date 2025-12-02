@@ -3,6 +3,37 @@ const express = require('express');
 const router = express.Router();
 const studentService = require('../services/StudentService');
 const { authenticateToken } = require('../auth/auth.middleware');
+const { getUserAttributes } = require('../auth/cognito');
+
+/**
+ * Helper function to get user email from Cognito profile
+ * Always fetches the actual email from the user's profile
+ */
+async function getEmailFromRequest(req) {
+    // Get user ID from JWT token
+    const userId = req.user?.['cognito:username'] || req.user?.username || req.user?.sub;
+    
+    if (!userId) {
+        throw new Error('User ID not found in authentication token');
+    }
+    
+    try {
+        console.log('Fetching email from Cognito profile for user ID:', userId);
+        // Always fetch email from Cognito profile to ensure accuracy
+        const userInfo = await getUserAttributes(userId);
+        const email = userInfo?.attributes?.email;
+        
+        if (!email) {
+            throw new Error('Email not found in user profile');
+        }
+        
+        console.log('Got email from Cognito profile:', email);
+        return email.toLowerCase();
+    } catch (error) {
+        console.error('Error fetching email from Cognito profile:', error);
+        throw new Error('Failed to fetch user email from profile: ' + error.message);
+    }
+}
 
 /**
  * GET /api/students
@@ -10,14 +41,15 @@ const { authenticateToken } = require('../auth/auth.middleware');
  */
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        // Get email from authenticated user
-        const requesterEmail = req.user?.email || req.user?.username || req.user?.sub || '';
+        const requesterEmail = await getEmailFromRequest(req);
+        console.log('GET /api/students - Requester email:', requesterEmail);
         const students = await studentService.getAllStudents(requesterEmail);
         res.status(200).json({
             success: true,
             data: students
         });
     } catch (error) {
+        console.error('Error in GET /api/students:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -32,8 +64,8 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:email', authenticateToken, async (req, res) => {
     try {
         const { email } = req.params;
-        // Get email from authenticated user
-        const requesterEmail = req.user?.email || req.user?.username || req.user?.sub || '';
+        const requesterEmail = await getEmailFromRequest(req);
+        console.log('GET /api/students/:email - Requester email:', requesterEmail);
         const student = await studentService.getStudentByEmail(email, requesterEmail);
         
         if (!student) {
@@ -48,6 +80,7 @@ router.get('/:email', authenticateToken, async (req, res) => {
             data: student
         });
     } catch (error) {
+        console.error('Error in GET /api/students/:email:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -62,7 +95,8 @@ router.get('/:email', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
     try {
         const studentData = req.body;
-        const createdByEmail = req.user.email;
+        const createdByEmail = await getEmailFromRequest(req);
+        console.log('POST /api/students - Creator email:', createdByEmail);
 
         // Validate required fields
         if (!studentData.email || !studentData.rollNumber || !studentData.name || !studentData.department) {
@@ -80,6 +114,7 @@ router.post('/', authenticateToken, async (req, res) => {
             data: student
         });
     } catch (error) {
+        console.error('Error in POST /api/students:', error);
         res.status(400).json({
             success: false,
             error: error.message
@@ -99,16 +134,8 @@ router.put('/:email/status', authenticateToken, async (req, res) => {
         const { email } = req.params;
         const { status } = req.body;
         
-        // Try to get email from different possible fields
-        const updatedByEmail = req.user?.email || req.user?.username || req.user?.sub || null;
-
-        // Add validation for updatedByEmail
-        if (!updatedByEmail) {
-            return res.status(400).json({
-                success: false,
-                error: 'User email not found in authentication token'
-            });
-        }
+        const updatedByEmail = await getEmailFromRequest(req);
+        console.log('PUT /api/students/:email/status - Updater email:', updatedByEmail);
 
         if (!status || !['Active', 'Inactive'].includes(status)) {
             return res.status(400).json({
@@ -125,6 +152,7 @@ router.put('/:email/status', authenticateToken, async (req, res) => {
             data: student
         });
     } catch (error) {
+        console.error('Error in PUT /api/students/:email/status:', error);
         res.status(400).json({
             success: false,
             error: error.message
@@ -139,8 +167,8 @@ router.put('/:email/status', authenticateToken, async (req, res) => {
 router.delete('/:email', authenticateToken, async (req, res) => {
     try {
         const { email } = req.params;
-        // Get email from authenticated user
-        const requesterEmail = req.user?.email || req.user?.username || req.user?.sub || '';
+        const requesterEmail = await getEmailFromRequest(req);
+        console.log('DELETE /api/students/:email - Requester email:', requesterEmail);
         const result = await studentService.deleteStudent(email, requesterEmail);
         
         res.status(200).json({
@@ -149,6 +177,7 @@ router.delete('/:email', authenticateToken, async (req, res) => {
             data: result
         });
     } catch (error) {
+        console.error('Error in DELETE /api/students/:email:', error);
         res.status(400).json({
             success: false,
             error: error.message

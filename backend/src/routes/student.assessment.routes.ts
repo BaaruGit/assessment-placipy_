@@ -25,8 +25,10 @@ router.get('/:assessmentId/with-questions', authMiddleware.authenticateToken, as
             });
         }
         
-        console.log(`Fetching assessment ${assessmentId} with questions`);
-        const result = await studentAssessmentService.getAssessmentWithQuestions(assessmentId);
+        // Get requester email for domain-based filtering
+        const requesterEmail = req.user?.email || req.user?.username || req.user?.sub || '';
+        console.log(`Fetching assessment ${assessmentId} with questions for user: ${requesterEmail}`);
+        const result = await studentAssessmentService.getAssessmentWithQuestions(assessmentId, requesterEmail);
         
         if (!result) {
             return res.status(404).json({
