@@ -193,16 +193,16 @@ class StudentService {
      */
     async upsertStudent(studentData, createdByEmail) {
         try {
-            // Set client PK based on creator's email domain
-            this.setClientPK(createdByEmail);
+            // Set client PK based on student's email domain (not creator's domain)
+            this.setClientPK(studentData.email);
             
             // Validate email domain
             if (!this.validateEmail(studentData.email)) {
                 throw new Error('Email must be from a valid domain');
             }
 
-            // Check if student exists
-            const existingStudent = await this.getStudentByEmail(studentData.email, createdByEmail);
+            // Check if student exists (use student's domain for lookup)
+            const existingStudent = await this.getStudentByEmail(studentData.email, studentData.email);
             const now = new Date().toISOString();
 
             const student = {
@@ -236,7 +236,7 @@ class StudentService {
                     // If Cognito creation fails, we should rollback the DynamoDB entry
                     console.error('Cognito user creation failed, rolling back DynamoDB entry');
                     try {
-                        await this.deleteStudent(studentData.email, createdByEmail);
+                        await this.deleteStudent(studentData.email, studentData.email);
                     } catch (deleteError) {
                         console.error('Failed to rollback DynamoDB entry:', deleteError.message);
                     }

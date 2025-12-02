@@ -39,9 +39,10 @@ const StudentManagement: React.FC = () => {
 
   // Unified save handler: used for both Add and Edit flows
   const handleSaveStudent = async () => {
-    // Validate email domain
-    if (!formData.email.endsWith('@ksrce.ac.in')) {
-      alert('Email must be from @ksrce.ac.in domain');
+    // Validate email format (allow any valid domain)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('Please enter a valid email address');
       return;
     }
 
@@ -158,19 +159,8 @@ const StudentManagement: React.FC = () => {
   };
 
   const handleEmailChange = (value: string) => {
-    // Auto-add domain if user types just the username
-    let email = value.toLowerCase();
-
-    // If email doesn't contain @ and user is typing, just update
-    if (!email.includes('@')) {
-      setFormData(prev => ({ ...prev, email }));
-    } else if (email.includes('@') && !email.endsWith('@ksrce.ac.in')) {
-      // If @ is present but not the right domain, suggest correction
-      const username = email.split('@')[0];
-      setFormData(prev => ({ ...prev, email: `${username}@ksrce.ac.in` }));
-    } else {
-      setFormData(prev => ({ ...prev, email }));
-    }
+    // Allow any valid email format, don't auto-add domain
+    setFormData(prev => ({ ...prev, email: value }));
   };
 
   // Load students on component mount
@@ -295,16 +285,10 @@ const StudentManagement: React.FC = () => {
             throw new Error('Missing department');
           }
           
-          // Validate email domain and fix if needed
-          if (!studentData.email.endsWith('@ksrce.ac.in')) {
-            // If email doesn't contain @, append the domain
-            if (!studentData.email.includes('@')) {
-              studentData.email = `${studentData.email}@ksrce.ac.in`;
-            } else {
-              // If it has @ but wrong domain, fix it
-              const username = studentData.email.split('@')[0];
-              studentData.email = `${username}@ksrce.ac.in`;
-            }
+          // Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(studentData.email)) {
+            throw new Error('Invalid email format');
           }
           
           // Create/update student
@@ -717,17 +701,11 @@ const StudentManagement: React.FC = () => {
                   className="pts-form-input"
                   value={formData.email}
                   onChange={e => handleEmailChange(e.target.value)}
-                  placeholder="john.doe@ksrce.ac.in"
-                  onBlur={e => {
-                    // Auto-complete domain on blur if not present
-                    if (e.target.value && !e.target.value.includes('@')) {
-                      handleEmailChange(`${e.target.value}@ksrce.ac.in`);
-                    }
-                  }}
+                  placeholder="john.doe@example.com"
                   disabled={Boolean(isEditing)} // Option A: email not editable when editing
                   style={isEditing ? { backgroundColor: '#f5f5f5' } : {}}
                 />
-                <small style={{ color: '#6c757d', fontSize: '0.85rem' }}>Must end with @ksrce.ac.in</small>
+                <small style={{ color: '#6c757d', fontSize: '0.85rem' }}>Enter a valid email address</small>
               </div>
 
               <div className="pts-form-group">
