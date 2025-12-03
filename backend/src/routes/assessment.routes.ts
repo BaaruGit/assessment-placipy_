@@ -3,6 +3,36 @@ const express = require('express');
 const authMiddleware = require('../auth/auth.middleware');
 const assessmentService = require('../services/AssessmentService');
 const notificationService = require('../services/NotificationService');
+const { getUserAttributes } = require('../auth/cognito');
+/**
+ * Helper function to get user email from Cognito profile
+ * Always fetches the actual email from the user's profile
+ */
+async function getEmailFromRequest(req) {
+    // Get user ID from JWT token
+    const userId = req.user?.['cognito:username'] || req.user?.username || req.user?.sub;
+    
+    if (!userId) {
+        throw new Error('User ID not found in authentication token');
+    }
+    
+    try {
+        console.log('Fetching email from Cognito profile for user ID:', userId);
+        // Always fetch email from Cognito profile to ensure accuracy
+        const userInfo = await getUserAttributes(userId);
+        const email = userInfo?.attributes?.email;
+        
+        if (!email) {
+            throw new Error('Email not found in user profile');
+        }
+        
+        console.log('Got email from Cognito profile:', email);
+        return email.toLowerCase();
+    } catch (error) {
+        console.error('Error fetching email from Cognito profile:', error);
+        throw new Error('Failed to fetch user email from profile: ' + error.message);
+    }
+}
 
 const router = express.Router();
 
@@ -15,11 +45,14 @@ router.get('/', authMiddleware.authenticateToken, async (req, res) => {
         console.log('=== Get All Assessments Request ===');
         console.log('User:', req.user);
 
+        // Get requester email from Cognito profile
+        const requesterEmail = await getEmailFromRequest(req);
+        
         const filters = {
             department: req.query.department,
             status: req.query.status,
             // Extract domain from user email for better performance
-            clientDomain: req.user.email ? req.user.email.split('@')[1] : null
+            clientDomain: requesterEmail.split('@')[1]
         };
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
         const lastKey = req.query.lastKey ? JSON.parse(req.query.lastKey as string) : null;
@@ -47,8 +80,9 @@ router.get('/:id', authMiddleware.authenticateToken, async (req, res) => {
         console.log('Params:', req.params);
 
         const { id } = req.params;
-        // Extract domain from user email
-        const domain = req.user.email ? req.user.email.split('@')[1] : 'ksrce.ac.in';
+        // Get requester email from Cognito profile and extract domain
+        const requesterEmail = await getEmailFromRequest(req);
+        const domain = requesterEmail.split('@')[1];
         console.log('Extracted domain from user email:', domain);
         
         // Validate assessment ID
@@ -102,8 +136,9 @@ router.get('/:id/with-questions', authMiddleware.authenticateToken, async (req, 
         console.log('Assessment service methods:', Object.keys(assessmentService));
 
         const { id } = req.params;
-        // Extract domain from user email
-        const domain = req.user.email ? req.user.email.split('@')[1] : 'ksrce.ac.in';
+        // Get requester email from Cognito profile and extract domain
+        const requesterEmail = await getEmailFromRequest(req);
+        const domain = requesterEmail.split('@')[1];
         console.log('Extracted domain from user email:', domain);
         
         // Validate assessment ID
@@ -165,8 +200,9 @@ router.get('/:id/questions', authMiddleware.authenticateToken, async (req, res) 
         console.log('Params:', req.params);
 
         const { id: assessmentId } = req.params;
-        // Extract domain from user email or use default
-        const domain = req.user.email ? req.user.email.split('@')[1] : 'ksrce.ac.in';
+        // Get requester email from Cognito profile and extract domain
+        const requesterEmail = await getEmailFromRequest(req);
+        const domain = requesterEmail.split('@')[1];
         console.log('Extracted domain from user email:', domain);
 
         // Validate assessment ID
@@ -215,27 +251,8 @@ router.post('/', authMiddleware.authenticateToken, async (req, res) => {
         console.log('Body:', req.body);
 
         const assessmentData = req.body;
-        // Separate email and name fields
-        // Use email from token or fall back to username if it looks like an email
-        // First try to get email from frontend data, then from JWT token
-        let createdBy = assessmentData.createdBy || null;
-
-        // If not provided by frontend, try to extract from JWT token
-        if (!createdBy) {
-            // Try common email fields in JWT tokens
-            if (req.user.email) {
-                createdBy = req.user.email;
-            } else if (req.user['cognito:email']) {
-                createdBy = req.user['cognito:email'];
-            } else if (req.user.username && req.user.username.includes('@')) {
-                createdBy = req.user.username;
-            } else if (req.user['cognito:username'] && req.user['cognito:username'].includes('@')) {
-                createdBy = req.user['cognito:username'];
-            } else {
-                // Fall back to sub (user ID) if no email found
-                createdBy = req.user.sub;
-            }
-        }
+        // Get creator email from Cognito profile
+        const createdBy = await getEmailFromRequest(req);
 
         console.log('JWT token user object:', JSON.stringify(req.user, null, 2));
         // Try multiple possible fields for the user's name
@@ -271,7 +288,7 @@ router.post('/', authMiddleware.authenticateToken, async (req, res) => {
         // Send notifications if assessment is published
         if (assessmentData.isPublished && result) {
             try {
-                const domain = createdBy.split('@')[1] || 'ksrce.ac.in';
+                const domain = createdBy.split('@')[1];
                 let studentEmails: string[] = [];
 
                 // Get target students based on departments
@@ -331,27 +348,8 @@ router.put('/:id', authMiddleware.authenticateToken, async (req, res) => {
 
         const { id } = req.params;
         const assessmentData = req.body;
-        // Separate email and name fields
-        // Use email from token or fall back to username if it looks like an email
-        // First try to get email from frontend data, then from JWT token
-        let updatedBy = assessmentData.updatedBy || null;
-
-        // If not provided by frontend, try to extract from JWT token
-        if (!updatedBy) {
-            // Try common email fields in JWT tokens
-            if (req.user.email) {
-                updatedBy = req.user.email;
-            } else if (req.user['cognito:email']) {
-                updatedBy = req.user['cognito:email'];
-            } else if (req.user.username && req.user.username.includes('@')) {
-                updatedBy = req.user.username;
-            } else if (req.user['cognito:username'] && req.user['cognito:username'].includes('@')) {
-                updatedBy = req.user['cognito:username'];
-            } else {
-                // Fall back to sub (user ID) if no email found
-                updatedBy = req.user.sub;
-            }
-        }
+        // Get updater email from Cognito profile
+        const updatedBy = await getEmailFromRequest(req);
 
         console.log('JWT token user object:', JSON.stringify(req.user, null, 2));
         // Try multiple possible fields for the user's name
@@ -381,7 +379,7 @@ router.put('/:id', authMiddleware.authenticateToken, async (req, res) => {
         // Send notifications if assessment is being published
         if (isBeingPublished && result) {
             try {
-                const domain = updatedBy.split('@')[1] || 'ksrce.ac.in';
+                const domain = updatedBy.split('@')[1];
                 let studentEmails: string[] = [];
 
                 // Get target students based on departments

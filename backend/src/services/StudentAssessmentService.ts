@@ -22,7 +22,7 @@ class StudentAssessmentService {
      * Get assessment with questions by assessment ID
      * Fetches both assessment metadata and all related questions
      */
-    async getAssessmentWithQuestions(assessmentId: string): Promise<any> {
+    async getAssessmentWithQuestions(assessmentId: string, requesterEmail: string): Promise<any> {
         try {
             console.log(`=== getAssessmentWithQuestions called with ID: ${assessmentId} ===`);
 
@@ -33,7 +33,7 @@ class StudentAssessmentService {
 
             // First get the assessment metadata
             console.log('Calling getAssessmentById...');
-            const assessment = await this.getAssessmentById(assessmentId);
+            const assessment = await this.getAssessmentById(assessmentId, requesterEmail);
             console.log('Assessment result:', assessment);
             
             if (!assessment) {
@@ -42,7 +42,7 @@ class StudentAssessmentService {
 
             // Get all questions for this assessment
             console.log('Calling getAssessmentQuestions...');
-            const questions = await this.getAssessmentQuestions(assessmentId);
+            const questions = await this.getAssessmentQuestions(assessmentId, requesterEmail);
             console.log('Questions result:', questions);
 
             // Return assessment with questions combined
@@ -59,18 +59,25 @@ class StudentAssessmentService {
     /**
      * Get assessment by ID
      */
-    async getAssessmentById(assessmentId: string): Promise<any> {
+    async getAssessmentById(assessmentId: string, requesterEmail: string): Promise<any> {
         try {
             console.log('=== getAssessmentById called with ID:', assessmentId, '===');
 
+            // Extract domain from requester's email for proper partitioning
+            const domain = requesterEmail.split('@')[1];
+            if (!domain) {
+                throw new Error('Invalid requester email format');
+            }
+            const clientPK = `CLIENT#${domain}`;
+
             // Based on your schema, assessments are stored with:
-            // PK = CLIENT#ksrce.ac.in
+            // PK = CLIENT#{domain}
             // SK = ASSESSMENT#ASSESS_CSE_001
             const params = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND SK = :sk',
                 ExpressionAttributeValues: {
-                    ':pk': 'CLIENT#ksrce.ac.in',
+                    ':pk': clientPK,
                     ':sk': `ASSESSMENT#${assessmentId}`
                 }
             };
@@ -96,7 +103,7 @@ class StudentAssessmentService {
     /**
      * Get assessment questions by assessment ID
      */
-    async getAssessmentQuestions(assessmentId: string): Promise<any[]> {
+    async getAssessmentQuestions(assessmentId: string, requesterEmail: string): Promise<any[]> {
         try {
             console.log(`=== getAssessmentQuestions called with ID: ${assessmentId} ===`);
 
@@ -105,8 +112,15 @@ class StudentAssessmentService {
                 throw new Error('Assessment ID is required');
             }
 
+            // Extract domain from requester's email for proper partitioning
+            const domain = requesterEmail.split('@')[1];
+            if (!domain) {
+                throw new Error('Invalid requester email format');
+            }
+            const clientPK = `CLIENT#${domain}`;
+
             // Based on your schema, questions are stored in batch items with:
-            // PK = CLIENT#ksrce.ac.in
+            // PK = CLIENT#{domain}
             // SK = ASSESSMENT#ASSESS_CSE_001#MCQ_BATCH_1 or CODING_BATCH_1
             // And the questions are in the 'questions' array property
             
@@ -114,7 +128,7 @@ class StudentAssessmentService {
                 TableName: this.questionsTableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                 ExpressionAttributeValues: {
-                    ':pk': 'CLIENT#ksrce.ac.in',
+                    ':pk': clientPK,
                     ':sk_prefix': `ASSESSMENT#${assessmentId}#`
                 }
             };

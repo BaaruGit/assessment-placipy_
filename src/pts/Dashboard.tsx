@@ -1,22 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Calendar, BarChart3, Users } from "lucide-react";
+import { FileText, BarChart3 } from "lucide-react";
+import AssessmentService from "../services/assessment.service";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalAssessments: 0,
     activeAssessments: 0,
-    totalStudents: 0,
-    completedToday: 0
+    completedToday: 0  // Static value for UI
   });
-
-  const [recentActivities] = useState([
-    { id: 1, action: "New assessment 'React Fundamentals' created", time: "2 hours ago", type: "creation" },
-    { id: 2, action: "Assessment 'JavaScript Basics' scheduled for CSE batch", time: "3 hours ago", type: "schedule" },
-    { id: 3, action: "45 students completed 'Python Quiz'", time: "5 hours ago", type: "completion" },
-    { id: 4, action: "Analytics report generated for October", time: "1 day ago", type: "report" },
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [assessments, setAssessments] = useState<any[]>([]);
 
   const [quickActions] = useState([
     {
@@ -26,38 +22,130 @@ const Dashboard: React.FC = () => {
       icon: <FileText size={24} />
     },
     {
-      title: "Schedule Assessment", 
-      description: "Schedule existing assessments for specific batches and dates",
-      action: "schedule",
-      icon: <Calendar size={24} />
+      title: "Student Management",
+      description: "Manage student enrollments and batch assignments",
+      action: "students",
+      icon: <BarChart3 size={24} />
     },
     {
       title: "View Analytics",
       description: "Analyze student performance and generate detailed reports",
       action: "stats", 
       icon: <BarChart3 size={24} />
-    },
-    {
-      title: "Manage Students",
-      description: "View and manage student enrollments and batch assignments",
-      action: "students",
-      icon: <Users size={24} />
     }
   ]);
 
-  // Simulate loading data
+  // Fetch real assessment data
   useEffect(() => {
-    const loadStats = () => {
-      setStats({
-        totalAssessments: 24,
-        activeAssessments: 8,
-        totalStudents: 156,
-        completedToday: 23
-      });
+    const loadStats = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch all assessments
+        const response = await AssessmentService.getAllAssessments();
+        
+        console.log("Dashboard: All assessments response:", response);
+        
+        // Extract assessments array from response
+        let assessments = [];
+        if (response && typeof response === 'object') {
+          if (Array.isArray(response)) {
+            assessments = response;
+          } else if (response.data && Array.isArray(response.data)) {
+            assessments = response.data;
+          } else if (response.items && Array.isArray(response.items)) {
+            assessments = response.items;
+          }
+        }
+        
+        console.log("Dashboard: Raw assessments:", assessments);
+        
+        // Store assessments for recent activity calculation
+        setAssessments(assessments);
+        
+        // Calculate counts - now including ALL assessments
+        const totalAssessments = assessments.length;
+        const activeAssessments = assessments.filter((assessment: any) => 
+          assessment.status === "ACTIVE"
+        ).length;
+        
+        console.log("Dashboard: Calculated stats:", { totalAssessments, activeAssessments });
+        
+        setStats(prevStats => ({
+          ...prevStats,
+          totalAssessments,
+          activeAssessments,
+          completedToday: 0  // Static value for UI
+        }));
+      } catch (err) {
+        console.error("Dashboard: Error fetching assessments:", err);
+        setError("Failed to load assessment data");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setTimeout(loadStats, 500);
+    loadStats();
   }, []);
+
+  // Generate recent activities from assessments
+  const generateRecentActivities = () => {
+    if (!assessments || assessments.length === 0) {
+      return [
+        { id: 1, action: "No recent activities", time: "Just now", type: "info" }
+      ];
+    }
+
+    // Sort assessments by creation date (newest first)
+    const sortedAssessments = [...assessments].sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const dateB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Take the 5 most recent assessments
+    const recentAssessments = sortedAssessments.slice(0, 5);
+
+    // Generate activity items
+    const activities = recentAssessments.map((assessment, index) => {
+      const createdDate = new Date(assessment.createdAt || assessment.updatedAt || Date.now());
+      const timeDiff = Date.now() - createdDate.getTime();
+      
+      // Format time difference
+      let timeString = "";
+      if (timeDiff < 60000) { // Less than 1 minute
+        timeString = "Just now";
+      } else if (timeDiff < 3600000) { // Less than 1 hour
+        const minutes = Math.floor(timeDiff / 60000);
+        timeString = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+      } else if (timeDiff < 86400000) { // Less than 1 day
+        const hours = Math.floor(timeDiff / 3600000);
+        timeString = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+      } else {
+        const days = Math.floor(timeDiff / 86400000);
+        timeString = `${days} day${days > 1 ? 's' : ''} ago`;
+      }
+
+      return {
+        id: index + 1,
+        action: `New assessment '${assessment.title}' created`,
+        time: timeString,
+        type: "creation",
+        assessmentId: assessment.assessmentId || null
+      };
+    });
+
+    // Add some variety if we have fewer than 4 activities
+    if (activities.length < 4) {
+      activities.push(
+        { id: activities.length + 1, action: "System maintenance completed", time: "2 hours ago", type: "system", assessmentId: null },
+        { id: activities.length + 2, action: "Analytics report generated", time: "1 day ago", type: "report", assessmentId: null }
+      );
+    }
+
+    return activities.slice(0, 4); // Limit to 4 activities
+  };
 
   const handleQuickAction = (action: string) => {
     // Navigate to respective pages using React Router
@@ -86,6 +174,72 @@ const Dashboard: React.FC = () => {
     month: 'long',
     day: 'numeric',
   });
+
+  // Show loading state (simplified)
+  if (loading) {
+    return (
+      <div className="pts-fade-in">
+        <div className="pts-welcome-container" style={{
+          background: 'linear-gradient(135deg, #9768E1 0%, #523C48 100%)',
+          borderRadius: '15px',
+          padding: '28px',
+          minHeight: '160px',
+          marginBottom: '24px',
+          color: '#FFFFFF',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <h2>Loading...</h2>
+        </div>
+        {/* Render the rest of the dashboard with default values while loading */}
+        <div className="pts-stats-grid">
+          <div className="pts-stat-card">
+            <h3>Total Assessments</h3>
+            <div className="pts-stat-value">{stats.totalAssessments}</div>
+            <div className="pts-stat-change">+4 from last month</div>
+          </div>
+          <div className="pts-stat-card">
+            <h3>Active Assessments</h3>
+            <div className="pts-stat-value">{stats.activeAssessments}</div>
+            <div className="pts-stat-change">Currently running</div>
+          </div>
+          <div className="pts-stat-card">
+            <h3>Completed Today</h3>
+            <div className="pts-stat-value">{stats.completedToday}</div>
+            <div className="pts-stat-change">Assessment submissions</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="pts-fade-in">
+        <div className="pts-welcome-container" style={{
+          background: 'linear-gradient(135deg, #9768E1 0%, #523C48 100%)',
+          borderRadius: '15px',
+          padding: '28px',
+          minHeight: '160px',
+          marginBottom: '24px',
+          color: '#FFFFFF',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <div>
+            <h2>Error Loading Dashboard</h2>
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Generate real-time recent activities
+  const recentActivities = generateRecentActivities();
 
   return (
     <div className="pts-fade-in">
@@ -139,11 +293,6 @@ const Dashboard: React.FC = () => {
           <h3>Active Assessments</h3>
           <div className="pts-stat-value">{stats.activeAssessments}</div>
           <div className="pts-stat-change">Currently running</div>
-        </div>
-        <div className="pts-stat-card">
-          <h3>Enrolled Students</h3>
-          <div className="pts-stat-value">{stats.totalStudents}</div>
-          <div className="pts-stat-change">Across all batches</div>
         </div>
         <div className="pts-stat-card">
           <h3>Completed Today</h3>

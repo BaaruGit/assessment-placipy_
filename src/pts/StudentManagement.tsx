@@ -22,6 +22,7 @@ const StudentManagement: React.FC = () => {
   const [importLoading, setImportLoading] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [importResults, setImportResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const [domainAlert, setDomainAlert] = useState<{ show: boolean; emailDomain: string; userDomain: string }>({ show: false, emailDomain: '', userDomain: '' });
 
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -39,10 +40,28 @@ const StudentManagement: React.FC = () => {
 
   // Unified save handler: used for both Add and Edit flows
   const handleSaveStudent = async () => {
-    // Validate email domain
-    if (!formData.email.endsWith('@ksrce.ac.in')) {
-      alert('Email must be from @ksrce.ac.in domain');
+    // Validate email format (allow any valid domain)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('Please enter a valid email address');
       return;
+    }
+
+    // Check if the email domain matches the logged-in user's domain
+    const emailDomain = formData.email.split('@')[1];
+    // In a real app, you would get the logged-in user's domain from auth context
+    // For now, we'll simulate this by extracting domain from the first student in the list
+    const userDomain = students.length > 0 ? students[0].email.split('@')[1] : emailDomain;
+    
+    if (emailDomain !== userDomain) {
+      const confirm = window.confirm(
+        `Warning: You are adding a student from domain '${emailDomain}' while you are logged in from domain '${userDomain}'. ` +
+        `This student will only be visible to users from the same domain. Are you sure you want to proceed?`
+      );
+      
+      if (!confirm) {
+        return;
+      }
     }
 
     try {
@@ -158,19 +177,8 @@ const StudentManagement: React.FC = () => {
   };
 
   const handleEmailChange = (value: string) => {
-    // Auto-add domain if user types just the username
-    let email = value.toLowerCase();
-
-    // If email doesn't contain @ and user is typing, just update
-    if (!email.includes('@')) {
-      setFormData(prev => ({ ...prev, email }));
-    } else if (email.includes('@') && !email.endsWith('@ksrce.ac.in')) {
-      // If @ is present but not the right domain, suggest correction
-      const username = email.split('@')[0];
-      setFormData(prev => ({ ...prev, email: `${username}@ksrce.ac.in` }));
-    } else {
-      setFormData(prev => ({ ...prev, email }));
-    }
+    // Allow any valid email format, don't auto-add domain
+    setFormData(prev => ({ ...prev, email: value }));
   };
 
   // Load students on component mount
@@ -253,6 +261,34 @@ const StudentManagement: React.FC = () => {
         throw new Error('No data found in Excel file');
       }
 
+      // Check domains before importing
+      const userDomain = students.length > 0 ? students[0].email.split('@')[1] : '';
+      const differentDomains = [];
+      
+      for (let i = 0; i < jsonData.length; i++) {
+        const row: any = jsonData[i];
+        const email = row.Email || row.email || row['Email Address'] || '';
+        if (email) {
+          const emailDomain = email.split('@')[1];
+          if (emailDomain && userDomain && emailDomain !== userDomain) {
+            differentDomains.push({ row: i + 1, email, domain: emailDomain });
+          }
+        }
+      }
+      
+      if (differentDomains.length > 0) {
+        const confirm = window.confirm(
+          `Warning: You are importing students from different domains:\n` +
+          `${differentDomains.map(d => `  • Row ${d.row}: ${d.email} (${d.domain})`).join('\n')}\n\n` +
+          `These students will only be visible to users from their respective domains. Do you want to proceed?`
+        );
+        
+        if (!confirm) {
+          setImportLoading(false);
+          return;
+        }
+      }
+
       // Process students
       let successCount = 0;
       let failedCount = 0;
@@ -295,16 +331,10 @@ const StudentManagement: React.FC = () => {
             throw new Error('Missing department');
           }
           
-          // Validate email domain and fix if needed
-          if (!studentData.email.endsWith('@ksrce.ac.in')) {
-            // If email doesn't contain @, append the domain
-            if (!studentData.email.includes('@')) {
-              studentData.email = `${studentData.email}@ksrce.ac.in`;
-            } else {
-              // If it has @ but wrong domain, fix it
-              const username = studentData.email.split('@')[0];
-              studentData.email = `${username}@ksrce.ac.in`;
-            }
+          // Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(studentData.email)) {
+            throw new Error('Invalid email format');
           }
           
           // Create/update student
@@ -717,17 +747,11 @@ const StudentManagement: React.FC = () => {
                   className="pts-form-input"
                   value={formData.email}
                   onChange={e => handleEmailChange(e.target.value)}
-                  placeholder="john.doe@ksrce.ac.in"
-                  onBlur={e => {
-                    // Auto-complete domain on blur if not present
-                    if (e.target.value && !e.target.value.includes('@')) {
-                      handleEmailChange(`${e.target.value}@ksrce.ac.in`);
-                    }
-                  }}
+                  placeholder="john.doe@example.com"
                   disabled={Boolean(isEditing)} // Option A: email not editable when editing
                   style={isEditing ? { backgroundColor: '#f5f5f5' } : {}}
                 />
-                <small style={{ color: '#6c757d', fontSize: '0.85rem' }}>Must end with @ksrce.ac.in</small>
+                <small style={{ color: '#6c757d', fontSize: '0.85rem' }}>Enter a valid email address</small>
               </div>
 
               <div className="pts-form-group">
