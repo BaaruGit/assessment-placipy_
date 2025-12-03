@@ -46,9 +46,7 @@ const Notifications: React.FC = () => {
     if (activeTab === 'results') {
       return notifications.filter((n) => n.type === 'result_published');
     }
-    if (activeTab === 'reminders') {
-      return notifications.filter((n) => n.type === 'reminder');
-    }
+
     if (activeTab === 'general') {
       return notifications.filter((n) => n.type === 'announcement');
     }
