@@ -556,9 +556,8 @@ class AssessmentService {
             console.log('Limit:', limit);
             console.log('LastKey:', lastKey);
 
-            // If a specific domain/client is provided in filters, use query for better performance
             if (filters.clientDomain) {
-                // Use query for a specific client domain
+                // Query for a specific client domain
                 const queryParams: any = {
                     TableName: this.assessmentsTableName,
                     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
@@ -569,135 +568,126 @@ class AssessmentService {
                     Limit: limit
                 };
 
-                // Add filter expressions for additional filters
-                const filterExpressions = [];
+                const filterExpressions: string[] = [];
                 const expressionAttributeValues: any = {};
+                const expressionAttributeNames: any = {};
 
-                // Add department filter if provided
                 if (filters.department) {
-                    filterExpressions.push('department = :department');
+                    filterExpressions.push('(department = :department OR department = :allUpper OR department = :allLower OR department = :allDepts OR department = :allDeptsUpper)');
                     expressionAttributeValues[':department'] = filters.department;
+                    expressionAttributeValues[':allUpper'] = 'ALL';
+                    expressionAttributeValues[':allLower'] = 'All';
+                    expressionAttributeValues[':allDepts'] = 'All Departments';
+                    expressionAttributeValues[':allDeptsUpper'] = 'ALL DEPARTMENTS';
                 }
 
-                // Add status filter if provided
                 if (filters.status) {
                     filterExpressions.push('#status = :status');
                     expressionAttributeValues[':status'] = filters.status;
-                    // Use expression attribute names for reserved words like 'status'
-                    queryParams.ExpressionAttributeNames = {
-                        '#status': 'status'
-                    };
+                    expressionAttributeNames['#status'] = 'status';
                 }
 
-                // Combine all filter expressions
                 if (filterExpressions.length > 0) {
                     queryParams.FilterExpression = filterExpressions.join(' AND ');
-                    Object.assign(queryParams.ExpressionAttributeValues, expressionAttributeValues);
+                    queryParams.ExpressionAttributeValues = {
+                        ...queryParams.ExpressionAttributeValues,
+                        ...expressionAttributeValues
+                    };
+                    if (Object.keys(expressionAttributeNames).length > 0) {
+                        queryParams.ExpressionAttributeNames = expressionAttributeNames;
+                    }
                 }
 
                 if (lastKey) {
                     queryParams.ExclusiveStartKey = lastKey;
                 }
 
-                console.log('Querying with params:', JSON.stringify(queryParams, null, 2));
                 const queryResult = await dynamodb.query(queryParams).promise();
-                console.log('Query result count:', queryResult.Count);
-                console.log('Query result items:', JSON.stringify(queryResult.Items, null, 2));
-
-                // Filter out batch items (those with #MCQ_BATCH_ or #CODING_BATCH_ in SK)
                 let items = queryResult.Items || [];
-                console.log('Total items before filtering:', items.length);
 
+                // Keep only assessment items (exclude batch items)
                 items = items.filter(item => {
-                    // Check if this is an assessment item (not a batch item)
-                    // Swapped: Now PK is CLIENT# and SK is ASSESSMENT#
-                    const isAssessment = item.PK &&
-                        item.PK.startsWith('CLIENT#') &&
-                        item.SK &&
-                        item.SK.startsWith('ASSESSMENT#') &&
-                        !item.SK.includes('#MCQ_BATCH_') &&
-                        !item.SK.includes('#CODING_BATCH_');
-                    console.log('Item PK:', item.PK, 'SK:', item.SK, 'Is Assessment:', isAssessment);
-                    return isAssessment;
+                    return item.PK && item.PK.startsWith('CLIENT#') && item.SK && item.SK.startsWith('ASSESSMENT#') &&
+                        !item.SK.includes('#MCQ_BATCH_') && !item.SK.includes('#CODING_BATCH_');
                 });
 
-                console.log('Total items after filtering:', items.length);
+                // Strict in-memory department filter (case/whitespace normalized)
+                if (filters.department) {
+                    const deptNorm = String(filters.department).trim().toLowerCase();
+                    items = items.filter((item: any) => {
+                        const v = (item.department ?? '').toString().trim().toLowerCase();
+                        return v === deptNorm || v === 'all' || v === 'all departments';
+                    });
+                }
 
                 return {
-                    items: items,
+                    items,
                     lastKey: queryResult.LastEvaluatedKey,
                     hasMore: !!queryResult.LastEvaluatedKey
                 };
             } else {
-                // Use scan for all domains/clients
-                // Build the base scan parameters with swapped PK/SK structure
+                // Scan across all client domains (less efficient)
                 const scanParams: any = {
                     TableName: this.assessmentsTableName,
                     Limit: limit
                 };
 
-                // Build filter expression based on provided filters
-                const filterExpressions = [];
+                const filterExpressions: string[] = [];
                 const expressionAttributeValues: any = {};
+                const expressionAttributeNames: any = {};
 
-                // Add base filter to only get assessment items (not batch items)
-                // Swapped: Now PK is CLIENT# and SK is ASSESSMENT#
+                // Only assessment items (exclude batches) using PK/SK prefixes
                 filterExpressions.push('begins_with(PK, :pk_prefix) AND begins_with(SK, :sk_prefix)');
                 expressionAttributeValues[':pk_prefix'] = 'CLIENT#';
                 expressionAttributeValues[':sk_prefix'] = 'ASSESSMENT#';
 
-                // Add department filter if provided
                 if (filters.department) {
-                    filterExpressions.push('department = :department');
+                    filterExpressions.push('(department = :department OR department = :allUpper OR department = :allLower OR department = :allDepts OR department = :allDeptsUpper)');
                     expressionAttributeValues[':department'] = filters.department;
+                    expressionAttributeValues[':allUpper'] = 'ALL';
+                    expressionAttributeValues[':allLower'] = 'All';
+                    expressionAttributeValues[':allDepts'] = 'All Departments';
+                    expressionAttributeValues[':allDeptsUpper'] = 'ALL DEPARTMENTS';
                 }
 
-                // Add status filter if provided
                 if (filters.status) {
                     filterExpressions.push('#status = :status');
                     expressionAttributeValues[':status'] = filters.status;
-                    // Use expression attribute names for reserved words like 'status'
-                    scanParams.ExpressionAttributeNames = {
-                        '#status': 'status'
-                    };
+                    expressionAttributeNames['#status'] = 'status';
                 }
 
-                // Combine all filter expressions
                 if (filterExpressions.length > 0) {
                     scanParams.FilterExpression = filterExpressions.join(' AND ');
                     scanParams.ExpressionAttributeValues = expressionAttributeValues;
+                    if (Object.keys(expressionAttributeNames).length > 0) {
+                        scanParams.ExpressionAttributeNames = expressionAttributeNames;
+                    }
                 }
 
                 if (lastKey) {
                     scanParams.ExclusiveStartKey = lastKey;
                 }
 
-                console.log('Scanning with params:', JSON.stringify(scanParams, null, 2));
                 const scanResult = await dynamodb.scan(scanParams).promise();
-                console.log('Scan result count:', scanResult.Count);
-                console.log('Scan result items:', JSON.stringify(scanResult.Items, null, 2));
-
-                // Filter out batch items (those with #MCQ_BATCH_ or #CODING_BATCH_ in SK)
                 let items = scanResult.Items || [];
-                console.log('Total items before filtering:', items.length);
 
+                // Keep only assessment items (exclude batch items)
                 items = items.filter(item => {
-                    // Check if this is an assessment item (not a batch item)
-                    // Swapped: Now PK is CLIENT# and SK is ASSESSMENT#
-                    const isAssessment = item.PK &&
-                        item.PK.startsWith('CLIENT#') &&
-                        item.SK &&
-                        item.SK.startsWith('ASSESSMENT#') &&
-                        !item.SK.includes('#MCQ_BATCH_') &&
-                        !item.SK.includes('#CODING_BATCH_');
-                    console.log('Item PK:', item.PK, 'SK:', item.SK, 'Is Assessment:', isAssessment);
-                    return isAssessment;
+                    return item.PK && item.PK.startsWith('CLIENT#') && item.SK && item.SK.startsWith('ASSESSMENT#') &&
+                        !item.SK.includes('#MCQ_BATCH_') && !item.SK.includes('#CODING_BATCH_');
                 });
 
-                console.log('Total items after filtering:', items.length);
+                // Strict in-memory department filter (case/whitespace normalized)
+                if (filters.department) {
+                    const deptNorm = String(filters.department).trim().toLowerCase();
+                    items = items.filter((item: any) => {
+                        const v = (item.department ?? '').toString().trim().toLowerCase();
+                        return v === deptNorm || v === 'all' || v === 'all departments';
+                    });
+                }
 
                 return {
-                    items: items,
+                    items,
                     lastKey: scanResult.LastEvaluatedKey,
                     hasMore: !!scanResult.LastEvaluatedKey
                 };

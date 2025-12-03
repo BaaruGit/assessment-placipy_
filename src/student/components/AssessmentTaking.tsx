@@ -83,113 +83,116 @@ const AssessmentTaking: React.FC = () => {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const navigate = useNavigate();
   const { user } = useUser();
-  
+
   // State for assessment data
   const [assessmentData, setAssessmentData] = useState<AssessmentData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // State for tabs
   const [activeTab, setActiveTab] = useState<'mcq' | 'coding'>('mcq');
-  
+
   // State for showing language selection alert
   const [showLanguageAlert, setShowLanguageAlert] = useState<boolean>(true);
-  
+
   // State for timer
   const [timeLeft, setTimeLeft] = useState<number>(60 * 60); // default 60 minutes in seconds, will be overridden by assessment config
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  
+
   // State for MCQ section
   const [currentMCQIndex, setCurrentMCQIndex] = useState<number>(0);
-  const [mcqAnswers, setMcqAnswers] = useState<{[key: string]: number}>({});
-  
+  const [mcqAnswers, setMcqAnswers] = useState<{ [key: string]: number }>({});
+
   // State for coding section
   const [currentCodingIndex, setCurrentCodingIndex] = useState<number>(0);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('javascript');
-  const [code, setCode] = useState<{[key: string]: {[key: string]: string}}>({});
-  const [executionResult, setExecutionResult] = useState<{[key: string]: SubmissionResult}>({});
-  const [testCaseResults, setTestCaseResults] = useState<{[key: string]: {passed: boolean, actualOutput: string, expectedOutput: string, input: string}[]}>({});
+  const [code, setCode] = useState<{ [key: string]: { [key: string]: string } }>({});
+  const [executionResult, setExecutionResult] = useState<{ [key: string]: SubmissionResult }>({});
+  const [testCaseResults, setTestCaseResults] = useState<{ [key: string]: { passed: boolean, actualOutput: string, expectedOutput: string, input: string }[] }>({});
   const [allTestCasesPassed, setAllTestCasesPassed] = useState<boolean>(false);
   // State to track which coding challenges have been successfully executed without errors
   const [successfulExecutions, setSuccessfulExecutions] = useState<Record<string, boolean>>({});
   const [isAutoRunEnabled, setIsAutoRunEnabled] = useState<boolean>(false); // Disable auto-run by default
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customInput, setCustomInput] = useState<string>('');
-  
+
   // State for assessment completion
   const [isAssessmentCompleted, setIsAssessmentCompleted] = useState<boolean>(false);
   const [submitted, setSubmitted] = useState(false);
   const [mcqResults, setMcqResults] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  
+
+  // State for showing test cases dropdown
+  const [showTestCases, setShowTestCases] = useState<boolean>(false);
+
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const codeEditorRef = useRef<HTMLTextAreaElement>(null);
   const autoRunTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasFetchedData = useRef(false); // To prevent multiple API calls
-  
+
   // Memoized function to extract questions
   const { mcqQuestions, codingChallenges } = React.useMemo(() => {
     if (!assessmentData) {
       return { mcqQuestions: [], codingChallenges: [] };
     }
-    
+
     // Extract MCQ questions from assessment data
-    const mcqQuestions: MCQQuestion[] = assessmentData?.mcqQuestions || 
+    const mcqQuestions: MCQQuestion[] = assessmentData?.mcqQuestions ||
       assessmentData?.questions?.filter((q): q is MCQQuestion => 'options' in q) || [];
-    
+
     // Extract coding challenges from assessment data
-    const codingChallenges: CodingQuestion[] = assessmentData?.codingQuestions || 
+    const codingChallenges: CodingQuestion[] = assessmentData?.codingQuestions ||
       assessmentData?.questions?.filter((q): q is CodingQuestion => 'starterCode' in q || 'testCases' in q) || [];
-    
+
     return { mcqQuestions, codingChallenges };
   }, [assessmentData]);
-  
+
   // Get current challenge safely
   const currentChallenge = codingChallenges[currentCodingIndex];
-  
+
   // Preprocess React code to make it runnable in a Node.js environment
   const preprocessReactCode = (code: string): string => {
     if (!code.trim()) return code;
-    
+
     // Simple approach: Remove JSX syntax and extract JavaScript logic
     try {
       // Remove comments first
       let cleanCode = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-      
+
       // Extract JavaScript logic by removing JSX tags but preserving the code structure
       // This is a simplified approach for basic React code testing
-      
+
       // Extract function definitions (more comprehensive)
       const functionRegex = /(function\s+\w+\s*\([^)]*\)\s*{[\s\S]*?})|(const\s+\w+\s*=\s*\([^)]*\)\s*=>\s*{[\s\S]*?})|(let\s+\w+\s*=\s*\([^)]*\)\s*=>\s*{[\s\S]*?})|(var\s+\w+\s*=\s*\([^)]*\)\s*=>\s*{[\s\S]*?})/g;
       const functionMatches = cleanCode.match(functionRegex) || [];
-      
+
       // Extract variable declarations
       const varRegex = /(const|let|var)\s+\w+\s*=\s*[^;]*;/g;
       const varMatches = cleanCode.match(varRegex) || [];
-      
+
       // Extract console.log statements
       const logRegex = /console\.log\([^;]*\);/g;
       const logMatches = cleanCode.match(logRegex) || [];
-      
+
       // Combine all extracted JavaScript
       let extractedJS = '';
-      
+
       // Add functions
       if (functionMatches.length > 0) {
         extractedJS += functionMatches.join('\n\n') + '\n\n';
       }
-      
+
       // Add variables
       if (varMatches.length > 0) {
         extractedJS += varMatches.join('\n') + '\n\n';
       }
-      
+
       // Add console logs
       if (logMatches.length > 0) {
         extractedJS += logMatches.join('\n') + '\n\n';
       }
-      
+
       // If we found JavaScript logic, execute it
       if (extractedJS.trim()) {
         return `
@@ -198,7 +201,7 @@ ${extractedJS}
 console.log("React JavaScript logic executed successfully");
 `;
       }
-      
+
       // Fallback: If no clear JavaScript logic found, just run the code with error handling
       // But first, try to make JSX compatible by commenting out JSX lines
       const lines = code.split('\n');
@@ -209,7 +212,7 @@ console.log("React JavaScript logic executed successfully");
         }
         return line;
       });
-      
+
       return `
 // Processed React code (JSX lines commented out)
 try {
@@ -219,7 +222,7 @@ try {
   console.error("Error in React code:", error.message);
 }
 `;
-      
+
     } catch (error) {
       // If all else fails, provide a safe fallback
       return `
@@ -230,14 +233,14 @@ console.log(\`${code.substring(0, 200)}${code.length > 200 ? '...' : ''}\`);
 `;
     }
   };
-  
+
   // Preprocess HTML code to make it runnable
   const preprocessHtmlCode = (code: string): string => {
     if (!code.trim()) return code;
-    
+
     // Check if this is HTML with script tags
     const scriptMatches = code.match(/<script[^>]*>([\s\S]*?)<\/script>/gi);
-    
+
     if (scriptMatches && scriptMatches.length > 0) {
       // Extract JavaScript from script tags
       let jsCode = '';
@@ -247,7 +250,7 @@ console.log(\`${code.substring(0, 200)}${code.length > 200 ? '...' : ''}\`);
           jsCode += innerCode + '\n';
         }
       });
-      
+
       if (jsCode.trim()) {
         return `
 // Extracted JavaScript from HTML
@@ -260,7 +263,7 @@ try {
 `;
       }
     }
-    
+
     // If no script tags or no executable JavaScript, treat as plain text
     return `
 // HTML code detected
@@ -276,10 +279,10 @@ console.log("In a browser environment, this would render as HTML");
     if (!currentChallenge) {
       return;
     }
-    
+
     // Get current code for the challenge and language
     let currentCode = code[currentChallenge.questionId]?.[selectedLanguage] || '';
-    
+
     // Preprocess code for specific languages
     if (selectedLanguage === 'react') {
       // For React, we need to wrap the code in a basic React environment simulation
@@ -289,10 +292,10 @@ console.log("In a browser environment, this would render as HTML");
       // For HTML, we might want to wrap it in a basic HTML structure
       currentCode = preprocessHtmlCode(currentCode);
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       if (inputType === 'test') {
         // Run all test cases
         await runTestCases(currentCode);
@@ -304,15 +307,15 @@ console.log("In a browser environment, this would render as HTML");
         } else if (inputType === 'custom') {
           input = customInput;
         }
-        
+
         // Execute code using Judge0 service
         const result = await judge0Service.executeCode(currentCode, selectedLanguage, input);
-        
+
         setExecutionResult(prev => ({
           ...prev,
           [currentChallenge.questionId]: result
         }));
-        
+
         // Mark as successful execution if no compilation or runtime errors
         if (!result.compile_output && !result.stderr) {
           setSuccessfulExecutions(prev => ({
@@ -337,7 +340,7 @@ console.log("In a browser environment, this would render as HTML");
       } else if (errorMessage.includes('Failed to submit code')) {
         errorMessage = 'Failed to connect to the code execution service. Please check your internet connection and try again.';
       }
-      
+
       setExecutionResult(prev => ({
         ...prev,
         [currentChallenge.questionId]: {
@@ -350,7 +353,7 @@ console.log("In a browser environment, this would render as HTML");
           memory: 0
         }
       }));
-      
+
       // Mark as unsuccessful execution due to error
       setSuccessfulExecutions(prev => ({
         ...prev,
@@ -360,16 +363,16 @@ console.log("In a browser environment, this would render as HTML");
       setIsLoading(false);
     }
   }, [currentChallenge, code, selectedLanguage, customInput]);
-  
+
   // Utility function for delay
   const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-  
+
   // Run all test cases for current challenge
   const runTestCases = useCallback(async (codeToTest: string) => {
     try {
       const currentChallenge = codingChallenges[currentCodingIndex];
       if (!currentChallenge) return;
-      
+
       // Check if testCases exist before accessing
       if (!currentChallenge.testCases) {
         // Mark as successful execution if no test cases
@@ -379,39 +382,39 @@ console.log("In a browser environment, this would render as HTML");
         }));
         return;
       }
-      
-      const results: {passed: boolean, actualOutput: string, expectedOutput: string, input: string}[] = [];
-      
+
+      const results: { passed: boolean, actualOutput: string, expectedOutput: string, input: string }[] = [];
+
       // Run each test case with delay to avoid rate limiting
       for (let i = 0; i < currentChallenge.testCases.length; i++) {
         const testCase = currentChallenge.testCases[i];
-        
+
         try {
           // Preprocess input for array inputs in specific languages
           let processedInput = testCase.input;
-          
+
           // For Python and JavaScript, convert array string to actual array if needed
-          if ((selectedLanguage === 'python' || selectedLanguage === 'javascript') && 
-              testCase.input.startsWith('[') && testCase.input.endsWith(']')) {
+          if ((selectedLanguage === 'python' || selectedLanguage === 'javascript') &&
+            testCase.input.startsWith('[') && testCase.input.endsWith(']')) {
             // Input is already in correct format for these languages
           }
-          
+
           const result = await judge0Service.executeCode(codeToTest, selectedLanguage, processedInput);
-          
+
           // Normalize output for comparison (remove trailing newlines and whitespace)
           const actualOutput = (result.stdout || '').trim();
           const expectedOutput = testCase.expectedOutput.trim();
-          
+
           // Check if test case passed
           const passed = actualOutput === expectedOutput;
-          
+
           results.push({
             passed,
             actualOutput,
             expectedOutput,
             input: testCase.input
           });
-          
+
           // Add delay between test cases to avoid rate limiting (except for the last one)
           if (i < currentChallenge.testCases.length - 1) {
             await delay(1000); // 1 second delay
@@ -438,35 +441,35 @@ console.log("In a browser environment, this would render as HTML");
             expectedOutput: testCase.expectedOutput,
             input: testCase.input
           });
-          
+
           // If it's a rate limit error, stop executing more test cases
           if (errorMessage.includes('rate limit') || errorMessage.includes('API key')) {
             break;
           }
-          
+
           // Add delay between test cases to avoid rate limiting (except for the last one)
           if (i < currentChallenge.testCases.length - 1) {
             await delay(1000); // 1 second delay
           }
         }
       }
-      
+
       // Update test case results
       setTestCaseResults(prev => ({
         ...prev,
         [currentChallenge.questionId]: results
       }));
-      
+
       // Check if all test cases passed
       const allPassed = results.every(result => result.passed);
       setAllTestCasesPassed(allPassed);
-      
+
       // Mark as successful execution if no compilation or runtime errors
       setSuccessfulExecutions(prev => ({
         ...prev,
         [currentChallenge.questionId]: true
       }));
-      
+
       // Show result in execution panel
       setExecutionResult(prev => ({
         ...prev,
@@ -480,7 +483,7 @@ console.log("In a browser environment, this would render as HTML");
           memory: 0
         }
       }));
-      
+
     } catch (error) {
       // Provide a more user-friendly error message for rate limiting
       let errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -491,7 +494,7 @@ console.log("In a browser environment, this would render as HTML");
       } else if (errorMessage.includes('Failed to submit code')) {
         errorMessage = 'Failed to connect to the code execution service. Please check your internet connection and try again.';
       }
-      
+
       setExecutionResult(prev => ({
         ...prev,
         [currentChallenge?.questionId || 'default']: {
@@ -504,7 +507,7 @@ console.log("In a browser environment, this would render as HTML");
           memory: 0
         }
       }));
-      
+
       // Mark as unsuccessful execution due to error
       if (currentChallenge?.questionId) {
         setSuccessfulExecutions(prev => ({
@@ -516,7 +519,7 @@ console.log("In a browser environment, this would render as HTML");
       setIsLoading(false);
     }
   }, [codingChallenges, currentCodingIndex, selectedLanguage]);
-  
+
   // Fetch assessment data when component mounts or assessmentId changes
   useEffect(() => {
     // Prevent multiple calls to the API
@@ -526,168 +529,75 @@ console.log("In a browser environment, this would render as HTML");
       }
       return;
     }
-    
-    const fetchAssessmentData = async () => {
+
+    const fetchData = async () => {
       try {
         setLoading(true);
         hasFetchedData.current = true; // Mark as fetched
-        
-        // Check if student has already attempted this assessment
-        try {
-          const resultsResponse = await ResultsService.getStudentResults();
-          const results = resultsResponse?.data || resultsResponse || [];
-          const hasAttempted = Array.isArray(results) && results.some((r: any) => r.assessmentId === assessmentId);
-          
-          if (hasAttempted) {
-            setError('You have already completed this assessment. You can only attempt it once.');
-            setLoading(false);
-            // Redirect to results after 3 seconds
-            setTimeout(() => {
-              const assessmentResult = results.find((r: any) => r.assessmentId === assessmentId);
-              if (assessmentResult?.SK) {
-                const encodedSK = encodeURIComponent(assessmentResult.SK);
-                navigate(`/student/results/${encodedSK}`);
-              } else {
-                navigate('/student/results');
-              }
-            }, 3000);
-            return;
-          }
-        } catch (resultsError) {
-          // If we can't check results, allow access (might be first time)
-          console.log('Could not check previous attempts:', resultsError);
-        }
-        
+
         // Validate assessment ID before making API call
         if (!assessmentId) {
           setError('Assessment ID is required');
           setLoading(false);
           return;
         }
-        
+
         console.log(`Fetching assessment data for ID: ${assessmentId}`);
         // Use the NEW endpoint to automatically fetch assessment with questions
         const response = await StudentAssessmentService.getAssessmentWithQuestions(assessmentId);
-        
+
         if (response.success) {
           // Add additional validation to ensure we have the required data
           if (!response.data) {
-            setError('Assessment not found. Please check if the assessment exists and you have access to it.');
-            setLoading(false);
-            return;
+            throw new Error('Invalid assessment data received from server');
           }
-          
-          // Extract assessment and questions from the new response format
-          const { assessment, questions } = response.data;
-          
-          // Check if assessment exists but has no questions
-          if (!questions || questions.length === 0) {
-            console.log(`Assessment ${assessmentId} exists but has no questions`);
-          }
-          
-          // Transform the data to match our existing interface
-          const transformedData = {
-            ...assessment,
-            questions: questions || [],
-            mcqQuestions: questions?.filter((q: any) => q.entityType === 'mcq') || [],
-            codingQuestions: questions?.filter((q: any) => q.entityType === 'coding') || []
-          };
-          
-          // Log coding questions with test cases for debugging
-          const codingQuestions = transformedData.codingQuestions || [];
-          if (codingQuestions.length > 0) {
-            console.log('Found coding questions with test cases:');
-            codingQuestions.forEach((question: any, index: number) => {
-              console.log(`Question ${index + 1} (${question.questionId}):`, question);
-              if (question.testCases && question.testCases.length > 0) {
-                console.log(`  Test cases for ${question.questionId}:`, question.testCases);
-              } else {
-                console.log(`  No test cases found for ${question.questionId}`);
-              }
-            });
-          }
-          
-          setAssessmentData(transformedData);
-          
-          // Set timer based on assessment configuration with persistence across reloads
-          if (assessment?.configuration?.duration) {
-            const durationSeconds = assessment.configuration.duration * 60; // minutes to seconds
-            const storageKey = `assessment_timer_${assessmentId}`;
-            const now = Date.now();
 
-            try {
-              const stored = localStorage.getItem(storageKey);
-              if (stored) {
-                const parsed = JSON.parse(stored) as { startedAt: number; durationSeconds: number };
-                const elapsed = Math.floor((now - parsed.startedAt) / 1000);
-                const remaining = parsed.durationSeconds - elapsed;
-
-                if (remaining > 0) {
-                  setTimeLeft(remaining);
-                } else {
-                  // Time already elapsed while away – force 0 and submit on mount
-                  setTimeLeft(0);
-                  // Auto-submit after state settles
-                  setTimeout(() => {
-                    handleSubmit();
-                  }, 0);
-                }
-              } else {
-                // First time starting this assessment: store start time
-                localStorage.setItem(
-                  storageKey,
-                  JSON.stringify({ startedAt: now, durationSeconds })
-                );
-                setTimeLeft(durationSeconds);
-              }
-            } catch (e) {
-              console.error('Error handling persisted assessment timer:', e);
-              // Fallback: simple in-memory timer
-              setTimeLeft(durationSeconds);
+          // Set assessment data
+          setAssessmentData(response.data);
+          
+          // Set initial time from assessment configuration
+          if (response.data.configuration?.duration) {
+            setTimeLeft(response.data.configuration.duration * 60); // Convert minutes to seconds
+          } else {
+            setTimeLeft(3600); // Default to 60 minutes
+          }
+          
+          // Set initial language
+          if (response.data.codingChallenges && response.data.codingChallenges.length > 0) {
+            const firstChallenge = response.data.codingChallenges[0];
+            if (firstChallenge.preferredLanguage) {
+              setSelectedLanguage(firstChallenge.preferredLanguage);
             }
           }
+          
+          setLoading(false);
         } else {
-          // Handle specific error cases
-          if (response.message && response.message.includes('not found')) {
-            setError(`Assessment not found: ${response.message}`);
-          } else {
-            setError(response.message || 'Failed to load assessment data');
-          }
+          throw new Error(response.message || 'Failed to fetch assessment data');
         }
-      } catch (err: any) {
-        console.error('Error fetching assessment data:', err);
-        // Provide more specific error messages
-        if (err.message && err.message.includes('not found')) {
-          setError(`Assessment not found: ${err.message}`);
-        } else if (err.message && err.message.includes('connect')) {
-          setError('Unable to connect to the server. Please check your internet connection and try again.');
-        } else if (err.message && err.message.includes('Authentication failed')) {
-          setError('Authentication failed. Please log in again.');
-        } else {
-          setError(err.message || 'Failed to load assessment data. Please try again later.');
-        }
-      } finally {
+      } catch (error: any) {
+        console.error('Error fetching assessment data:', error);
+        setError(error.message || 'Failed to load assessment. Please try again.');
         setLoading(false);
       }
     };
-    
-    fetchAssessmentData();
-  }, [assessmentId]); // Only depend on assessmentId
-  
+
+    fetchData();
+  }, [assessmentId, navigate]);
+
   // Set the active tab based on available questions
   useEffect(() => {
     if (assessmentData) {
       // If we have coding challenges, default to coding tab
       if (codingChallenges.length > 0) {
         setActiveTab('coding');
-      } 
+      }
       // Otherwise, if we have MCQ questions, default to mcq tab
       else if (mcqQuestions.length > 0) {
         setActiveTab('mcq');
       }
     }
   }, [assessmentData, codingChallenges.length, mcqQuestions.length]);
-  
+
   // Languages supported by Judge0
   const languages = [
     { id: 'html', name: 'HTML' },
@@ -704,13 +614,13 @@ console.log("In a browser environment, this would render as HTML");
     { id: 'react', name: 'React' },
     { id: 'flutter', name: 'Flutter' }
   ];
-  
+
   // Initialize code state for each challenge and language
   useEffect(() => {
     if (codingChallenges.length > 0) {
-      const initialCode: {[key: string]: {[key: string]: string}} = {};
-      const initialTestCases: {[key: string]: {passed: boolean, actualOutput: string, expectedOutput: string, input: string}[]} = {};
-      
+      const initialCode: { [key: string]: { [key: string]: string } } = {};
+      const initialTestCases: { [key: string]: { passed: boolean, actualOutput: string, expectedOutput: string, input: string }[] } = {};
+
       codingChallenges.forEach(challenge => {
         if (challenge.questionId) {
           initialCode[challenge.questionId] = {};
@@ -718,17 +628,17 @@ console.log("In a browser environment, this would render as HTML");
             // Use starter code if available, otherwise empty string
             initialCode[challenge.questionId][lang.id] = challenge.starterCode || '';
           });
-          
+
           // Initialize empty test case results
           initialTestCases[challenge.questionId] = [];
         }
       });
-      
+
       setCode(initialCode);
       setTestCaseResults(initialTestCases);
     }
   }, [codingChallenges]); // Only depend on codingChallenges array
-  
+
   // Ensure code state is properly initialized for current challenge and language
   useEffect(() => {
     // Check if code state exists for current challenge and language
@@ -749,7 +659,7 @@ console.log("In a browser environment, this would render as HTML");
       }
     }
   }, [code, currentCodingIndex, selectedLanguage, codingChallenges]);
-  
+
   // Timer effect
   useEffect(() => {
     timerRef.current = setInterval(() => {
@@ -763,7 +673,7 @@ console.log("In a browser environment, this would render as HTML");
         return prev - 1;
       });
     }, 1000);
-    
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (autoRunTimeoutRef.current) {
@@ -771,14 +681,14 @@ console.log("In a browser environment, this would render as HTML");
       }
     };
   }, []);
-  
+
   // Format time for display
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-  
+
   // Handle fullscreen toggle
   const toggleFullscreen = () => {
     if (!isFullscreen) {
@@ -794,7 +704,7 @@ console.log("In a browser environment, this would render as HTML");
     }
     setIsFullscreen(!isFullscreen);
   };
-  
+
   // Handle MCQ answer selection
   const handleMCQAnswerSelect = (optionIndex: number) => {
     console.log('MCQ Answer Selected:', {
@@ -802,13 +712,13 @@ console.log("In a browser environment, this would render as HTML");
       currentQuestionId: mcqQuestions[currentMCQIndex]?.questionId,
       currentQuestion: mcqQuestions[currentMCQIndex]
     });
-    
+
     setMcqAnswers(prev => ({
       ...prev,
       [mcqQuestions[currentMCQIndex]?.questionId]: optionIndex
     }));
   };
-  
+
   // Handle MCQ navigation (Save and Next button)
   const handleMCQNavigation = (direction: 'next' | 'prev') => {
     if (direction === 'next') {
@@ -835,7 +745,7 @@ console.log("In a browser environment, this would render as HTML");
       }
     }
   };
-  
+
   // Handle navigation between coding challenges
   const handleCodingNavigation = (direction: 'prev' | 'next') => {
     if (direction === 'prev' && currentCodingIndex > 0) {
@@ -844,34 +754,34 @@ console.log("In a browser environment, this would render as HTML");
       setCurrentCodingIndex(currentCodingIndex + 1);
     }
   };
-  
+
   // Handle code change with auto-run debounce
   const handleCodeChange = useCallback((newCode: string) => {
     // Check if the indices are valid
     if (currentCodingIndex < 0 || currentCodingIndex >= codingChallenges.length) {
       return;
     }
-    
+
     // Ensure we have proper state structure
     setCode(prev => {
       const newState = { ...prev };
-      
+
       // Ensure challenge exists
       if (!newState[codingChallenges[currentCodingIndex]?.questionId]) {
         newState[codingChallenges[currentCodingIndex]?.questionId] = {};
       }
-      
+
       // Ensure language exists for this challenge
       if (!newState[codingChallenges[currentCodingIndex]?.questionId][selectedLanguage]) {
         newState[codingChallenges[currentCodingIndex]?.questionId][selectedLanguage] = '';
       }
-      
+
       // Update the code
       newState[codingChallenges[currentCodingIndex]?.questionId][selectedLanguage] = newCode;
-      
+
       return newState;
     });
-    
+
     // If there was an error previously and user is typing, clear the error
     if (executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr) {
       setExecutionResult(prev => {
@@ -880,21 +790,21 @@ console.log("In a browser environment, this would render as HTML");
         return newResult;
       });
     }
-    
+
     // Auto-run if enabled
     if (isAutoRunEnabled) {
       // Clear previous timeout
       if (autoRunTimeoutRef.current) {
         clearTimeout(autoRunTimeoutRef.current);
       }
-      
+
       // Set new timeout
       autoRunTimeoutRef.current = setTimeout(() => {
         runCode('example');
       }, 800);
     }
   }, [currentCodingIndex, codingChallenges, selectedLanguage, executionResult, isAutoRunEnabled, runCode]);
-  
+
   // Handle language selection and dismiss alert
   const handleLanguageSelect = (language: string) => {
     setSelectedLanguage(language);
@@ -906,7 +816,7 @@ console.log("In a browser environment, this would render as HTML");
     let score = 0;
     let maxScore = 0;
     const answers: any = {};
-    
+
     mcqQuestions.forEach((question, index) => {
       maxScore += question.points || 1;
       answers[question.questionId] = {
@@ -914,12 +824,12 @@ console.log("In a browser environment, this would render as HTML");
         correctOption: question.correctAnswer,
         points: question.points || 1
       };
-      
+
       // Check if answer is correct by comparing selected option with correct answer
       if (mcqAnswers[question.questionId] !== undefined) {
         // Get the option ID (A, B, C, D) for the selected index
         const selectedOptionId = String.fromCharCode(65 + mcqAnswers[question.questionId]);
-        
+
         // Check if the selected option matches any of the correct answers
         let isCorrect = false;
         if (Array.isArray(question.correctAnswer)) {
@@ -927,16 +837,16 @@ console.log("In a browser environment, this would render as HTML");
         } else if (typeof question.correctAnswer === 'string') {
           isCorrect = question.correctAnswer === selectedOptionId;
         }
-        
+
         if (isCorrect) {
           score += question.points || 1;
         }
-        
+
         // Store correctness for UI feedback
         answers[question.questionId].isCorrect = isCorrect;
       }
     });
-    
+
     return { score, maxScore, answers };
   };
 
@@ -949,11 +859,11 @@ console.log("In a browser environment, this would render as HTML");
 
     try {
       setIsSubmitting(true);
-      
+
       // Get user info from context or token
       let studentEmail = user?.email || '';
       let studentName = user?.name || '';
-      
+
       // If not in context, try to get from token
       if (!studentEmail) {
         try {
@@ -967,7 +877,7 @@ console.log("In a browser environment, this would render as HTML");
           console.error('Error getting user from token:', err);
         }
       }
-      
+
       // Final fallback - decode JWT token to get email
       if (!studentEmail) {
         try {
@@ -982,13 +892,13 @@ console.log("In a browser environment, this would render as HTML");
           console.error('Error decoding token:', err);
         }
       }
-      
+
       if (!studentEmail) {
         alert('User email not found. Please log in again.');
         setIsSubmitting(false);
         return;
       }
-      
+
       // If name is still empty, use email
       if (!studentName) {
         studentName = studentEmail;
@@ -1005,14 +915,14 @@ console.log("In a browser environment, this would render as HTML");
       mcqQuestions.forEach((question) => {
         mcqMaxScore += question.points || 1;
         const selectedIndex = mcqAnswers[question.questionId];
-        
+
         // Get selected option IDs as array of strings
         let selected: string[] = [];
         if (selectedIndex !== undefined) {
           const optionId = String.fromCharCode(65 + selectedIndex); // A, B, C, D
           selected = [optionId];
         }
-        
+
         // Check if correct
         let isCorrect = false;
         if (selectedIndex !== undefined) {
@@ -1022,7 +932,7 @@ console.log("In a browser environment, this would render as HTML");
           } else if (typeof question.correctAnswer === 'string') {
             isCorrect = question.correctAnswer === selectedOptionId;
           }
-          
+
           if (isCorrect) {
             mcqScore += question.points || 1;
             mcqCorrect++;
@@ -1032,7 +942,7 @@ console.log("In a browser environment, this would render as HTML");
         } else {
           mcqUnattempted++;
         }
-        
+
         mcqAnswersArray.push({
           questionId: question.questionId,
           selected: selected,
@@ -1053,7 +963,7 @@ console.log("In a browser environment, this would render as HTML");
         const challengeCode = code[challenge.questionId]?.[selectedLanguage] || '';
         const hasCode = challengeCode.trim().length > 0;
         const isSuccessful = successfulExecutions[challenge.questionId] || false;
-        
+
         if (hasCode) {
           if (isSuccessful) {
             codingScore += challenge.points || 1;
@@ -1064,7 +974,7 @@ console.log("In a browser environment, this would render as HTML");
         } else {
           codingUnattempted++;
         }
-        
+
         codingAnswersArray.push({
           questionId: challenge.questionId,
           selected: hasCode ? [challengeCode] : [],
@@ -1074,7 +984,7 @@ console.log("In a browser environment, this would render as HTML");
 
       // Combine all answers
       const allAnswers = [...mcqAnswersArray, ...codingAnswersArray];
-      
+
       // Calculate totals
       const totalScore = mcqScore + codingScore;
       const totalMaxScore = mcqMaxScore + codingMaxScore;
@@ -1090,13 +1000,13 @@ console.log("In a browser environment, this would render as HTML");
       // Prepare result data in EXACT schema
       // Get department from assessment first (the department chosen when creating the assessment)
       // Then fallback to user's department, then departmentCode, then 'Unknown'
-      const department = assessmentData?.department || 
-                        assessmentData?.departmentCode || 
-                        user?.department || 
-                        'Unknown';
-      
+      const department = assessmentData?.department ||
+        assessmentData?.departmentCode ||
+        user?.department ||
+        'Unknown';
+
       const resultData = {
-        assessmentId: assessmentData?.assessmentId || '',
+        assessmentId: assessmentId || assessmentData?.assessmentId || '',
         email: studentEmail,
         Name: studentName,
         department: department,
@@ -1129,19 +1039,19 @@ console.log("In a browser environment, this would render as HTML");
         return acc;
       }, {} as any));
       setSubmitted(true);
-      
+
       console.log('Submitting assessment result...', resultData);
-      
+
       // Save result to database
       const saveResponse = await ResultsService.saveAssessmentResult(resultData);
       console.log('Save response:', saveResponse);
-      
+
       // Get the SK (attemptId) from the response
       const attemptId = saveResponse?.data?.SK || saveResponse?.SK;
       console.log('Attempt ID (SK):', attemptId);
-      
+
       console.log('Assessment result saved successfully, navigating to success page...');
-      
+
       // Navigate to submission success page with attemptId
       navigate('/student/assessment-submitted', {
         state: {
@@ -1149,7 +1059,7 @@ console.log("In a browser environment, this would render as HTML");
           attemptId: attemptId // Pass SK so we can navigate directly to detail page
         }
       });
-      
+
       setIsAssessmentCompleted(true);
 
       // Clear persisted timer for this assessment now that it is completed
@@ -1173,18 +1083,18 @@ console.log("In a browser environment, this would render as HTML");
         status: error.response?.status,
         url: error.config?.url
       });
-      
+
       setIsSubmitting(false);
       setSubmitted(false);
-      
+
       // Provide more specific error messages
       let errorMessage = 'Assessment completed but there was an error saving your results.';
-      
+
       if (error.response) {
         // Server responded with error
         const serverMessage = error.response.data?.message || error.response.data?.error || 'Unknown server error';
         errorMessage = `Error: ${serverMessage}`;
-        
+
         if (error.response.status === 401) {
           errorMessage = 'Your session has expired. Please log in again to save your results.';
         } else if (error.response.status === 404) {
@@ -1200,12 +1110,12 @@ console.log("In a browser environment, this would render as HTML");
       } else {
         errorMessage = `Error: ${error.message || 'Unknown error occurred'}`;
       }
-      
+
       console.error('Final error message:', errorMessage);
       alert(errorMessage);
     }
   };
-  
+
   // Render loading state
   if (loading) {
     return (
@@ -1217,7 +1127,7 @@ console.log("In a browser environment, this would render as HTML");
       </div>
     );
   }
-  
+
   // Render error state
   if (error) {
     return (
@@ -1225,7 +1135,7 @@ console.log("In a browser environment, this would render as HTML");
         <div className="error-container">
           <h2>Error Loading Assessment</h2>
           <p>{error}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="retry-button"
           >
@@ -1235,7 +1145,7 @@ console.log("In a browser environment, this would render as HTML");
       </div>
     );
   }
-  
+
   // Render if no assessment data
   if (!assessmentData) {
     return (
@@ -1247,7 +1157,7 @@ console.log("In a browser environment, this would render as HTML");
       </div>
     );
   }
-  
+
   // Render if no questions
   if (assessmentData && (!assessmentData.questions || assessmentData.questions.length === 0)) {
     return (
@@ -1255,7 +1165,7 @@ console.log("In a browser environment, this would render as HTML");
         <div className="error-container">
           <h2>No Questions Available</h2>
           <p>This assessment does not contain any questions yet.</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="retry-button"
           >
@@ -1265,7 +1175,7 @@ console.log("In a browser environment, this would render as HTML");
       </div>
     );
   }
-  
+
   return (
     <div className={`assessment-taking ${isFullscreen ? 'fullscreen' : ''}`}>
       {/* Header with timer and navigation buttons */}
@@ -1275,25 +1185,25 @@ console.log("In a browser environment, this would render as HTML");
             {formatTime(timeLeft)}
           </span>
         </div>
-        
+
         <div className="header-controls">
           {/* Navigation buttons as tabs near timer */}
-          <button 
+          <button
             className={`section-btn ${activeTab === 'mcq' ? 'active' : ''} ${mcqQuestions.length === 0 ? 'disabled' : ''}`}
             onClick={() => mcqQuestions.length > 0 && setActiveTab('mcq')}
             disabled={mcqQuestions.length === 0}
           >
             MCQ
           </button>
-          <button 
+          <button
             className={`section-btn ${activeTab === 'coding' ? 'active' : ''} ${codingChallenges.length === 0 ? 'disabled' : ''}`}
             onClick={() => codingChallenges.length > 0 && setActiveTab('coding')}
             disabled={codingChallenges.length === 0}
           >
             Coding
           </button>
-          
-          <button 
+
+          <button
             className="fullscreen-btn"
             onClick={toggleFullscreen}
           >
@@ -1301,7 +1211,7 @@ console.log("In a browser environment, this would render as HTML");
           </button>
         </div>
       </div>
-      
+
       {/* Tab content */}
       <div className="tab-content">
         {activeTab === 'mcq' ? (
@@ -1310,30 +1220,30 @@ console.log("In a browser environment, this would render as HTML");
               <div className="progress-indicator">
                 <span>Question {currentMCQIndex + 1} of {mcqQuestions.length}</span>
                 <div className="progress-bar">
-                  <div 
-                    className="progress-fill" 
+                  <div
+                    className="progress-fill"
                     style={{ width: `${((currentMCQIndex + 1) / mcqQuestions.length) * 100}%` }}
                   ></div>
                 </div>
               </div>
             </div>
-            
+
             <div className="question-container">
               <div className="question-content">
                 <div className="question-text small">
                   {mcqQuestions[currentMCQIndex]?.question}
                 </div>
-                
+
                 <div className="options-container small">
                   {mcqQuestions[currentMCQIndex]?.options.map((option, index) => {
                     // Check if this option should show feedback
                     const questionId = mcqQuestions[currentMCQIndex]?.questionId;
                     const showFeedback = submitted && mcqResults && mcqResults[questionId];
                     const isSelected = mcqAnswers[questionId] === index;
-                    const isCorrectOption = Array.isArray(mcqQuestions[currentMCQIndex]?.correctAnswer) 
+                    const isCorrectOption = Array.isArray(mcqQuestions[currentMCQIndex]?.correctAnswer)
                       ? mcqQuestions[currentMCQIndex]?.correctAnswer.includes(String.fromCharCode(65 + index))
                       : mcqQuestions[currentMCQIndex]?.correctAnswer === String.fromCharCode(65 + index);
-                    
+
                     let optionClass = "option-item";
                     if (showFeedback) {
                       if (isSelected && mcqResults[questionId].isCorrect) {
@@ -1344,7 +1254,7 @@ console.log("In a browser environment, this would render as HTML");
                         optionClass += " correct-answer";
                       }
                     }
-                    
+
                     return (
                       <div
                         key={index}
@@ -1372,18 +1282,18 @@ console.log("In a browser environment, this would render as HTML");
                 </div>
               </div>
             </div>
-            
+
             {/* Previous button on left side corner */}
-            <button 
+            <button
               className="nav-btn prev left-corner"
               onClick={() => handleMCQNavigation('prev')}
               disabled={currentMCQIndex === 0}
             >
               Previous
             </button>
-            
+
             {/* Save and Next button in the middle */}
-            <button 
+            <button
               className="nav-btn next save-next"
               onClick={() => {
                 // If on last MCQ question and no coding questions, submit
@@ -1397,10 +1307,10 @@ console.log("In a browser environment, this would render as HTML");
             >
               {isSubmitting ? 'Submitting...' : (currentMCQIndex === mcqQuestions.length - 1 && codingChallenges.length === 0 ? 'Submit' : 'Save and Next')}
             </button>
-            
+
             {/* Submit button on right side corner - only show if no coding questions */}
             {codingChallenges.length === 0 && (
-              <button 
+              <button
                 className="submit-btn small right-corner"
                 onClick={handleSubmit}
                 disabled={isSubmitting || submitted}
@@ -1408,44 +1318,13 @@ console.log("In a browser environment, this would render as HTML");
                 {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             )}
-            
-            {/* 6x6 grid on the right side corner */}
-            <div className="question-grid-container">
-              {mcqQuestions.map((_, index) => (
-                <div 
-                  key={index}
-                  className={`question-number-circle ${mcqAnswers[mcqQuestions[index]?.questionId] !== undefined ? 'answered' : ''} ${index === currentMCQIndex ? 'current' : ''}`}
-                  onClick={() => setCurrentMCQIndex(index)}
-                >
-                  {index + 1}
-                </div>
-              ))}
-            </div>
           </div>
         ) : (
           <div className="coding-section">
             <div className="coding-header">
-              <h2 className="challenge-title">{codingChallenges[currentCodingIndex]?.question}</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <select 
-                  className="language-selector"
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                >
-                  {languages.map(lang => (
-                    <option key={lang.id} value={lang.id}>{lang.name}</option>
-                  ))}
-                </select>
-                <button 
-                  className="control-btn run-btn"
-                  onClick={() => runCode('custom')}
-                  disabled={isLoading || !code || !code[codingChallenges[currentCodingIndex]?.questionId] || !code[codingChallenges[currentCodingIndex]?.questionId][selectedLanguage] || code[codingChallenges[currentCodingIndex]?.questionId][selectedLanguage].trim() === ''}
-                >
-                  {isLoading ? 'Running...' : 'Run Code'}
-                </button>
-              </div>
+              <h2 className="challenge-title">{codingChallenges[currentCodingIndex]?.question || 'Coding Challenge'}</h2>
             </div>
-            
+
             {/* Language selection alert */}
             {showLanguageAlert && (
               <div className="language-alert-overlay">
@@ -1467,17 +1346,18 @@ console.log("In a browser environment, this would render as HTML");
                 </div>
               </div>
             )}
-            
+
             <div className="coding-content">
+              {/* Left column - Problem description */}
               <div className="problem-section">
                 <div className="problem-description">
                   {codingChallenges[currentCodingIndex]?.question || 'No description available'}
                 </div>
-                
-                <div className="examples">
-                  <h3>Examples:</h3>
-                  {codingChallenges[currentCodingIndex]?.examples?.length ? (
-                    codingChallenges[currentCodingIndex]?.examples?.map((example, index) => (
+
+                {codingChallenges[currentCodingIndex]?.examples && codingChallenges[currentCodingIndex]?.examples?.length > 0 && (
+                  <div className="examples">
+                    <h3>Examples:</h3>
+                    {codingChallenges[currentCodingIndex]?.examples?.map((example, index) => (
                       <div key={index} className="example-item">
                         <div className="example-label">Example {index + 1}:</div>
                         <div className="example-content">
@@ -1486,12 +1366,10 @@ console.log("In a browser environment, this would render as HTML");
                           <strong>Output:</strong> {example.output}
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <p>No examples available</p>
-                  )}
-                </div>
-                
+                    ))}
+                  </div>
+                )}
+
                 {/* Test Cases Section */}
                 {codingChallenges[currentCodingIndex]?.testCases && codingChallenges[currentCodingIndex]?.testCases.length > 0 && (
                   <div className="test-cases-section">
@@ -1517,13 +1395,88 @@ console.log("In a browser environment, this would render as HTML");
                     </div>
                   </div>
                 )}
+
+                {/* Execution output section - moved to be below test cases */}
+                {(executionResult[codingChallenges[currentCodingIndex]?.questionId] || testCaseResults[codingChallenges[currentCodingIndex]?.questionId]) && (
+                  <div className="output-section test-cases-section">
+                    <div className="result-header">Execution Output</div>
+                    <div className="result-content">
+                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output && (
+                        <div className="error-output">
+                          <strong>Compilation Error:</strong>
+                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output}</pre>
+                        </div>
+                      )}
+                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr && (
+                        <div className="error-output">
+                          <strong>Runtime Error:</strong>
+                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr}</pre>
+                        </div>
+                      )}
+                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout && !testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && (
+                        <div className="result-output">
+                          <strong>Output:</strong>
+                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout}</pre>
+                        </div>
+                      )}
+                      
+                      {/* Test Case Results */}
+                      {testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && (
+                        <div className="test-case-results">
+                          <h3>Test Case Results:</h3>
+                          {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].map((result, index) => (
+                            <div 
+                              key={index} 
+                              className={result.passed ? "test-case-passed" : "test-case-failed"}
+                            >
+                              <div className="test-case-header">
+                                <span className="test-case-number">Test Case {index + 1}: {result.passed ? '✓ PASSED' : '✗ FAILED'}</span>
+                              </div>
+                              <div className="test-case-details">
+                                <div className="test-case-input">
+                                  <strong>Input:</strong>
+                                  <pre>{result.input}</pre>
+                                </div>
+                                <div className="test-case-expected">
+                                  <strong>Expected Output:</strong>
+                                  <pre>{result.expectedOutput}</pre>
+                                </div>
+                                <div className="test-case-actual">
+                                  <strong>Actual Output:</strong>
+                                  <pre>{result.actualOutput}</pre>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              
+
+              {/* Right column - Code editor only */}
               <div className="right-column">
                 <div className="editor-section">
                   <div className="editor-header">
                     <div>Code Editor</div>
                     <div className="editor-controls">
+                      <select
+                        className="language-selector"
+                        value={selectedLanguage}
+                        onChange={(e) => setSelectedLanguage(e.target.value)}
+                      >
+                        {languages.map(lang => (
+                          <option key={lang.id} value={lang.id}>{lang.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="control-btn run-btn"
+                        onClick={() => runCode('test')}
+                        disabled={isLoading || !code || !code[codingChallenges[currentCodingIndex]?.questionId] || !code[codingChallenges[currentCodingIndex]?.questionId][selectedLanguage] || code[codingChallenges[currentCodingIndex]?.questionId][selectedLanguage].trim() === ''}
+                      >
+                        {isLoading ? 'Running...' : 'Run Code'}
+                      </button>
                     </div>
                   </div>
                   <textarea
@@ -1544,13 +1497,13 @@ console.log("In a browser environment, this would render as HTML");
                       if (e.key === 'Tab') {
                         e.preventDefault();
                         const { selectionStart, selectionEnd } = e.target as HTMLTextAreaElement;
-                        const newValue = 
-                          code[codingChallenges[currentCodingIndex]?.questionId]?.[selectedLanguage].substring(0, selectionStart) + 
-                          '    ' + 
+                        const newValue =
+                          code[codingChallenges[currentCodingIndex]?.questionId]?.[selectedLanguage].substring(0, selectionStart) +
+                          '    ' +
                           code[codingChallenges[currentCodingIndex]?.questionId]?.[selectedLanguage].substring(selectionEnd);
-                        
+
                         handleCodeChange(newValue);
-                        
+
                         // Move cursor to after the inserted spaces
                         setTimeout(() => {
                           if (codeEditorRef.current) {
@@ -1560,20 +1513,20 @@ console.log("In a browser environment, this would render as HTML");
                         }, 10);
                       }
                     }}
-                    placeholder={selectedLanguage === 'java' 
+                    placeholder={selectedLanguage === 'java'
                       ? `Write your Java code here...
 Example:
 public class Main {
     public static void main(String[] args) {
         // Your code here
     }
-}` 
+}`
                       : selectedLanguage === 'python'
-                      ? `Write your Python code here...
+                        ? `Write your Python code here...
 Example:
 print("Hello, World!")`
-                      : selectedLanguage === 'cpp'
-                      ? `Write your C++ code here...
+                        : selectedLanguage === 'cpp'
+                          ? `Write your C++ code here...
 Example:
 #include <iostream>
 using namespace std;
@@ -1582,9 +1535,9 @@ int main() {
     cout << "Hello, World!" << endl;
     return 0;
 }`
-                      : `Write your ${languages.find(l => l.id === selectedLanguage)?.name} code here...`}
+                          : `Write your ${languages.find(l => l.id === selectedLanguage)?.name} code here...`}
                   />
-                  
+
                   {/* Custom input section */}
                   <div className="custom-input-section">
                     <h4>Custom Input:</h4>
@@ -1596,108 +1549,40 @@ int main() {
                     />
                   </div>
                 </div>
-                
-                {/* Output container below the code editor */}
-                <div className="output-section">
-                  <div className="result-header">Execution Result</div>
-                  <div className="result-content">
-                    {isLoading ? (
-                      <div className="result-loading">
-                        <div className="spinner"></div>
-                        Executing code...
-                      </div>
-                    ) : executionResult[codingChallenges[currentCodingIndex]?.questionId] ? (
-                      <div className="result-output">
-                        <strong>Status:</strong> {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.status?.description || 'Unknown'}
-                        <br />
-                        {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout ? (
-                          <>
-                            <strong>Output:</strong>
-                            <br />
-                            <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout}</pre>
-                          </>
-                        ) : executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output ? (
-                          <>
-                            <strong>Compilation Error:</strong>
-                            <br />
-                            <pre className="error-output">{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output}</pre>
-                          </>
-                        ) : executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr ? (
-                          <>
-                            <strong>Runtime Error:</strong>
-                            <br />
-                            <pre className="error-output">{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr}</pre>
-                          </>
-                        ) : (
-                          <>
-                            <strong>Output:</strong>
-                            <br />
-                            No output
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="result-output">
-                        Run your code to see the output here.
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
             </div>
-            
-            {/* Submit button that only appears when code runs without errors */}
-            {executionResult[codingChallenges[currentCodingIndex]?.questionId] && 
-             successfulExecutions[codingChallenges[currentCodingIndex]?.questionId] && (
-              <div className="submission-section">
-                <button 
-                  className="submit-btn coding-submit"
-                  onClick={handleSubmit}
+
+            {/* Navigation buttons container - like a header */}
+            <div className="navigation-container">
+              <div className="navigation-buttons">
+                <button
+                  className="nav-btn prev"
+                  onClick={() => handleCodingNavigation('prev')}
+                  disabled={currentCodingIndex === 0}
                 >
-                  Submit Code & Finish Assessment
+                  Previous Challenge
                 </button>
-                
-                {/* Success message when all coding challenges are completed */}
-                {codingChallenges.every(challenge => successfulExecutions[challenge.questionId]) && (
-                  <div className="success-message">
-                    <p>✓ All coding challenges executed successfully! Ready to submit.</p>
-                  </div>
-                )}
+                {/* Small submit button that is always visible but only enabled when code runs successfully */}
+                <button
+                  className="submit-btn small"
+                  onClick={handleSubmit}
+                  disabled={!successfulExecutions[codingChallenges[currentCodingIndex]?.questionId]}
+                >
+                  Submit
+                </button>
+                <button
+                  className="nav-btn next"
+                  onClick={() => handleCodingNavigation('next')}
+                  disabled={currentCodingIndex === codingChallenges.length - 1}
+                >
+                  Next Challenge
+                </button>
               </div>
-            )}
-            
-            <div className="navigation-buttons">
-              <button 
-                className="nav-btn prev"
-                onClick={() => handleCodingNavigation('prev')}
-                disabled={currentCodingIndex === 0}
-              >
-                Previous Challenge
-              </button>
-              <button 
-                className="nav-btn next right-corner"
-                onClick={() => handleCodingNavigation('next')}
-                disabled={currentCodingIndex === codingChallenges.length - 1}
-              >
-                {currentCodingIndex === codingChallenges.length - 1 ? 'Last Challenge' : 'Next Challenge'}
-              </button>
-              
-              {/* Auto-submit button when on last challenge and all executed successfully */}
-              {currentCodingIndex === codingChallenges.length - 1 && 
-               codingChallenges.every(challenge => successfulExecutions[challenge.questionId]) && (
-                <button 
-                  className="submit-btn coding-submit auto-submit"
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || submitted}
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit Assessment'}
-                </button>
-              )}
             </div>
           </div>
         )}
       </div>
-      
+
     </div>
   );
 };

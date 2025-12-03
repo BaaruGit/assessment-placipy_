@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../../contexts/UserContext';
+
 import StudentAssessmentService from '../../services/student.assessment.service';
 import ResultsService from '../../services/results.service';
 import './AssessmentTaking.css';
@@ -36,6 +38,7 @@ const StudentAssessments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'active' | 'completed'>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
+  const { user } = useUser();
 
   // Fetch assessments and results
   useEffect(() => {
@@ -45,7 +48,9 @@ const StudentAssessments: React.FC = () => {
         setError(null);
         
         // Fetch all assessments
-        const assessmentsResponse = await StudentAssessmentService.getAllAssessments();
+        const assessmentsResponse = await StudentAssessmentService.getAllAssessments(
+          user?.department ? { department: user.department } : undefined
+        );
         console.log('Fetched assessments:', assessmentsResponse);
         
         // Fetch student's results to determine completed assessments
@@ -91,7 +96,7 @@ const StudentAssessments: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [user?.department]);
 
   // Filter assessments based on tab and search term
   useEffect(() => {

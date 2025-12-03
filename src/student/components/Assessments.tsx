@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useUser } from '../../contexts/UserContext';
+
 import StudentAssessmentService from '../../services/student.assessment.service';
 import ResultsService from '../../services/results.service';
 
@@ -61,6 +63,7 @@ const Assessments: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user } = useUser();
 
   // Fetch real assessments from the backend and check for attempts
   useEffect(() => {
@@ -70,7 +73,9 @@ const Assessments: React.FC = () => {
         
         // Fetch assessments and results in parallel
         const [assessmentsResponse, resultsResponse] = await Promise.all([
-          StudentAssessmentService.getAllAssessments(),
+          StudentAssessmentService.getAllAssessments(
+            user?.department ? { department: user.department } : undefined
+          ),
           ResultsService.getStudentResults().catch(() => ({ success: true, data: [] })) // Gracefully handle errors
         ]);
         
@@ -140,7 +145,7 @@ const Assessments: React.FC = () => {
     };
 
     fetchAssessments();
-  }, []);
+  }, [user?.department]);
 
   // Filter assessments based on active filter
   const filteredAssessments = activeFilter === 'all'
@@ -159,12 +164,11 @@ const Assessments: React.FC = () => {
   const handleAttendTest = (assessment: Assessment) => {
     // Check if already attempted
     if (attemptedAssessments.has(assessment.assessmentId)) {
-      // Navigate to results page instead
-      const result = Array.from(attemptedAssessments).find(id => id === assessment.assessmentId);
-      // Find the result SK for this assessment
+      // Directly navigate to results since we're removing resume functionality
       ResultsService.getStudentResults().then((response: any) => {
         const results = response?.data || response || [];
         const assessmentResult = results.find((r: any) => r.assessmentId === assessment.assessmentId);
+        
         if (assessmentResult?.SK) {
           const encodedSK = encodeURIComponent(assessmentResult.SK);
           navigate(`/student/results/${encodedSK}`);
@@ -172,6 +176,7 @@ const Assessments: React.FC = () => {
           navigate('/student/results');
         }
       }).catch(() => {
+        // If we can't check results, navigate to results page
         navigate('/student/results');
       });
       return;
@@ -202,10 +207,10 @@ const Assessments: React.FC = () => {
     const { status, isPublished } = assessment;
     const now = new Date();
     
-    // If already attempted, show "Completed" or "View Result"
+    // If already attempted, show "View Results" button
     if (isAttempted) {
       return { 
-        text: 'Completed - View Result', 
+        text: 'View Results', 
         style: { background: '#9768E1', color: 'white' },
         disabled: false
       };
@@ -227,13 +232,13 @@ const Assessments: React.FC = () => {
     switch (status) {
       case 'ACTIVE':
         return { 
-          text: isPublished ? 'Start Assessment' : 'Start Assessment (Unpublished)', 
+          text: 'Start Assessment', 
           style: { background: '#10B981', color: 'white' },
           disabled: false
         };
       default:
         return { 
-          text: isPublished ? 'View Details' : 'View Details (Unpublished)', 
+          text: isPublished ? 'View Details' : 'View Details', 
           style: { background: '#6B7280', color: 'white' },
           disabled: false
         };
