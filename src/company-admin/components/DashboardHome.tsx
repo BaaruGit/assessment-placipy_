@@ -38,18 +38,18 @@ const DashboardHome: React.FC = () => {
     { title: 'Active Assessments', value: 0, icon: '📝' },
   ];
 
-  const topColleges = [
-    { name: 'KSR College', assessments: 145, students: 850 },
-    { name: 'SNS College', assessments: 132, students: 720 },
-    { name: 'PSG College', assessments: 128, students: 680 },
-    { name: 'KCT College', assessments: 115, students: 590 },
-    { name: 'Kumaraguru', assessments: 98, students: 520 },
-  ];
+  // Use real top colleges data from API
+  const topColleges = dashboardStats?.topColleges && dashboardStats.topColleges.length > 0
+    ? dashboardStats.topColleges
+    : [
+        { name: 'No data', assessments: 0, students: 0, completedAssessments: 0 }
+      ];
 
   const chartData = topColleges.map(college => ({
-    name: college.name,
+    name: college.name.length > 15 ? college.name.substring(0, 15) + '...' : college.name,
     Assessments: college.assessments,
-    Students: Math.floor(college.students / 10), // Scale down for better visualization
+    Students: college.students,
+    Completed: college.completedAssessments
   }));
 
   if (loading) {
@@ -101,32 +101,41 @@ const DashboardHome: React.FC = () => {
       {/* Chart Section */}
       <div className="admin-chart-section">
         <div className="admin-chart-card">
-          <h2 className="admin-section-title">Top 5 Active Colleges</h2>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#D0BFE7" />
-              <XAxis 
-                dataKey="name" 
-                stroke="#523C48"
-                style={{ fontSize: '12px', fontWeight: 500 }}
-              />
-              <YAxis 
-                stroke="#523C48"
-                style={{ fontSize: '12px', fontWeight: 500 }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#FBFAFB', 
-                  border: '1px solid #D0BFE7',
-                  borderRadius: '8px',
-                  color: '#523C48'
-                }}
-              />
-              <Legend />
-              <Bar dataKey="Assessments" fill="#9768E1" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="Students" fill="#E4D5F8" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <h2 className="admin-section-title">
+            Top 5 Active Colleges
+          </h2>
+          {topColleges.length > 0 && topColleges[0].name !== 'No data' ? (
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#D0BFE7" />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#523C48"
+                  style={{ fontSize: '12px', fontWeight: 500 }}
+                />
+                <YAxis 
+                  stroke="#523C48"
+                  style={{ fontSize: '12px', fontWeight: 500 }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#FBFAFB', 
+                    border: '1px solid #D0BFE7',
+                    borderRadius: '8px',
+                    color: '#523C48'
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="Assessments" fill="#9768E1" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="Completed" fill="#E4D5F8" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="Students" fill="#D0BFE7" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="admin-empty-chart">
+              <p>No college data available. Add colleges and assessments to see statistics.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

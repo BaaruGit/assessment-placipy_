@@ -63,6 +63,13 @@ export interface DashboardStats {
   totalStudents: number;
   activeAssessments: number;
   totalAssessments: number;
+  topColleges: Array<{
+    name: string;
+    domain: string;
+    students: number;
+    assessments: number;
+    completedAssessments: number;
+  }>;
   recentActivity: any[];
 }
 
@@ -248,6 +255,68 @@ class AdminService {
       return response.data.data;
     } catch (error) {
       console.error('Error updating settings:', error);
+      throw error;
+    }
+  }
+
+  // Admin Profile Methods
+  async getAdminProfile(): Promise<any> {
+    try {
+      const response = await api.get('/admin/profile');
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching admin profile:', error);
+      throw error;
+    }
+  }
+
+  async updateAdminProfile(profileData: any): Promise<any> {
+    try {
+      const response = await api.put('/admin/profile', profileData);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error updating admin profile:', error);
+      throw error;
+    }
+  }
+
+  // Analytics Methods
+  async getAssessmentResults(): Promise<any[]> {
+    try {
+      const response = await api.get('/admin/analytics/assessment-results');
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching assessment results:', error);
+      throw error;
+    }
+  }
+
+  async getPerformanceOverview(): Promise<any> {
+    try {
+      const response = await api.get('/admin/analytics/performance-overview');
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching performance overview:', error);
+      throw error;
+    }
+  }
+
+  async getAssessmentStats(assessmentId: string): Promise<any> {
+    try {
+      const response = await api.get(`/admin/analytics/assessment-stats/${assessmentId}`);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching assessment stats:', error);
+      throw error;
+    }
+  }
+
+  async getDepartmentPerformance(): Promise<any[]> {
+    try {
+      const response = await api.get('/admin/analytics/department-performance');
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching department performance:', error);
       throw error;
     }
   }

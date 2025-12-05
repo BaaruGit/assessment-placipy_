@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import DashboardHome from '../components/DashboardHome';
 import Colleges from '../components/Colleges';
 import Officers from '../components/Officers';
 import Reports from '../components/Reports';
 import Settings from '../components/Settings';
-import Profile from '../components/Profile';
 import '../styles/AdminDashboard.css';
 import AuthService from '../../services/auth.service';
+import AdminService from '../../services/admin.service';
 
 const AdminDashboard: React.FC = () => {
   const location = useLocation();
@@ -15,6 +15,9 @@ const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [adminProfile, setAdminProfile] = useState<any>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   // Navigation items
   const navItems = [
@@ -56,6 +59,34 @@ const AdminDashboard: React.FC = () => {
     verifyRole();
   }, [navigate]);
 
+  // Load admin profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profile = await AdminService.getAdminProfile();
+        setAdminProfile(profile);
+      } catch (error) {
+        console.error('Failed to load profile:', error);
+      }
+    };
+
+    if (!isLoading) {
+      loadProfile();
+    }
+  }, [isLoading]);
+
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Update active tab based on current location
   useEffect(() => {
     const currentPath = location.pathname;
@@ -88,6 +119,24 @@ const AdminDashboard: React.FC = () => {
 
   const closeSidebar = () => {
     setSidebarOpen(false);
+  };
+
+  const toggleProfileMenu = () => {
+    setProfileMenuOpen(!profileMenuOpen);
+  };
+
+  const handleNavigateToSettings = () => {
+    setProfileMenuOpen(false);
+    navigate('/company-admin/settings');
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return 'CA';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   if (isLoading) {
@@ -141,11 +190,48 @@ const AdminDashboard: React.FC = () => {
       <main className="admin-main">
         <header className="admin-header">
           <h1>Company Admin Dashboard</h1>
-          <Link to="/company-admin/profile" className="admin-profile-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
-              <path fillRule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clipRule="evenodd" />
-            </svg>
-          </Link>
+          
+          {/* Profile Avatar with Dropdown */}
+          <div className="admin-profile-container" ref={profileMenuRef}>
+            <div className="admin-profile-avatar" onClick={toggleProfileMenu}>
+              {adminProfile?.profilePicture ? (
+                <img 
+                  src={adminProfile.profilePicture} 
+                  alt="Profile" 
+                  className="admin-avatar-img"
+                />
+              ) : (
+                <div className="admin-avatar-placeholder">
+                  {getInitials(adminProfile?.name || adminProfile?.firstName || 'Admin')}
+                </div>
+              )}
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="admin-profile-dropdown">
+                <div className="admin-profile-info">
+                  <h3>{adminProfile?.name || adminProfile?.firstName || 'Admin'}</h3>
+                  <p>{adminProfile?.email || ''}</p>
+                  <span className="admin-role-badge">Administrator</span>
+                </div>
+                <div className="admin-profile-divider"></div>
+                <button 
+                  className="admin-profile-menu-item"
+                  onClick={handleNavigateToSettings}
+                >
+                  <span className="menu-icon">⚙️</span>
+                  Settings & Profile
+                </button>
+                <button 
+                  className="admin-profile-menu-item logout"
+                  onClick={handleLogout}
+                >
+                  <span className="menu-icon">🚪</span>
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         <div className="admin-content">
@@ -155,7 +241,6 @@ const AdminDashboard: React.FC = () => {
             <Route path="/officers" element={<Officers />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/profile" element={<Profile />} />
           </Routes>
         </div>
       </main>

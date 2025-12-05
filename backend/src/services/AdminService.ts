@@ -39,14 +39,15 @@ class AdminService {
   // Dashboard Statistics
   async getDashboardStats() {
     try {
-      const [colleges, officers, students, assessments] = await Promise.all([
+      const [colleges, officers, students, assessments, topColleges] = await Promise.all([
         this.getAllColleges(),
         this.getAllOfficers({}),
         this.getAllStudents(),
-        this.getAllAssessments({})
+        this.getAllAssessments({}),
+        this.getTopActiveColleges(5)
       ]);
 
-      const activeAssessments = assessments.filter(assessment => assessment.status === 'active');
+      const activeAssessments = assessments.filter(assessment => assessment.status === 'active' || assessment.status === 'ACTIVE');
       
       return {
         totalColleges: colleges.length,
@@ -54,11 +55,72 @@ class AdminService {
         totalStudents: students.length,
         activeAssessments: activeAssessments.length,
         totalAssessments: assessments.length,
+        topColleges: topColleges,
         recentActivity: await this.getRecentActivity()
       };
     } catch (error) {
       console.error('Error getting dashboard stats:', error);
       throw error;
+    }
+  }
+
+  async getTopActiveColleges(limit = 5) {
+    try {
+      // Get all colleges
+      const colleges = await this.getAllColleges();
+      
+      // Get assessment results to calculate activity
+      const resultsParams = {
+        FilterExpression: 'begins_with(SK, :resultPrefix)',
+        ExpressionAttributeValues: {
+          ':resultPrefix': 'RESULT#ASSESSMENT#'
+        }
+      };
+      const resultsData = await this.scanTable(resultsParams);
+      
+      // Get all assessments
+      const assessmentsParams = {
+        FilterExpression: 'begins_with(SK, :assessmentPrefix)',
+        ExpressionAttributeValues: {
+          ':assessmentPrefix': 'ASSESSMENT#'
+        }
+      };
+      const assessmentsData = await this.scanTable(assessmentsParams);
+      
+      // Calculate stats for each college
+      const collegeStats = colleges.map(college => {
+        const collegePK = college.id;
+        
+        // Count students (unique emails in results)
+        const collegeResults = resultsData.Items.filter(item => item.PK === collegePK);
+        const uniqueStudents = new Set(collegeResults.map(r => r.email)).size;
+        
+        // Count assessments
+        const collegeAssessments = assessmentsData.Items.filter(item => item.PK === collegePK);
+        const totalAssessments = collegeAssessments.length;
+        
+        // Count completed assessments (from results)
+        const completedAssessments = new Set(collegeResults.map(r => r.assessmentId)).size;
+        
+        return {
+          name: college.name,
+          domain: college.domain,
+          students: uniqueStudents,
+          assessments: totalAssessments,
+          completedAssessments: completedAssessments,
+          activityScore: (completedAssessments * 2) + uniqueStudents + totalAssessments
+        };
+      });
+      
+      // Sort by activity score and return top N
+      return collegeStats
+        .sort((a, b) => b.activityScore - a.activityScore)
+        .slice(0, limit)
+        .map(({ activityScore, ...rest }) => rest);
+        
+    } catch (error) {
+      console.error('Error getting top active colleges:', error);
+      return [];
     }
   }
 
@@ -668,6 +730,169 @@ class AdminService {
     }
   }
 
+  // Admin Profile Management
+  async getAdminProfile(email) {
+    try {
+      // Validate email format first
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        console.error('Invalid email format provided:', email);
+        throw new Error('Invalid email format');
+      }
+      
+      // Try to get admin profile from DynamoDB using ADMIN#PROFILE pattern
+      let adminProfile = null;
+      try {
+        const params = {
+          Key: {
+            PK: 'ADMIN#PROFILE',
+            SK: `USER#${email}`
+          }
+        };
+        const result = await this.getItem(params);
+        adminProfile = result.Item;
+      } catch (dbError) {
+        // Silently handle profile lookup failure
+      }
+      
+      if (adminProfile) {
+        return {
+          email: adminProfile.email || email,
+          name: adminProfile.name || '',
+          firstName: adminProfile.firstName || adminProfile.name?.split(' ')[0] || '',
+          lastName: adminProfile.lastName || adminProfile.name?.split(' ').slice(1).join(' ') || '',
+          phone: adminProfile.phone || '',
+          designation: adminProfile.designation || 'Company Administrator',
+          department: adminProfile.department || 'Administration',
+          employeeId: adminProfile.employeeId || '',
+          joiningDate: adminProfile.joiningDate || adminProfile.createdAt || '',
+          bio: adminProfile.bio || '',
+          address: adminProfile.address || '',
+          city: adminProfile.city || '',
+          state: adminProfile.state || '',
+          zipCode: adminProfile.zipCode || '',
+          country: adminProfile.country || '',
+          profilePicture: adminProfile.profilePicture || ''
+        };
+      }
+      
+      // If not found, try to get from Cognito
+      console.log('Attempting to fetch from Cognito...');
+      const { getUserAttributes } = require('../auth/cognito');
+      try {
+        const cognitoAttributes = await getUserAttributes(email);
+        console.log('Cognito attributes fetched successfully');
+        
+        // Extract attributes from Cognito
+        const attributes = {};
+        if (Array.isArray(cognitoAttributes)) {
+          cognitoAttributes.forEach(attr => {
+            attributes[attr.Name] = attr.Value;
+          });
+        } else if (cognitoAttributes.attributes) {
+          Object.assign(attributes, cognitoAttributes.attributes);
+        }
+        
+        return {
+          email: attributes.email || email,
+          name: attributes.name || '',
+          firstName: attributes.given_name || attributes.name?.split(' ')[0] || '',
+          lastName: attributes.family_name || attributes.name?.split(' ').slice(1).join(' ') || '',
+          phone: attributes.phone_number || '',
+          designation: attributes['custom:designation'] || 'Company Administrator',
+          department: attributes['custom:department'] || 'Administration',
+          employeeId: attributes['custom:employeeId'] || '',
+          joiningDate: attributes['custom:joiningDate'] || '',
+          bio: attributes['custom:bio'] || '',
+          address: attributes['custom:address'] || '',
+          city: attributes['custom:city'] || '',
+          state: attributes['custom:state'] || '',
+          zipCode: attributes['custom:zipCode'] || '',
+          country: attributes['custom:country'] || '',
+          profilePicture: attributes.picture || ''
+        };
+      } catch (cognitoError) {
+        console.error('Error fetching from Cognito:', cognitoError);
+        // Return basic profile with email
+        return {
+          email: email,
+          name: '',
+          firstName: '',
+          lastName: '',
+          phone: '',
+          designation: 'Company Administrator',
+          department: 'Administration',
+          employeeId: '',
+          joiningDate: '',
+          bio: '',
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: '',
+          profilePicture: ''
+        };
+      }
+    } catch (error) {
+      console.error('Error getting admin profile:', error);
+      throw error;
+    }
+  }
+
+  async updateAdminProfile(email, updates) {
+    try {
+      const timestamp = new Date().toISOString();
+      
+      // Check if profile exists
+      let existingProfile = null;
+      try {
+        const params = {
+          Key: {
+            PK: 'ADMIN#PROFILE',
+            SK: `USER#${email}`
+          }
+        };
+        const result = await this.getItem(params);
+        existingProfile = result.Item;
+      } catch (err) {
+        // No existing profile found, will create new one
+      }
+      
+      // Prepare the profile data
+      const profileData = {
+        PK: 'ADMIN#PROFILE',
+        SK: `USER#${email}`,
+        email: email,
+        name: updates.name || updates.firstName + ' ' + updates.lastName || existingProfile?.name || '',
+        firstName: updates.firstName || existingProfile?.firstName || '',
+        lastName: updates.lastName || existingProfile?.lastName || '',
+        phone: updates.phone || existingProfile?.phone || '',
+        designation: updates.designation || existingProfile?.designation || 'Company Administrator',
+        department: updates.department || existingProfile?.department || 'Administration',
+        employeeId: updates.employeeId || existingProfile?.employeeId || '',
+        joiningDate: updates.joiningDate || existingProfile?.joiningDate || '',
+        bio: updates.bio || existingProfile?.bio || '',
+        address: updates.address || existingProfile?.address || '',
+        city: updates.city || existingProfile?.city || '',
+        state: updates.state || existingProfile?.state || '',
+        zipCode: updates.zipCode || existingProfile?.zipCode || '',
+        country: updates.country || existingProfile?.country || '',
+        profilePicture: updates.profilePicture || existingProfile?.profilePicture || '',
+        role: 'Admin',
+        updatedAt: timestamp,
+        createdAt: existingProfile?.createdAt || timestamp
+      };
+      
+      // Save to DynamoDB
+      await this.putItem(profileData);
+      
+      // Return the updated profile
+      return this.getAdminProfile(email);
+    } catch (error) {
+      console.error('Error updating admin profile:', error);
+      throw error;
+    }
+  }
+
   // Data Formatting Methods
   formatCollegeData(item) {
     return {
@@ -799,6 +1024,237 @@ class AdminService {
     } catch (error) {
       console.error('Error getting departments by college:', error);
       return [];
+    }
+  }
+
+  // Assessment Analytics Methods
+  async getAssessmentResults() {
+    try {
+      // Get all assessment results from DynamoDB
+      const params = {
+        FilterExpression: 'begins_with(SK, :resultPrefix)',
+        ExpressionAttributeValues: {
+          ':resultPrefix': 'RESULT#ASSESSMENT#'
+        }
+      };
+
+      const result = await this.scanTable(params);
+      
+      return result.Items.map(item => ({
+        assessmentId: item.assessmentId,
+        studentEmail: item.email,
+        studentName: item.Name,
+        department: item.department,
+        score: parseFloat(item.score) || 0,
+        maxScore: parseFloat(item.maxScore) || 0,
+        percentage: parseFloat(item.percentage) || 0,
+        accuracy: parseFloat(item.accuracy) || 0,
+        numCorrect: parseInt(item.numCorrect) || 0,
+        numIncorrect: parseInt(item.numIncorrect) || 0,
+        numUnattempted: parseInt(item.numUnattempted) || 0,
+        timeSpent: parseInt(item.timeSpentSeconds) || 0,
+        submittedAt: item.submittedAt,
+        evaluated: item.evaluated === 'true' || item.evaluated === true,
+        clientId: item.PK
+      }));
+    } catch (error) {
+      console.error('Error getting assessment results:', error);
+      throw error;
+    }
+  }
+
+  async getPerformanceOverview() {
+    try {
+      const results = await this.getAssessmentResults();
+      
+      if (results.length === 0) {
+        return {
+          totalResults: 0,
+          averageScore: 0,
+          averageAccuracy: 0,
+          averageTimeSpent: 0,
+          passRate: 0,
+          topPerformers: [],
+          assessmentBreakdown: []
+        };
+      }
+
+      // Calculate overall statistics
+      const totalResults = results.length;
+      const averageScore = results.reduce((sum, r) => sum + r.percentage, 0) / totalResults;
+      const averageAccuracy = results.reduce((sum, r) => sum + r.accuracy, 0) / totalResults;
+      const averageTimeSpent = results.reduce((sum, r) => sum + r.timeSpent, 0) / totalResults;
+      const passRate = (results.filter(r => r.percentage >= 50).length / totalResults) * 100;
+
+      // Group by assessment
+      const assessmentMap = {};
+      results.forEach(result => {
+        if (!assessmentMap[result.assessmentId]) {
+          assessmentMap[result.assessmentId] = {
+            assessmentId: result.assessmentId,
+            totalAttempts: 0,
+            averageScore: 0,
+            scores: []
+          };
+        }
+        assessmentMap[result.assessmentId].totalAttempts++;
+        assessmentMap[result.assessmentId].scores.push(result.percentage);
+      });
+
+      const assessmentBreakdown = Object.values(assessmentMap).map(assessment => ({
+        assessmentId: assessment.assessmentId,
+        totalAttempts: assessment.totalAttempts,
+        averageScore: assessment.scores.reduce((sum, s) => sum + s, 0) / assessment.scores.length,
+        highestScore: Math.max(...assessment.scores),
+        lowestScore: Math.min(...assessment.scores)
+      }));
+
+      // Get top performers (unique students with best average)
+      const studentMap = {};
+      results.forEach(result => {
+        if (!studentMap[result.studentEmail]) {
+          studentMap[result.studentEmail] = {
+            email: result.studentEmail,
+            name: result.studentName,
+            scores: [],
+            department: result.department
+          };
+        }
+        studentMap[result.studentEmail].scores.push(result.percentage);
+      });
+
+      const topPerformers = Object.values(studentMap)
+        .map(student => ({
+          email: student.email,
+          name: student.name,
+          department: student.department,
+          averageScore: student.scores.reduce((sum, s) => sum + s, 0) / student.scores.length,
+          totalAttempts: student.scores.length
+        }))
+        .sort((a, b) => b.averageScore - a.averageScore)
+        .slice(0, 10);
+
+      return {
+        totalResults,
+        averageScore: Math.round(averageScore * 100) / 100,
+        averageAccuracy: Math.round(averageAccuracy * 100) / 100,
+        averageTimeSpent: Math.round(averageTimeSpent),
+        passRate: Math.round(passRate * 100) / 100,
+        topPerformers,
+        assessmentBreakdown
+      };
+    } catch (error) {
+      console.error('Error getting performance overview:', error);
+      throw error;
+    }
+  }
+
+  async getAssessmentStats(assessmentId) {
+    try {
+      const allResults = await this.getAssessmentResults();
+      const results = allResults.filter(r => r.assessmentId === assessmentId);
+
+      if (results.length === 0) {
+        return {
+          assessmentId,
+          totalAttempts: 0,
+          averageScore: 0,
+          highestScore: 0,
+          lowestScore: 0,
+          passRate: 0,
+          scoreDistribution: [],
+          departmentPerformance: []
+        };
+      }
+
+      const scores = results.map(r => r.percentage);
+      const averageScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+      const passRate = (results.filter(r => r.percentage >= 50).length / results.length) * 100;
+
+      // Score distribution (0-20, 21-40, 41-60, 61-80, 81-100)
+      const scoreRanges = [
+        { label: '0-20%', count: 0 },
+        { label: '21-40%', count: 0 },
+        { label: '41-60%', count: 0 },
+        { label: '61-80%', count: 0 },
+        { label: '81-100%', count: 0 }
+      ];
+
+      results.forEach(r => {
+        const score = r.percentage;
+        if (score <= 20) scoreRanges[0].count++;
+        else if (score <= 40) scoreRanges[1].count++;
+        else if (score <= 60) scoreRanges[2].count++;
+        else if (score <= 80) scoreRanges[3].count++;
+        else scoreRanges[4].count++;
+      });
+
+      // Department performance
+      const deptMap = {};
+      results.forEach(result => {
+        const dept = result.department || 'Unknown';
+        if (!deptMap[dept]) {
+          deptMap[dept] = { department: dept, scores: [] };
+        }
+        deptMap[dept].scores.push(result.percentage);
+      });
+
+      const departmentPerformance = Object.values(deptMap).map(dept => ({
+        department: dept.department,
+        averageScore: dept.scores.reduce((sum, s) => sum + s, 0) / dept.scores.length,
+        totalAttempts: dept.scores.length
+      }));
+
+      return {
+        assessmentId,
+        totalAttempts: results.length,
+        averageScore: Math.round(averageScore * 100) / 100,
+        highestScore: Math.max(...scores),
+        lowestScore: Math.min(...scores),
+        passRate: Math.round(passRate * 100) / 100,
+        scoreDistribution: scoreRanges,
+        departmentPerformance: departmentPerformance.sort((a, b) => b.averageScore - a.averageScore)
+      };
+    } catch (error) {
+      console.error('Error getting assessment stats:', error);
+      throw error;
+    }
+  }
+
+  async getDepartmentPerformance() {
+    try {
+      const results = await this.getAssessmentResults();
+      
+      const deptMap = {};
+      results.forEach(result => {
+        const dept = result.department || 'Unknown';
+        if (!deptMap[dept]) {
+          deptMap[dept] = {
+            department: dept,
+            totalAttempts: 0,
+            totalScore: 0,
+            scores: [],
+            students: new Set()
+          };
+        }
+        deptMap[dept].totalAttempts++;
+        deptMap[dept].totalScore += result.percentage;
+        deptMap[dept].scores.push(result.percentage);
+        deptMap[dept].students.add(result.studentEmail);
+      });
+
+      return Object.values(deptMap).map(dept => ({
+        department: dept.department,
+        totalStudents: dept.students.size,
+        totalAttempts: dept.totalAttempts,
+        averageScore: Math.round((dept.totalScore / dept.totalAttempts) * 100) / 100,
+        highestScore: Math.max(...dept.scores),
+        lowestScore: Math.min(...dept.scores),
+        passRate: Math.round((dept.scores.filter(s => s >= 50).length / dept.scores.length) * 100 * 100) / 100
+      })).sort((a, b) => b.averageScore - a.averageScore);
+    } catch (error) {
+      console.error('Error getting department performance:', error);
+      throw error;
     }
   }
 }

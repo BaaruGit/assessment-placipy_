@@ -5,60 +5,145 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+interface AssessmentResult {
+  assessmentId: string;
+  studentEmail: string;
+  studentName: string;
+  department: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  accuracy: number;
+  submittedAt: string;
+}
+
 const Reports: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [collegeReports, setCollegeReports] = useState<any[]>([]);
-  const [performanceData, setPerformanceData] = useState<any>(null);
+  const [assessmentResults, setAssessmentResults] = useState<AssessmentResult[]>([]);
+  const [performanceOverview, setPerformanceOverview] = useState<any>(null);
+  const [departmentPerformance, setDepartmentPerformance] = useState<any[]>([]);
+  const [selectedAssessment, setSelectedAssessment] = useState<string>('all');
+  const [assessmentStats, setAssessmentStats] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
 
   useEffect(() => {
-    loadReportsData();
+    checkBackendConnection();
   }, []);
+
+  const checkBackendConnection = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/admin/dashboard/stats', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+      
+      if (response.ok) {
+        setBackendStatus('online');
+        loadReportsData();
+      } else {
+        setBackendStatus('offline');
+        setError('Backend server is not responding. Please start the server.');
+      }
+    } catch (err) {
+      setBackendStatus('offline');
+      setError('Cannot connect to backend server. Please ensure it is running on port 3000.');
+      console.error('Backend connection error:', err);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedAssessment && selectedAssessment !== 'all') {
+      loadAssessmentStats(selectedAssessment);
+    }
+  }, [selectedAssessment]);
 
   const loadReportsData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [colleges, performance] = await Promise.all([
-        AdminService.getCollegeReports(),
-        AdminService.getPerformanceReport()
+      console.log('Loading assessment analytics data...');
+
+      const [results, overview, deptPerf] = await Promise.all([
+        AdminService.getAssessmentResults(),
+        AdminService.getPerformanceOverview(),
+        AdminService.getDepartmentPerformance()
       ]);
 
-      setCollegeReports(colleges);
-      setPerformanceData(performance);
+      console.log('Assessment Results:', results);
+      console.log('Performance Overview:', overview);
+      console.log('Department Performance:', deptPerf);
+
+      setAssessmentResults(results || []);
+      setPerformanceOverview(overview || {});
+      setDepartmentPerformance(deptPerf || []);
+
+      if (!results || results.length === 0) {
+        setError('No assessment results found. Please ensure assessments have been completed.');
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to load reports data');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load reports data';
+      setError(errorMessage);
       console.error('Error loading reports:', err);
+      console.error('Error details:', err.response?.data);
     } finally {
       setLoading(false);
     }
   };
 
+  const loadAssessmentStats = async (assessmentId: string) => {
+    try {
+      const stats = await AdminService.getAssessmentStats(assessmentId);
+      setAssessmentStats(stats);
+    } catch (err: any) {
+      console.error('Error loading assessment stats:', err);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadReportsData();
+    if (backendStatus === 'offline') {
+      await checkBackendConnection();
+    } else {
+      await loadReportsData();
+    }
     setRefreshing(false);
   };
 
+  // Get unique assessments for filter
+  const uniqueAssessments = ['all', ...Array.from(new Set(assessmentResults.map(r => r.assessmentId)))];
+
   // Process data for charts
-  const collegePerformance = collegeReports.map(college => ({
-    name: college.name,
-    students: college.totalStudents || 0,
-    assessments: college.totalAssessments || 0,
-    completion: college.completionRate || 0
+  const scoreDistributionData = selectedAssessment === 'all' && assessmentStats
+    ? assessmentStats.scoreDistribution
+    : [
+        { label: '0-20%', count: assessmentResults.filter(r => r.percentage <= 20 && (selectedAssessment === 'all' || r.assessmentId === selectedAssessment)).length },
+        { label: '21-40%', count: assessmentResults.filter(r => r.percentage > 20 && r.percentage <= 40 && (selectedAssessment === 'all' || r.assessmentId === selectedAssessment)).length },
+        { label: '41-60%', count: assessmentResults.filter(r => r.percentage > 40 && r.percentage <= 60 && (selectedAssessment === 'all' || r.assessmentId === selectedAssessment)).length },
+        { label: '61-80%', count: assessmentResults.filter(r => r.percentage > 60 && r.percentage <= 80 && (selectedAssessment === 'all' || r.assessmentId === selectedAssessment)).length },
+        { label: '81-100%', count: assessmentResults.filter(r => r.percentage > 80 && (selectedAssessment === 'all' || r.assessmentId === selectedAssessment)).length }
+      ];
+
+  const assessmentBreakdownData = performanceOverview?.assessmentBreakdown?.map((a: any) => ({
+    name: a.assessmentId.replace('ASSESS_', ''),
+    attempts: a.totalAttempts,
+    avgScore: Math.round(a.averageScore)
+  })) || [];
+
+  const deptChartData = departmentPerformance.map(dept => ({
+    name: dept.department,
+    avgScore: Math.round(dept.averageScore),
+    students: dept.totalStudents,
+    passRate: Math.round(dept.passRate)
   }));
 
-  const assessmentStats = performanceData?.monthlyStats || [];
-  
-  const statusData = performanceData?.statusDistribution ? [
-    { name: 'Completed', value: performanceData.statusDistribution.completed || 0, color: '#9768E1' },
-    { name: 'In Progress', value: performanceData.statusDistribution.inProgress || 0, color: '#E4D5F8' },
-    { name: 'Pending', value: performanceData.statusDistribution.pending || 0, color: '#D0BFE7' },
-  ] : [];
+  const performanceColors = ['#9768E1', '#E4D5F8', '#D0BFE7', '#523C48', '#FBFAFB'];
 
   const handleExportExcel = async () => {
     if (exportingExcel) return;
@@ -69,49 +154,65 @@ const Reports: React.FC = () => {
       // Create workbook with multiple sheets
       const wb = XLSX.utils.book_new();
       
-      // Sheet 1: College Performance Summary
-      const collegeData = collegeReports.map(college => ({
-        'College Name': college.name,
-        'Total Students': college.totalStudents || 0,
-        'Total Assessments': college.totalAssessments || 0,
-        'Completion Rate (%)': Math.round((college.completionRate || 0) * 100),
-        'Active Officers': college.activeOfficers || 0,
-        'Status': college.active ? 'Active' : 'Inactive',
-        'Created Date': college.createdAt ? new Date(college.createdAt).toLocaleDateString() : 'N/A'
-      }));
-      
-      const ws1 = XLSX.utils.json_to_sheet(collegeData);
-      XLSX.utils.book_append_sheet(wb, ws1, 'College Performance');
-      
-      // Sheet 2: Assessment Statistics
-      if (performanceData?.monthlyStats) {
-        const assessmentData = performanceData.monthlyStats.map((stat: any) => ({
-          'Month': stat.month,
-          'Total Assessments': stat.total,
-          'Completed': stat.completed,
-          'Completion Rate (%)': Math.round((stat.completed / stat.total) * 100) || 0
-        }));
-        
-        const ws2 = XLSX.utils.json_to_sheet(assessmentData);
-        XLSX.utils.book_append_sheet(wb, ws2, 'Monthly Stats');
-      }
-      
-      // Sheet 3: Overall Summary
-      const summaryData = [{
-        'Total Colleges': collegeReports.length,
-        'Total Students': collegeReports.reduce((sum, c) => sum + (c.totalStudents || 0), 0),
-        'Total Assessments': collegeReports.reduce((sum, c) => sum + (c.totalAssessments || 0), 0),
-        'Average Completion Rate (%)': Math.round(
-          collegeReports.reduce((sum, c) => sum + (c.completionRate || 0), 0) / collegeReports.length * 100
-        ) || 0,
+      // Sheet 1: Performance Overview
+      const overviewData = [{
+        'Total Results': performanceOverview?.totalResults || 0,
+        'Average Score': performanceOverview?.averageScore || 0,
+        'Average Accuracy': performanceOverview?.averageAccuracy || 0,
+        'Pass Rate (%)': performanceOverview?.passRate || 0,
         'Generated On': new Date().toLocaleString()
       }];
       
-      const ws3 = XLSX.utils.json_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, ws3, 'Summary');
+      const ws1 = XLSX.utils.json_to_sheet(overviewData);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Overview');
+      
+      // Sheet 2: Department Performance
+      const deptData = departmentPerformance.map(dept => ({
+        'Department': dept.department,
+        'Total Students': dept.totalStudents,
+        'Total Attempts': dept.totalAttempts,
+        'Average Score': Math.round(dept.averageScore * 100) / 100,
+        'Highest Score': dept.highestScore,
+        'Lowest Score': dept.lowestScore,
+        'Pass Rate (%)': dept.passRate
+      }));
+      
+      const ws2 = XLSX.utils.json_to_sheet(deptData);
+      XLSX.utils.book_append_sheet(wb, ws2, 'Department Performance');
+      
+      // Sheet 3: Top Performers
+      if (performanceOverview?.topPerformers) {
+        const topPerformersData = performanceOverview.topPerformers.map((p: any, idx: number) => ({
+          'Rank': idx + 1,
+          'Student Name': p.name,
+          'Email': p.email,
+          'Department': p.department,
+          'Average Score': Math.round(p.averageScore * 100) / 100,
+          'Total Attempts': p.totalAttempts
+        }));
+        
+        const ws3 = XLSX.utils.json_to_sheet(topPerformersData);
+        XLSX.utils.book_append_sheet(wb, ws3, 'Top Performers');
+      }
+      
+      // Sheet 4: All Results
+      const resultsData = assessmentResults.map(result => ({
+        'Assessment ID': result.assessmentId,
+        'Student Name': result.studentName,
+        'Email': result.studentEmail,
+        'Department': result.department,
+        'Score': result.score,
+        'Max Score': result.maxScore,
+        'Percentage': result.percentage,
+        'Accuracy': result.accuracy,
+        'Submitted At': new Date(result.submittedAt).toLocaleString()
+      }));
+      
+      const ws4 = XLSX.utils.json_to_sheet(resultsData);
+      XLSX.utils.book_append_sheet(wb, ws4, 'All Results');
       
       // Generate filename with timestamp
-      const fileName = `Assessment_Reports_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const fileName = `Assessment_Analytics_${new Date().toISOString().split('T')[0]}.xlsx`;
       
       // Download the file
       XLSX.writeFile(wb, fileName);
@@ -139,7 +240,7 @@ const Reports: React.FC = () => {
       // Title
       pdf.setFontSize(20);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Assessment Platform - Reports', pageWidth / 2, yPosition, { align: 'center' });
+      pdf.text('Assessment Analytics Report', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 15;
       
       // Date
@@ -148,92 +249,46 @@ const Reports: React.FC = () => {
       pdf.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 20;
       
-      // Summary Section
+      // Performance Overview Section
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Summary', margin, yPosition);
+      pdf.text('Performance Overview', margin, yPosition);
       yPosition += 10;
       
       pdf.setFontSize(12);
       pdf.setFont('helvetica', 'normal');
-      const summaryText = [
-        `Total Colleges: ${collegeReports.length}`,
-        `Total Students: ${collegeReports.reduce((sum, c) => sum + (c.totalStudents || 0), 0)}`,
-        `Total Assessments: ${collegeReports.reduce((sum, c) => sum + (c.totalAssessments || 0), 0)}`,
-        `Average Completion Rate: ${Math.round(
-          collegeReports.reduce((sum, c) => sum + (c.completionRate || 0), 0) / collegeReports.length * 100
-        )}%`
+      const overviewText = [
+        `Total Results: ${performanceOverview?.totalResults || 0}`,
+        `Average Score: ${performanceOverview?.averageScore || 0}%`,
+        `Average Accuracy: ${performanceOverview?.averageAccuracy || 0}%`,
+        `Pass Rate: ${performanceOverview?.passRate || 0}%`
       ];
       
-      summaryText.forEach(text => {
+      overviewText.forEach(text => {
         pdf.text(text, margin, yPosition);
         yPosition += 8;
       });
       
       yPosition += 10;
       
-      // College Performance Table
-      pdf.setFontSize(16);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('College Performance', margin, yPosition);
-      yPosition += 10;
-      
-      const tableColumns = ['College Name', 'Students', 'Assessments', 'Completion %', 'Status'];
-      const tableRows = collegeReports.map(college => [
-        college.name,
-        (college.totalStudents || 0).toString(),
-        (college.totalAssessments || 0).toString(),
-        `${Math.round((college.completionRate || 0) * 100)}%`,
-        college.active ? 'Active' : 'Inactive'
-      ]);
-      
-      // Add table using autoTable
-      autoTable(pdf, {
-        head: [tableColumns],
-        body: tableRows,
-        startY: yPosition,
-        margin: { left: margin, right: margin },
-        styles: {
-          fontSize: 10,
-          cellPadding: 3,
-        },
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontStyle: 'bold'
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245]
-        }
-      });
-      
-      // Check if we need a new page for monthly stats
-      const finalY = (pdf as any).lastAutoTable?.finalY || yPosition + 50;
-      if (finalY > 200) {
-        pdf.addPage();
-        yPosition = margin;
-      } else {
-        yPosition = finalY + 20;
-      }
-      
-      // Monthly Statistics (if available)
-      if (performanceData?.monthlyStats && performanceData.monthlyStats.length > 0) {
+      // Department Performance Table
+      if (departmentPerformance.length > 0) {
         pdf.setFontSize(16);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Monthly Assessment Statistics', margin, yPosition);
+        pdf.text('Department Performance', margin, yPosition);
         yPosition += 10;
         
-        const monthlyColumns = ['Month', 'Total Assessments', 'Completed', 'Completion Rate'];
-        const monthlyRows = performanceData.monthlyStats.map((stat: any) => [
-          stat.month,
-          stat.total.toString(),
-          stat.completed.toString(),
-          `${Math.round((stat.completed / stat.total) * 100) || 0}%`
+        const deptColumns = ['Department', 'Students', 'Avg Score', 'Pass Rate'];
+        const deptRows = departmentPerformance.map(dept => [
+          dept.department,
+          dept.totalStudents.toString(),
+          `${Math.round(dept.averageScore)}%`,
+          `${Math.round(dept.passRate)}%`
         ]);
         
         autoTable(pdf, {
-          head: [monthlyColumns],
-          body: monthlyRows,
+          head: [deptColumns],
+          body: deptRows,
           startY: yPosition,
           margin: { left: margin, right: margin },
           styles: {
@@ -241,7 +296,49 @@ const Reports: React.FC = () => {
             cellPadding: 3,
           },
           headStyles: {
-            fillColor: [52, 152, 219],
+            fillColor: [151, 104, 225],
+            textColor: 255,
+            fontStyle: 'bold'
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245]
+          }
+        });
+        
+        yPosition = (pdf as any).lastAutoTable?.finalY + 20 || yPosition + 50;
+      }
+      
+      // Top Performers
+      if (performanceOverview?.topPerformers && performanceOverview.topPerformers.length > 0) {
+        if (yPosition > 200) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Top 10 Performers', margin, yPosition);
+        yPosition += 10;
+        
+        const performerColumns = ['Rank', 'Name', 'Department', 'Avg Score'];
+        const performerRows = performanceOverview.topPerformers.slice(0, 10).map((p: any, idx: number) => [
+          (idx + 1).toString(),
+          p.name,
+          p.department,
+          `${Math.round(p.averageScore)}%`
+        ]);
+        
+        autoTable(pdf, {
+          head: [performerColumns],
+          body: performerRows,
+          startY: yPosition,
+          margin: { left: margin, right: margin },
+          styles: {
+            fontSize: 10,
+            cellPadding: 3,
+          },
+          headStyles: {
+            fillColor: [151, 104, 225],
             textColor: 255,
             fontStyle: 'bold'
           },
@@ -252,7 +349,7 @@ const Reports: React.FC = () => {
       }
       
       // Generate filename with timestamp
-      const fileName = `Assessment_Reports_${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `Assessment_Analytics_${new Date().toISOString().split('T')[0]}.pdf`;
       
       // Download the PDF
       pdf.save(fileName);
@@ -269,8 +366,25 @@ const Reports: React.FC = () => {
   return (
     <div className="admin-page-container">
       <div className="admin-page-header">
-        <h2 className="admin-page-title">Reports & Analytics</h2>
+        <div>
+          <h2 className="admin-page-title">Assessment Analytics & Reports</h2>
+          <div className="admin-status-indicator">
+            {backendStatus === 'checking' && <span className="status-badge checking">🔄 Checking connection...</span>}
+            {backendStatus === 'online' && <span className="status-badge online">✅ Backend Online</span>}
+            {backendStatus === 'offline' && <span className="status-badge offline">❌ Backend Offline</span>}
+          </div>
+        </div>
         <div className="admin-export-buttons">
+          <select 
+            className="admin-assessment-filter"
+            value={selectedAssessment}
+            onChange={(e) => setSelectedAssessment(e.target.value)}
+          >
+            <option value="all">All Assessments</option>
+            {uniqueAssessments.filter(a => a !== 'all').map(assessmentId => (
+              <option key={assessmentId} value={assessmentId}>{assessmentId}</option>
+            ))}
+          </select>
           <button 
             className="admin-btn-export" 
             onClick={handleRefresh}
@@ -302,160 +416,265 @@ const Reports: React.FC = () => {
         </div>
       )}
 
+      {!loading && !error && assessmentResults.length === 0 && (
+        <div className="admin-info-banner">
+          <h3>📊 No Assessment Data Available</h3>
+          <p>There are currently no assessment results to display. This could be because:</p>
+          <ul>
+            <li>No assessments have been completed yet</li>
+            <li>The backend server may not be running (Status: <strong>{backendStatus}</strong>)</li>
+            <li>Database connection issues</li>
+          </ul>
+          <p><strong>Steps to resolve:</strong></p>
+          <ol>
+            <li><strong>Start Backend Server:</strong> Open terminal in <code>backend/</code> folder and run <code>npm start</code></li>
+            <li><strong>Check Port:</strong> Ensure backend is running on <code>http://localhost:3000</code></li>
+            <li><strong>Verify Data:</strong> Check that DynamoDB has assessment results with SK pattern <code>RESULT#ASSESSMENT#*</code></li>
+            <li><strong>Check Console:</strong> Open browser DevTools (F12) and check Console tab for error details</li>
+          </ol>
+          <button className="admin-btn-primary" onClick={handleRefresh}>
+            🔄 Check Connection & Reload
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="admin-loading">
           <div className="spinner"></div>
-          <p>Loading reports data...</p>
+          <p>Loading assessment analytics...</p>
         </div>
-      ) : (
+      ) : assessmentResults.length > 0 ? (
 
-      <div className="admin-reports-grid">
-        {/* College Performance Chart */}
-        <div className="admin-chart-card">
-          <h3 className="admin-chart-title">College Performance Overview</h3>
-          {collegePerformance.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={collegePerformance}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#D0BFE7" />
-              <XAxis dataKey="name" stroke="#523C48" style={{ fontSize: '11px' }} />
-              <YAxis stroke="#523C48" style={{ fontSize: '11px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#FBFAFB',
-                  border: '1px solid #D0BFE7',
-                  borderRadius: '8px',
-                  color: '#523C48'
-                }}
-              />
-              <Legend />
-              <Bar dataKey="students" fill="#9768E1" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="assessments" fill="#E4D5F8" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          ) : (
-            <div className="admin-empty-chart">
-              <p>No college performance data available</p>
+      <div className="admin-reports-container">
+        {/* Summary Cards */}
+        <div className="admin-stats-grid">
+          <div className="admin-stat-card">
+            <div className="admin-stat-icon" style={{ backgroundColor: '#9768E1' }}>📊</div>
+            <div className="admin-stat-info">
+              <h3>{performanceOverview?.totalResults || 0}</h3>
+              <p>Total Results</p>
             </div>
-          )}
-        </div>
-
-        {/* Assessment Statistics */}
-        <div className="admin-chart-card">
-          <h3 className="admin-chart-title">Assessment Statistics (Last 6 Months)</h3>
-          {assessmentStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={assessmentStats}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#D0BFE7" />
-              <XAxis dataKey="name" stroke="#523C48" style={{ fontSize: '11px' }} />
-              <YAxis stroke="#523C48" style={{ fontSize: '11px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#FBFAFB',
-                  border: '1px solid #D0BFE7',
-                  borderRadius: '8px',
-                  color: '#523C48'
-                }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="assessments" stroke="#9768E1" strokeWidth={2} />
-              <Line type="monotone" dataKey="completions" stroke="#E4D5F8" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-          ) : (
-            <div className="admin-empty-chart">
-              <p>No assessment statistics available</p>
+          </div>
+          <div className="admin-stat-card">
+            <div className="admin-stat-icon" style={{ backgroundColor: '#E4D5F8' }}>📈</div>
+            <div className="admin-stat-info">
+              <h3>{performanceOverview?.averageScore || 0}%</h3>
+              <p>Average Score</p>
             </div>
-          )}
-        </div>
-
-        {/* Status Distribution */}
-        <div className="admin-chart-card">
-          <h3 className="admin-chart-title">Assessment Status Distribution</h3>
-          {statusData.length > 0 && statusData.some(item => item.value > 0) ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-              <Pie
-                data={statusData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={(entry: any) => `${entry.name}: ${((entry.value / statusData.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(0)}%`}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-          ) : (
-            <div className="admin-empty-chart">
-              <p>No status distribution data available</p>
+          </div>
+          <div className="admin-stat-card">
+            <div className="admin-stat-icon" style={{ backgroundColor: '#D0BFE7' }}>🎯</div>
+            <div className="admin-stat-info">
+              <h3>{performanceOverview?.passRate || 0}%</h3>
+              <p>Pass Rate</p>
             </div>
-          )}
-        </div>
-
-        {/* Performance Table - Spans 2 columns */}
-        <div className="admin-chart-card admin-chart-card-wide">
-          <h3 className="admin-chart-title">College Completion Rates</h3>
-          <div className="admin-table-container">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>College Name</th>
-                  <th>Students</th>
-                  <th>Assessments</th>
-                  <th>Completion %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {collegePerformance.map((college, index) => (
-                  <tr key={index}>
-                    <td>{college.name}</td>
-                    <td>{college.students}</td>
-                    <td>{college.assessments}</td>
-                    <td>
-                      <div className="admin-progress-container">
-                        <div className="admin-progress-bar">
-                          <div
-                            className="admin-progress-fill"
-                            style={{ width: `${college.completion}%` }}
-                          ></div>
-                        </div>
-                        <span>{college.completion}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          </div>
+          <div className="admin-stat-card">
+            <div className="admin-stat-icon" style={{ backgroundColor: '#523C48' }}>⏱️</div>
+            <div className="admin-stat-info">
+              <h3>{Math.floor((performanceOverview?.averageTimeSpent || 0) / 60)}m</h3>
+              <p>Avg Time Spent</p>
+            </div>
           </div>
         </div>
 
-        {/* Top Performing Officers */}
-        <div className="admin-chart-card">
-          <h3 className="admin-chart-title">Top Performing Officers</h3>
-          <div className="admin-top-performers">
-            {(performanceData?.topPerformers || []).map((officer: any, index: number) => (
-              <div key={index} className="admin-performer-item">
-                <div className="admin-performer-rank">#{index + 1}</div>
-                <div className="admin-performer-info">
-                  <div className="admin-performer-name">{officer.name}</div>
-                  <div className="admin-performer-college">{officer.college}</div>
-                </div>
-                <div className="admin-performer-score">{officer.score}%</div>
+        <div className="admin-reports-grid">
+          {/* Score Distribution Chart */}
+          <div className="admin-chart-card">
+            <h3 className="admin-chart-title">Score Distribution</h3>
+            {scoreDistributionData && scoreDistributionData.some(d => d.count > 0) ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={scoreDistributionData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#D0BFE7" />
+                  <XAxis dataKey="label" stroke="#523C48" style={{ fontSize: '11px' }} />
+                  <YAxis stroke="#523C48" style={{ fontSize: '11px' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#FBFAFB',
+                      border: '1px solid #D0BFE7',
+                      borderRadius: '8px',
+                      color: '#523C48'
+                    }}
+                  />
+                  <Bar dataKey="count" fill="#9768E1" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="admin-empty-chart">
+                <p>No score distribution data available</p>
               </div>
-            ))}
+            )}
+          </div>
+
+          {/* Assessment Breakdown */}
+          <div className="admin-chart-card">
+            <h3 className="admin-chart-title">Assessment Performance</h3>
+            {assessmentBreakdownData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={assessmentBreakdownData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#D0BFE7" />
+                  <XAxis dataKey="name" stroke="#523C48" style={{ fontSize: '11px' }} />
+                  <YAxis stroke="#523C48" style={{ fontSize: '11px' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#FBFAFB',
+                      border: '1px solid #D0BFE7',
+                      borderRadius: '8px',
+                      color: '#523C48'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="attempts" fill="#E4D5F8" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="avgScore" fill="#9768E1" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="admin-empty-chart">
+                <p>No assessment data available</p>
+              </div>
+            )}
+          </div>
+
+          {/* Department Performance Chart */}
+          <div className="admin-chart-card">
+            <h3 className="admin-chart-title">Department Performance</h3>
+            {deptChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={deptChartData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#D0BFE7" />
+                  <XAxis type="number" stroke="#523C48" style={{ fontSize: '11px' }} />
+                  <YAxis dataKey="name" type="category" stroke="#523C48" style={{ fontSize: '10px' }} width={100} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#FBFAFB',
+                      border: '1px solid #D0BFE7',
+                      borderRadius: '8px',
+                      color: '#523C48'
+                    }}
+                  />
+                  <Bar dataKey="avgScore" fill="#9768E1" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="admin-empty-chart">
+                <p>No department data available</p>
+              </div>
+            )}
+          </div>
+
+          {/* Pass Rate Pie Chart */}
+          <div className="admin-chart-card">
+            <h3 className="admin-chart-title">Pass/Fail Distribution</h3>
+            {performanceOverview && performanceOverview.totalResults > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Passed', value: Math.round((performanceOverview.passRate / 100) * performanceOverview.totalResults), color: '#9768E1' },
+                      { name: 'Failed', value: Math.round(((100 - performanceOverview.passRate) / 100) * performanceOverview.totalResults), color: '#E4D5F8' }
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={(entry: any) => `${entry.name}: ${entry.value}`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {[{ color: '#9768E1' }, { color: '#E4D5F8' }].map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="admin-empty-chart">
+                <p>No data available</p>
+              </div>
+            )}
+          </div>
+
+          {/* Top Performers Table */}
+          <div className="admin-chart-card admin-chart-card-wide">
+            <h3 className="admin-chart-title">🏆 Top 10 Performers</h3>
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Avg Score</th>
+                    <th>Attempts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(performanceOverview?.topPerformers || []).slice(0, 10).map((performer: any, index: number) => (
+                    <tr key={index}>
+                      <td>
+                        <span className="admin-rank-badge">#{index + 1}</span>
+                      </td>
+                      <td>{performer.name}</td>
+                      <td>{performer.department}</td>
+                      <td>
+                        <div className="admin-progress-container">
+                          <div className="admin-progress-bar">
+                            <div
+                              className="admin-progress-fill"
+                              style={{ width: `${performer.averageScore}%` }}
+                            ></div>
+                          </div>
+                          <span>{Math.round(performer.averageScore)}%</span>
+                        </div>
+                      </td>
+                      <td>{performer.totalAttempts}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(!performanceOverview?.topPerformers || performanceOverview.topPerformers.length === 0) && (
+                <div className="admin-empty-state">No top performers data available</div>
+              )}
+            </div>
+          </div>
+
+          {/* Department Performance Table */}
+          <div className="admin-chart-card admin-chart-card-wide">
+            <h3 className="admin-chart-title">Department Statistics</h3>
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Department</th>
+                    <th>Students</th>
+                    <th>Attempts</th>
+                    <th>Avg Score</th>
+                    <th>Pass Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {departmentPerformance.map((dept, index) => (
+                    <tr key={index}>
+                      <td>{dept.department}</td>
+                      <td>{dept.totalStudents}</td>
+                      <td>{dept.totalAttempts}</td>
+                      <td>{Math.round(dept.averageScore)}%</td>
+                      <td>{Math.round(dept.passRate)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {departmentPerformance.length === 0 && (
+                <div className="admin-empty-state">No department data available</div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-      )}
+      ) : null}
     </div>
   );
 };
 
 export default Reports;
-

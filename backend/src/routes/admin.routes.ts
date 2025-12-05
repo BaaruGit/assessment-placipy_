@@ -437,6 +437,124 @@ router.get('/reports/colleges', async (req, res) => {
   }
 });
 
+// Admin Profile Routes
+router.get('/profile', async (req, res) => {
+  try {
+    // Debug: Log the entire user object to see what's available
+    
+    // Get email from the validated token - try multiple possible fields
+    let email = req.user.email || 
+                req.user['cognito:username'] || 
+                req.user.username || 
+                req.user.sub;
+    
+    // If the extracted value is not a valid email, try to fetch from Cognito
+    if (!email || !email.includes('@')) {
+      const { getUserAttributes } = require('../auth/cognito');
+      try {
+        const userId = req.user.sub || req.user['cognito:username'] || req.user.username;
+        
+        const userInfo = await getUserAttributes(userId);
+        
+        // Extract email from Cognito attributes
+        if (Array.isArray(userInfo)) {
+          const emailAttr = userInfo.find(attr => attr.Name === 'email');
+          if (emailAttr) {
+            email = emailAttr.Value;
+          }
+        } else if (userInfo.attributes && userInfo.attributes.email) {
+          email = userInfo.attributes.email;
+        }
+      } catch (cognitoError) {
+        console.error('Error fetching from Cognito:', cognitoError);
+      }
+    }
+    
+    // Validate email format
+    if (!email || !email.includes('@')) {
+      console.error('Invalid email after all attempts:', email);
+      return res.status(400).json({
+        success: false,
+        message: 'Email not found in token or Cognito. Please ensure your account has a valid email.'
+      });
+    }
+    
+    const profile = await adminService.getAdminProfile(email);
+    
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin profile not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: profile
+    });
+  } catch (error) {
+    console.error('Error fetching admin profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch admin profile',
+      error: error.message
+    });
+  }
+});
+
+router.put('/profile', async (req, res) => {
+  try {
+    // Get email from the validated token - try multiple possible fields
+    let email = req.user.email || 
+                req.user['cognito:username'] || 
+                req.user.username || 
+                req.user.sub;
+    
+    // If the extracted value is not a valid email, try to fetch from Cognito
+    if (!email || !email.includes('@')) {
+      const { getUserAttributes } = require('../auth/cognito');
+      try {
+        const userId = req.user.sub || req.user['cognito:username'] || req.user.username;
+        const userInfo = await getUserAttributes(userId);
+        
+        if (Array.isArray(userInfo)) {
+          const emailAttr = userInfo.find(attr => attr.Name === 'email');
+          if (emailAttr) {
+            email = emailAttr.Value;
+          }
+        } else if (userInfo.attributes && userInfo.attributes.email) {
+          email = userInfo.attributes.email;
+        }
+      } catch (cognitoError) {
+        console.error('Error fetching from Cognito:', cognitoError);
+      }
+    }
+    
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email not found in token or Cognito'
+      });
+    }
+
+    const updates = req.body;
+    const profile = await adminService.updateAdminProfile(email, updates);
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: profile
+    });
+  } catch (error) {
+    console.error('Error updating admin profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update admin profile',
+      error: error.message
+    });
+  }
+});
+
 // Settings Routes
 router.get('/settings', async (req, res) => {
   try {
@@ -474,6 +592,76 @@ router.put('/settings', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update settings',
+      error: error.message
+    });
+  }
+});
+
+// Assessment Analytics Routes
+router.get('/analytics/assessment-results', async (req, res) => {
+  try {
+    const results = await adminService.getAssessmentResults();
+    res.json({
+      success: true,
+      data: results
+    });
+  } catch (error) {
+    console.error('Error fetching assessment results:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch assessment results',
+      error: error.message
+    });
+  }
+});
+
+router.get('/analytics/performance-overview', async (req, res) => {
+  try {
+    const overview = await adminService.getPerformanceOverview();
+    res.json({
+      success: true,
+      data: overview
+    });
+  } catch (error) {
+    console.error('Error fetching performance overview:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch performance overview',
+      error: error.message
+    });
+  }
+});
+
+router.get('/analytics/assessment-stats/:assessmentId', async (req, res) => {
+  try {
+    const { assessmentId } = req.params;
+    const stats = await adminService.getAssessmentStats(assessmentId);
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error fetching assessment stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch assessment stats',
+      error: error.message
+    });
+  }
+});
+
+router.get('/analytics/department-performance', async (req, res) => {
+  try {
+    const performance = await adminService.getDepartmentPerformance();
+    res.json({
+      success: true,
+      data: performance
+    });
+  } catch (error) {
+    console.error('Error fetching department performance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch department performance',
       error: error.message
     });
   }
