@@ -1108,19 +1108,33 @@ class PTOService {
 
   async getStudentAnalytics(email, department) {
     const list = await this.getStudents(email);
-    const filtered = department && department !== 'all' ? list.filter(s => String(s.department || '') === department) : list;
-    const rows = filtered.map(s => ({ name: s.name || s.email, accuracy: Number(s.avgScore || 0), attempts: Number(s.testsParticipated || 0), department: s.department || '' }));
+    let filtered = list;
+    if (department && department !== 'all') {
+      const deptCode = this.deptCodeFromValue(department);
+      filtered = list.filter(s => this.deptCodeFromValue(s.department) === deptCode);
+    }
+    const rows = filtered.map(s => ({ name: s.name || s.email, accuracy: Number(s.avgScore || 0), attempts: Number(s.testsParticipated || 0), department: this.deptCodeFromValue(s.department || '') }));
     return rows.sort((a, b) => b.accuracy - a.accuracy);
   }
 
   async getAssessmentAnalytics(email, department) {
     const domain = String(email).split('@')[1] || '';
     const students = await this.getStudents(email);
-    const totalStudents = department && department !== 'all' ? students.filter(s => String(s.department || '') === department).length : students.length;
+    let allowedEmails = null;
+    if (department && department !== 'all') {
+      const deptCode = this.deptCodeFromValue(department);
+      allowedEmails = new Set(
+        students
+          .filter(s => this.deptCodeFromValue(s.department) === deptCode)
+          .map(s => String(s.email || '').toLowerCase())
+      );
+    }
+    const totalStudents = allowedEmails ? allowedEmails.size : students.length;
     const mergeItems = (items, byAssess) => {
       for (const it of (items || [])) {
         const em = String(it.studentEmail || it.email || '').toLowerCase();
         if (!em || (domain && !em.endsWith(`@${domain}`))) continue;
+        if (allowedEmails && !allowedEmails.has(em)) continue;
         const aid = String(it.assessmentId || it.assessment_id || '').trim();
         if (!aid) continue;
         if (!byAssess[aid]) byAssess[aid] = new Set();

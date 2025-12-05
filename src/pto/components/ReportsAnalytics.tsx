@@ -47,6 +47,29 @@ const ReportsAnalytics: React.FC = () => {
     load();
   }, []);
 
+  useEffect(() => {
+    const loadByDept = async () => {
+      try {
+        const deptParam = selectedDepartment === 'all' ? undefined : selectedDepartment;
+        const studentsRows = await PTOService.getStudentAnalytics(deptParam ? { department: deptParam } : undefined);
+        setStudentAnalyticsData(studentsRows.map((row: { name?: string; accuracy?: number; attempts?: number; department?: string }) => ({
+          name: String(row?.name ?? ''),
+          accuracy: Number(row?.accuracy ?? 0),
+          attempts: Number(row?.attempts ?? 0),
+          department: String(row?.department ?? '')
+        })));
+        const assessRows = await PTOService.getAssessmentAnalytics(deptParam ? { department: deptParam } : undefined);
+        setAttendanceData(assessRows.map((row: { assessment?: string; total?: number; attended?: number; completion?: number }) => ({
+          assessment: String(row?.assessment ?? ''),
+          total: Number(row?.total ?? 0),
+          attended: Number(row?.attended ?? 0),
+          completion: Number(row?.completion ?? 0)
+        })));
+      } catch (e) { void e; }
+    };
+    loadByDept();
+  }, [selectedDepartment]);
+
   const deptCodeFromValue = (value: string) => {
     const upper = String(value || '').trim().toUpperCase();
     const map: Record<string, string> = {
