@@ -66,8 +66,8 @@ app.use('/api/pto', ptoRoutes);
 app.use('/api/code-evaluation', codeEvaluationRoutes);
 app.use('/api/results', resultsRoutes);
 app.use('/api/student-assessments', studentAssessmentRoutes);
-app.use('/api/student', studentSubmissionRoutes);
 app.use('/api/student/notifications', notificationRoutes);
+app.use('/api/student', studentSubmissionRoutes);
 console.log('Routes registered successfully');
 
 // Health check endpoint
