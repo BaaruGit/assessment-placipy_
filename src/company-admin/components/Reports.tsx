@@ -482,7 +482,7 @@ const Reports: React.FC = () => {
           {/* Score Distribution Chart */}
           <div className="admin-chart-card">
             <h3 className="admin-chart-title">Score Distribution</h3>
-            {scoreDistributionData && scoreDistributionData.some(d => d.count > 0) ? (
+            {scoreDistributionData && scoreDistributionData.some((d:any) => d.count > 0) ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={scoreDistributionData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#D0BFE7" />
