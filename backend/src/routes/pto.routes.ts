@@ -6,7 +6,7 @@ const { getUserAttributes } = require('../auth/cognito');
 
 const router = express.Router();
 const ptoService = new PTOService();
-const XLSX = require('xlsx');
+const XLSX = require('@e965/xlsx');
 const { AdminSetUserPasswordCommand } = require('@aws-sdk/client-cognito-identity-provider');
 
 router.use((req, res, next) => {

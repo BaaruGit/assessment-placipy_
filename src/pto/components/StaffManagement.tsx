@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { FaUser, FaTrash, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import PTOService, { type StaffMember as StaffDto } from '../../services/pto.service';
 import { useUser } from '../../contexts/UserContext';

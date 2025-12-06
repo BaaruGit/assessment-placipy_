@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import AdminService from '../../services/admin.service';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 

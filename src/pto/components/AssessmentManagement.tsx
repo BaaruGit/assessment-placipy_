@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { FaClipboardList, FaPlus, FaTrash, FaEye, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import PTSAssessmentCreation from '../../pts/AssessmentCreation';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import PTOService, { type Assessment as AssessDto } from '../../services/pto.service';
 
 interface Assessment {
