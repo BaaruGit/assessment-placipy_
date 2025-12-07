@@ -58,11 +58,13 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
     // Add temporary notification (not stored in DB)
     const addTemporaryNotification = useCallback((notificationData: Omit<Notification, 'createdAt' | 'isRead' | 'SK' | 'PK'>) => {
+        const timestamp = Date.now();
+        const randomSuffix = Math.random().toString(36).substring(2, 9);
         const tempNotification: Notification = {
             ...notificationData,
             createdAt: new Date().toISOString(),
             isRead: false,
-            SK: `TEMP_NOTIF#${Date.now()}`,
+            SK: `TEMP_NOTIF#${timestamp}-${randomSuffix}`,
             PK: 'TEMP'
         };
         const current = [tempNotification, ...loadStoredNotifications()];

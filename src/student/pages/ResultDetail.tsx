@@ -189,6 +189,7 @@ const ResultDetail: React.FC = () => {
               {formatTime(result.timeSpentSeconds || 0)}
             </div>
           </div>
+
         </div>
       </div>
 
@@ -211,6 +212,7 @@ const ResultDetail: React.FC = () => {
                 </div>
               </div>
             ))}
+
           </div>
         </div>
       )}

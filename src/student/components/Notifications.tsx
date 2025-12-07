@@ -166,14 +166,14 @@ const Notifications: React.FC = () => {
 
         {!loading && filteredNotifications.length > 0 && (
           <div className="notifications-list">
-            {filteredNotifications.map((notification) => {
+            {filteredNotifications.map((notification, index) => {
               const borderColor = getPriorityColor(notification.priority);
               const iconColor = borderColor;
               const isUnread = !notification.isRead;
 
               return (
                 <div
-                  key={notification.SK || notification.createdAt}
+                  key={`${notification.SK || notification.createdAt}-${notification.title}-${index}`}
                   className={`notification-item ${isUnread ? 'unread' : ''}`}
                   style={{
                     borderLeft: `4px solid ${borderColor}`,

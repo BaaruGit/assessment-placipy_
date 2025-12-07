@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import './AssessmentTaking.css';
 import judge0Service, { type SubmissionResult } from '../../services/judge0.service';
 import StudentAssessmentService from '../../services/student.assessment.service';
@@ -79,9 +79,11 @@ interface AssessmentData {
 }
 
 const AssessmentTaking: React.FC = () => {
+  console.log('=== AssessmentTaking Component Rendered ===');
   // Get assessmentId from URL params
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useUser();
 
   // State for assessment data
@@ -91,6 +93,17 @@ const AssessmentTaking: React.FC = () => {
 
   // State for tabs
   const [activeTab, setActiveTab] = useState<'mcq' | 'coding'>('mcq');
+  // State for tracking focus loss (replaces tab switch count)
+  const [focusLossCount, setFocusLossCount] = useState<number>(0);
+  // State for focus loss warnings
+  // Removed focus loss warning state variables as per requirement  const [focusLossWarningMessage, setFocusLossWarningMessage] = useState<string>('');
+  const [focusLossWarningType, setFocusLossWarningType] = useState<'first' | 'second' | 'third'>('first');
+  
+  // Updated handleTabChange function (no longer tracks tab switches)
+  const handleTabChange = (newTab: 'mcq' | 'coding') => {
+    // Simply change the active tab without counting as a focus loss
+    setActiveTab(newTab);
+  };
 
   // State for showing language selection alert
   const [showLanguageAlert, setShowLanguageAlert] = useState<boolean>(true);
@@ -132,6 +145,19 @@ const AssessmentTaking: React.FC = () => {
   useEffect(() => {
     console.log('timeLeft state changed:', timeLeft);
   }, [timeLeft]);
+  
+  // Debug log for focusLossCount state changes
+  useEffect(() => {
+    console.log('focusLossCount state changed:', focusLossCount);
+  }, [focusLossCount]);
+
+  // Debug log for component mount/unmount
+  useEffect(() => {
+    console.log('=== AssessmentTaking Component Mounted ===');
+    return () => {
+      console.log('=== AssessmentTaking Component Unmounting ===');
+    };
+  }, []);
 
   // State for showing test cases dropdown
   const [showTestCases, setShowTestCases] = useState<boolean>(false);
@@ -141,13 +167,15 @@ const AssessmentTaking: React.FC = () => {
   const codeEditorRef = useRef<HTMLTextAreaElement>(null);
   const autoRunTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasFetchedData = useRef(false); // To prevent multiple API calls
+  const isLeavingRef = useRef(false); // To track if user is leaving the page
+  const hasFocusedRef = useRef<boolean>(false); // To track if user has focused on the page
+  const isSubmittingRef = useRef<boolean>(false); // To track if we're submitting
+  const focusListenersAttachedRef = useRef<boolean>(false); // To track if focus listeners are attached
 
   // Add new state for time validation
   const [isAssessmentStarted, setIsAssessmentStarted] = useState<boolean>(false);
   const [isAssessmentEnded, setIsAssessmentEnded] = useState<boolean>(false);
   const [serverTime, setServerTime] = useState<Date | null>(null);
-
-
 
   // Memoized function to extract questions
   const { mcqQuestions, codingChallenges } = React.useMemo(() => {
@@ -166,6 +194,126 @@ const AssessmentTaking: React.FC = () => {
     return { mcqQuestions, codingChallenges };
   }, [assessmentData]);
 
+  // Strict focus loss detection effect
+  useEffect(() => {
+    console.log('=== Focus Loss Detection Effect Mounted ===');
+    if (!assessmentData || submitted) {
+      console.log('Skipping focus loss detection - no assessment data or already submitted');
+      return;
+    }
+
+    // Prevent multiple attachments of event listeners
+    if (focusListenersAttachedRef.current) {
+      console.log('Focus listeners already attached, skipping');
+      return;
+    }
+
+    // Set initial focus state when user first interacts with the page
+    const setInitialFocus = () => {
+      console.log('=== Initial Focus Event ===');
+      if (!hasFocusedRef.current) {
+        console.log('Setting initial focus state to true');
+        hasFocusedRef.current = true;
+        // Remove these event listeners after initial focus is set
+        document.removeEventListener('mousedown', setInitialFocus);
+        document.removeEventListener('keydown', setInitialFocus);
+        document.removeEventListener('touchstart', setInitialFocus);
+      } else {
+        console.log('Initial focus already set');
+      }
+      console.log('=== End Initial Focus Event ===');
+    };
+
+    const handleVisibilityChange = () => {
+      console.log('=== Visibility Change ===');
+      console.log('Document visibility state:', document.visibilityState);
+      console.log('Has focused ref:', hasFocusedRef.current);
+      if (document.visibilityState === 'hidden' && hasFocusedRef.current) {
+        console.log('Tab switch detected - document hidden');
+        handleFocusLoss();
+      } else if (document.visibilityState === 'visible') {
+        console.log('Tab switch detected - document visible');
+      }
+      console.log('=== End Visibility Change ===');
+    };
+
+    const handleBlur = () => {
+      console.log('=== Blur Event ===');
+      console.log('Window blur detected, hasFocusedRef:', hasFocusedRef.current);
+      // Only count as focus loss if the page had focus previously
+      if (hasFocusedRef.current) {
+        console.log('Focus loss detected via blur');
+        handleFocusLoss();
+      }
+      console.log('=== End Blur Event ===');
+    };
+
+    const handleFocus = () => {
+      console.log('=== Focus Event ===');
+      console.log('Window focus detected, hasFocusedRef before:', hasFocusedRef.current);
+      // Set focus state when window gains focus
+      if (!hasFocusedRef.current) {
+        console.log('Setting focus state to true in handleFocus');
+        hasFocusedRef.current = true;
+      }
+      console.log('=== End Focus Event ===');
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      console.log('=== Before Unload Event ===');
+      // Mark that we're submitting to prevent focus loss counting
+      isSubmittingRef.current = true;
+      console.log('=== End Before Unload Event ===');
+    };
+
+    // Initialize focus state to false - we'll set it to true when user first interacts
+    console.log('=== Initializing Focus State ===');
+    console.log('Initial document.visibilityState:', document.visibilityState);
+    // Note: hasFocusedRef.current is initialized as false and will be set to true when user interacts
+    console.log('hasFocusedRef.current initialized as:', hasFocusedRef.current);
+    
+    // But if the document is already visible, we can set focus state to true
+    if (document.visibilityState === 'visible') {
+      console.log('Document is visible, setting hasFocusedRef.current to true');
+      hasFocusedRef.current = true;
+    }
+    console.log('Final hasFocusedRef.current:', hasFocusedRef.current);
+    console.log('=== End Initializing Focus State ===');
+
+    // Add event listeners for initial focus detection
+    console.log('Adding initial focus event listeners');
+    document.addEventListener('mousedown', setInitialFocus);
+    document.addEventListener('keydown', setInitialFocus);
+    document.addEventListener('touchstart', setInitialFocus);
+    
+    // Add other event listeners
+    console.log('Adding focus tracking event listeners');
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Mark listeners as attached
+    focusListenersAttachedRef.current = true;
+
+    return () => {
+      console.log('=== Focus Loss Detection Effect Unmounting ===');
+      // Clean up event listeners
+      console.log('Cleaning up focus tracking event listeners');
+      document.removeEventListener('mousedown', setInitialFocus);
+      document.removeEventListener('keydown', setInitialFocus);
+      document.removeEventListener('touchstart', setInitialFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Mark listeners as detached
+      focusListenersAttachedRef.current = false;
+      console.log('Finished cleaning up event listeners');
+      console.log('=== Focus Loss Detection Effect Unmounted ===');
+    };
+  }, [assessmentData, submitted]);
+
   // Handle submit
   const handleSubmit = useCallback(async () => {
     // Prevent double submission
@@ -173,6 +321,10 @@ const AssessmentTaking: React.FC = () => {
       console.log('Preventing double submission - already submitting or submitted');
       return;
     }
+    
+    // Mark that we're submitting to prevent counting as leaving
+    isLeavingRef.current = true;
+    isSubmittingRef.current = true;
     
     // Ensure we have valid assessment data
     if (!assessmentData || !assessmentId) {
@@ -439,6 +591,32 @@ const AssessmentTaking: React.FC = () => {
     }
   }, [assessmentData, assessmentId, code, codingChallenges, isSubmitting, mcqAnswers, navigate, selectedLanguage, submitted, successfulExecutions, timeLeft, user]);
 
+  // Handle focus loss event - removed warning flow
+  const handleFocusLoss = useCallback(() => {
+    console.log('=== Focus Loss Event Detected ===');
+    console.log('Current focusLossCount:', focusLossCount);
+    console.log('isSubmittingRef.current:', isSubmittingRef.current);
+    console.log('hasFocusedRef.current:', hasFocusedRef.current);
+    
+    // Don't count focus loss if we're already submitting
+    if (isSubmittingRef.current) {
+      console.log('Skipping focus loss - already submitting');
+      return;
+    }
+    
+    // Don't count focus loss if we haven't entered the assessment yet
+    if (!hasFocusedRef.current) {
+      console.log('Skipping focus loss - not focused yet');
+      return;
+    }
+
+    // Simply increment the focus loss count without showing warnings
+    const newCount = focusLossCount + 1;
+    console.log('New focus loss count:', newCount);
+    setFocusLossCount(newCount);
+    
+    console.log('=== End Focus Loss Event ===');
+  }, [focusLossCount, handleSubmit]);
   // Get current challenge safely
   const currentChallenge = codingChallenges[currentCodingIndex];
 
@@ -915,11 +1093,11 @@ console.log("In a browser environment, this would render as HTML");
     if (assessmentData) {
       // If we have coding challenges, default to coding tab
       if (codingChallenges.length > 0) {
-        setActiveTab('coding');
+        handleTabChange('coding')
       }
       // Otherwise, if we have MCQ questions, default to mcq tab
       else if (mcqQuestions.length > 0) {
-        setActiveTab('mcq');
+        handleTabChange('mcq')
       }
     }
   }, [assessmentData, codingChallenges.length, mcqQuestions.length]);
@@ -1334,7 +1512,7 @@ console.log("In a browser environment, this would render as HTML");
         // Check if there are coding questions
         if (codingChallenges.length > 0) {
           // Switch to coding tab
-          setActiveTab('coding');
+          handleTabChange('coding')
           setCurrentCodingIndex(0);
         } else {
           // No coding questions, submit the assessment
@@ -1586,14 +1764,14 @@ console.log("In a browser environment, this would render as HTML");
           {/* Navigation buttons as tabs near timer */}
           <button
             className={`section-btn ${activeTab === 'mcq' ? 'active' : ''} ${mcqQuestions.length === 0 ? 'disabled' : ''}`}
-            onClick={() => mcqQuestions.length > 0 && setActiveTab('mcq')}
+            onClick={() => mcqQuestions.length > 0 && handleTabChange('mcq')}
             disabled={mcqQuestions.length === 0}
           >
             MCQ
           </button>
           <button
             className={`section-btn ${activeTab === 'coding' ? 'active' : ''} ${codingChallenges.length === 0 ? 'disabled' : ''}`}
-            onClick={() => codingChallenges.length > 0 && setActiveTab('coding')}
+            onClick={() => codingChallenges.length > 0 && handleTabChange('coding')}
             disabled={codingChallenges.length === 0}
           >
             Coding
@@ -1978,6 +2156,7 @@ int main() {
         )}
       </div>
 
+      {/* Focus Loss Warning Modal - removed as per requirement */}
     </div>
   );
 };
