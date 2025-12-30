@@ -33,7 +33,11 @@ const PORT = process.env.PORT || 3005;
 app.use(helmet());
 // CORS configuration
 app.use(cors({
-    origin:process.env.CLIENT_URL ,
+    origin: (origin, callback) => {
+        const allowed = [process.env.CLIENT_URL, 'http://localhost:5173', 'http://localhost:5174'].filter(Boolean)
+        if (!origin || allowed.includes(origin)) return callback(null, true)
+        return callback(new Error('CORS'))
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
