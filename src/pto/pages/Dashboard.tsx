@@ -114,7 +114,7 @@ const PTODashboard: React.FC = () => {
   return (
     <div className="pto-dashboard">
       {/* ✅ Mobile Hamburger */}
-      <button className="hamburger-menu" onClick={toggleSidebar}>
+      <button className={`hamburger-menu ${sidebarOpen ? 'hidden' : ''}`} onClick={toggleSidebar}>
         <span></span>
         <span></span>
         <span></span>
@@ -123,9 +123,6 @@ const PTODashboard: React.FC = () => {
       {/* ✅ Sidebar */}
       <nav className={`dashboard-sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="sidebar-header">
-          <div className="sidebar-logo">
-            <FaUserCircle size={48} color="#ffffff" />
-          </div>
           <h2>PTO Portal</h2>
         </div>
 

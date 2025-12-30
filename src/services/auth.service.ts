@@ -23,7 +23,7 @@ export interface ChallengeResponse {
 
 // Authentication service
 class AuthService {
-    private apiUrl = '/api/users'; // Backend API base URL (using proxy)
+    private apiUrl = `${import.meta.env.VITE_URL || 'http://localhost:3000'}/api/users`;
     private userProfileCache: { data: Omit<User, 'accessToken'>; timestamp: number } | null = null;
     private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
     private pendingProfileRequest: Promise<Omit<User, 'accessToken'>> | null = null;
