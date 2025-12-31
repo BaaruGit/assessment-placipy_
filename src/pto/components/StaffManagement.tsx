@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as XLSX from '@e965/xlsx';
-import { FaUser, FaTrash, FaUserPlus, FaBuilding } from 'react-icons/fa';
+import { FaUser, FaTrash, FaUserPlus, FaBuilding, FaEdit } from 'react-icons/fa';
 import PTOService, { type StaffMember as StaffDto } from '../../services/pto.service';
 import { useUser } from '../../contexts/UserContext';
 
@@ -128,7 +128,7 @@ const StaffManagement: React.FC = () => {
         phone: formData.phone,
         designation: formData.designation,
         department: formData.department,
-        permissions: Object.keys(formData.permissions).filter((perm) => (formData.permissions as Record<string, boolean>)[perm])
+        permissions: ['createAssessments', 'editAssessments', 'viewReports']
       });
       const emailCreated = (created as unknown as { email?: string }).email || '';
       const passCreated = (created as unknown as { defaultPassword?: string }).defaultPassword || 'Praskla@123';
@@ -192,7 +192,7 @@ const StaffManagement: React.FC = () => {
         phone: formData.phone,
         designation: formData.designation,
         department: formData.department,
-        permissions: Object.keys(formData.permissions).filter((perm) => (formData.permissions as Record<string, boolean>)[perm])
+        permissions: ['createAssessments', 'editAssessments', 'viewReports']
       });
       const refreshed = await PTOService.getStaff();
       const filtered = refreshed.filter((s: StaffDto) => String(s.id || '').includes('@'));
@@ -335,7 +335,6 @@ const StaffManagement: React.FC = () => {
               <th>Phone</th>
               <th>Designation</th>
               <th>Department</th>
-              <th>Permissions</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -347,19 +346,6 @@ const StaffManagement: React.FC = () => {
                 <td>{member.phone}</td>
                 <td>PTS</td>
                 <td>{member.department}</td>
-                <td>
-                  <div className="permissions-badges">
-                    {member.permissions.createAssessments && (
-                      <span className="permission-badge">Create</span>
-                    )}
-                    {member.permissions.editAssessments && (
-                      <span className="permission-badge">Edit</span>
-                    )}
-                    {member.permissions.viewReports && (
-                      <span className="permission-badge">Reports</span>
-                    )}
-                  </div>
-                </td>
                 <td>
                   <div className="action-buttons">
                     <button 
@@ -373,7 +359,7 @@ const StaffManagement: React.FC = () => {
                       title="Edit"
                       type="button"
                     >
-                      Edit
+                      <FaEdit style={{ marginRight: '6px' }} /> Edit
                     </button>
                     <button 
                       className="icon-btn delete-btn" 
@@ -457,35 +443,6 @@ const StaffManagement: React.FC = () => {
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
-            </div>
-            <div className="permissions-section">
-              <label>Permissions</label>
-              <div className="permissions-list">
-                <label className="permission-item">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.createAssessments}
-                    onChange={() => togglePermission('createAssessments')}
-                  />
-                  <span>Create Assessments</span>
-                </label>
-                <label className="permission-item">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.editAssessments}
-                    onChange={() => togglePermission('editAssessments')}
-                  />
-                  <span>Edit Assessments</span>
-                </label>
-                <label className="permission-item">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.viewReports}
-                    onChange={() => togglePermission('viewReports')}
-                  />
-                  <span>View Reports</span>
-                </label>
-              </div>
             </div>
             <div className="modal-actions">
               <button className="primary-btn" onClick={handleAddStaff} disabled={!isCreateValid()}>Create</button>
@@ -572,35 +529,6 @@ const StaffManagement: React.FC = () => {
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
-            </div>
-            <div className="permissions-section">
-              <label>Permissions</label>
-              <div className="permissions-list">
-                <label className="permission-item">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.createAssessments}
-                    onChange={() => togglePermission('createAssessments')}
-                  />
-                  <span>Create Assessments</span>
-                </label>
-                <label className="permission-item">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.editAssessments}
-                    onChange={() => togglePermission('editAssessments')}
-                  />
-                  <span>Edit Assessments</span>
-                </label>
-                <label className="permission-item">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.viewReports}
-                    onChange={() => togglePermission('viewReports')}
-                  />
-                  <span>View Reports</span>
-                </label>
-              </div>
             </div>
             <div className="modal-actions">
               <button className="primary-btn" onClick={handleUpdateStaff}>Update</button>

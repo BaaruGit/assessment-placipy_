@@ -375,7 +375,6 @@
     z-index: 1001;
     width: 250px;
     transition: transform 0.3s ease;
-    box-shadow: 4px 0 15px rgba(0,0,0,0.1);
   }
 
   .dashboard-sidebar.open {
@@ -388,28 +387,20 @@
   }
 
   .sidebar-link {
-    padding: 10px 20px; /* Reduced vertical padding for compact look */
-    min-height: 40px; /* Ensure reasonable touch target but compact */
+    padding: 10px 20px; /* Reduced vertical padding */
   }
 
   .sidebar-icon {
-    margin-right: 12px; /* Consistent spacing matching PTS */
+    margin-right: 10px; /* Tighter icon spacing */
     font-size: 0.95rem;
-    width: 20px;
-    text-align: center;
   }
 
   .sidebar-label {
     font-size: 0.95rem;
-    line-height: 1.2; /* Tighter line height */
   }
   
   .sidebar-footer {
     padding: 15px;
-  }
-  
-  .logout-btn {
-    padding: 10px;
   }
 
   .pto-header {
@@ -1787,11 +1778,7 @@
   color: var(--text-dark);
 }
 
-.permissions-badges {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-}
+
 
 /* Upload Section */
 .upload-section {
@@ -2347,7 +2334,7 @@
 }
 
 /* Mobile (up to 767px) */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .pto-dashboard {
     flex-direction: column;
   }
@@ -2358,47 +2345,22 @@
   }
   
   .sidebar-header {
-    padding: 15px 20px;
+    padding: 16px 16px;
   }
   
   .sidebar-menu {
     padding: 0;
     margin: 0;
-    display: block;
-  }
-
-  .sidebar-menu li {
-    margin: 0;
-    padding: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
   
   .sidebar-link {
-    padding: 12px 20px;
+    padding: 15px 20px;
     min-height: auto;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
+    font-size: 1rem;
   }
   
   .sidebar-icon {
     margin-right: 12px;
-    font-size: 0.95rem;
-    width: 20px;
-    text-align: center;
-  }
-
-  .sidebar-label {
-    font-size: 0.95rem;
-    line-height: 1.2;
-  }
-
-  .sidebar-footer {
-    padding: 15px;
-  }
-  
-  .logout-btn {
-    padding: 10px;
   }
   
   .pto-header {
@@ -2422,8 +2384,8 @@
     left: 0;
     height: 100vh;
     height: 100dvh; /* Dynamic viewport height for mobile */
-    width: 250px;
-    max-width: 85vw;
+    width: min(85vw, 280px);
+    max-width: 90vw;
     transform: translateX(-100%);
     box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
     z-index: 1000;
