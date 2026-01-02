@@ -6,8 +6,6 @@ const dynamodb = new AWS.DynamoDB.DocumentClient({
 });
 
 // Import ResultsService to check for previous attempts
-const resultsService = require('./ResultsService');
-const { getUserAttributes } = require('../auth/cognito');
 const dynamoDBService = require('./DynamoDBService').instance;
 
 class StudentAssessmentService {
@@ -26,7 +24,7 @@ class StudentAssessmentService {
     /**
      * Shuffle array using Fisher-Yates algorithm
      */
-    private shuffleArray(array: any[]): any[] {
+    private shuffleArray<T>(array: T[]): T[] {
         const shuffled = [...array];
         for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -39,7 +37,7 @@ class StudentAssessmentService {
      * Get assessment with questions by assessment ID
      * Fetches both assessment metadata and all related questions
      */
-    async getAssessmentWithQuestions(assessmentId: string, requesterEmail: string): Promise<any> {
+    async getAssessmentWithQuestions(assessmentId: string, requesterEmail: string): Promise<{assessment: any, questions: any[]}> {
         try {
             console.log(`=== getAssessmentWithQuestions called with ID: ${assessmentId} ===`);
 
@@ -58,7 +56,7 @@ class StudentAssessmentService {
 
             // First get the assessment metadata
             console.log('Calling getAssessmentById...');
-            const assessment = await this.getAssessmentById(assessmentId, studentDepartment);
+            const assessment = await this.getAssessmentById(assessmentId, studentDepartment, requesterEmail);
             console.log('Assessment result:', assessment);
             
             if (!assessment) {
@@ -86,6 +84,7 @@ class StudentAssessmentService {
             };
         } catch (error) {
             console.error('Error in getAssessmentWithQuestions:', error);
+            throw error;
             throw new Error('Failed to retrieve assessment with questions: ' + error.message);
         }
     }
@@ -93,26 +92,21 @@ class StudentAssessmentService {
     /**
      * Get assessment by ID
      */
-    async getAssessmentById(assessmentId: string, department?: string): Promise<any> {
+    async getAssessmentById(assessmentId: string, department: string, requesterEmail: string): Promise<any> {
         try {
-            console.log('=== getAssessmentById called with ID:', assessmentId, '===');
+            console.log('=== getAssessmentById called with ID:', assessmentId, 'and department:', department, '===');
 
-            // Since getAssessmentWithQuestions already fetches userProfile, we will rely on that path to pass domain/department.
-            // For direct calls to getAssessmentById, if department is present, how do we determine domain? 
-            // This is a design question. Let's proceed by ensuring department is used as a filter in the query.
-            // If `department` is provided, `requesterEmail` would be implicitly used by the calling function `getAssessmentWithQuestions`.
-            // For direct calls to `getAssessmentById` without `getAssessmentWithQuestions`, `requesterEmail` must be passed.
-            // The current signature is `(assessmentId: string, requesterEmail: string): Promise<any>`, let's update it.
-
-            // The previous `getAssessmentById` signature was: `async getAssessmentById(assessmentId: string, requesterEmail: string): Promise<any> {`
-            // We need to keep `requesterEmail` for `clientPK`.
-            // The `department` parameter will be used for filtering.
-
+            // Extract domain from requester's email for proper partitioning
+            const domain = requesterEmail.split('@')[1];
+            if (!domain) {
+                throw new Error('Invalid requester email format');
+            }
+            
             const queryParams: AWS.DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND SK = :sk',
                 ExpressionAttributeValues: {
-                    ':pk': `CLIENT#${process.env.DEFAULT_CLIENT_DOMAIN}`, // Assuming a default client domain if not derived from user email
+                    ':pk': `CLIENT#${domain}`,
                     ':sk': `ASSESSMENT#${assessmentId}`
                 },
                 FilterExpression: '#type = :typeValue' // Always filter by DEPARTMENT_WISE type
@@ -244,6 +238,7 @@ class StudentAssessmentService {
             return allQuestions;
         } catch (error) {
             console.error('Error in getAssessmentQuestions:', error);
+            throw error;
             throw new Error('Failed to retrieve assessment questions: ' + error.message);
         }
     }
