@@ -48,7 +48,7 @@ const StudentAssessments: React.FC = () => {
         
         // Fetch all assessments
         const assessmentsResponse = await StudentAssessmentService.getAllAssessments(
-          user?.department ? { department: user.department } : undefined
+          user?.department && user?.email ? { department: user.department, clientDomain: user.email.split('@')[1] } : undefined
         );
         console.log('Fetched assessments:', assessmentsResponse);
         

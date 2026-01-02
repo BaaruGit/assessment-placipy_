@@ -36,12 +36,21 @@ const DashboardHome: React.FC = () => {
         setLoading(true);
         
         // Fetch all assessments to get active count
-        const assessmentsResponse = await StudentAssessmentService.getAllAssessments();
+        const assessmentsResponse = await StudentAssessmentService.getAllAssessments(
+          user?.department ? { department: user.department } : undefined
+        );
         console.log('Fetched assessments:', assessmentsResponse);
+        
+        // Safely extract assessments array from response
+        const assessments = Array.isArray(assessmentsResponse?.data) 
+          ? assessmentsResponse.data 
+          : Array.isArray(assessmentsResponse) 
+          ? assessmentsResponse 
+          : [];
         
         // Filter active assessments (currently active based on dates)
         const now = new Date();
-        const activeCount = assessmentsResponse.data.filter((assessment: any) => {
+        const activeCount = assessments.filter((assessment: any) => {
           const startDate = new Date(assessment.scheduling?.startDate || assessment.createdAt);
           const endDate = new Date(assessment.scheduling?.endDate || new Date());
           return assessment.status === 'ACTIVE' && startDate <= now && endDate >= now;
@@ -54,7 +63,7 @@ const DashboardHome: React.FC = () => {
           const sessionId = localStorage.getItem('notif_session_id') || String(Date.now());
           localStorage.setItem('notif_session_id', sessionId);
           const upcoming: Array<{ assessmentId: string; scheduledAt: string }> = [];
-          const items: any[] = assessmentsResponse.data || [];
+          const items: any[] = assessments;
           items.forEach((a) => {
             const start = a?.scheduling?.startDate || a?.createdAt;
             const aid = a?.assessmentId || a?.id;
@@ -92,7 +101,7 @@ const DashboardHome: React.FC = () => {
             if (statsResponse.data.recentAssessments && Array.isArray(statsResponse.data.recentAssessments)) {
               // Map assessment IDs to titles from assessments list
               const assessmentsMap = new Map(
-                assessmentsResponse.data.map((a: any) => [a.assessmentId, a.title])
+                assessments.map((a: any) => [a.assessmentId, a.title])
               );
               
               const recentWithTitles = statsResponse.data.recentAssessments.map((result: any) => ({
@@ -109,7 +118,7 @@ const DashboardHome: React.FC = () => {
             // Set performance data (map assessment IDs to titles)
             if (statsResponse.data.performanceData && Array.isArray(statsResponse.data.performanceData)) {
               const assessmentsMap = new Map(
-                assessmentsResponse.data.map((a: any) => [a.assessmentId, a.title])
+                assessments.map((a: any) => [a.assessmentId, a.title])
               );
               
               const performanceWithTitles = statsResponse.data.performanceData.map((perf: any) => ({

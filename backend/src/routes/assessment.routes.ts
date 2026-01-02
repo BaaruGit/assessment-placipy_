@@ -47,16 +47,27 @@ router.get('/', authMiddleware.authenticateToken, async (req, res) => {
         // Get requester email from Cognito profile
         const requesterEmail = await getEmailFromRequest(req);
         
+        // Decode department parameter (it might be URL-encoded like "Information+Technology")
+        const departmentParam = req.query.department ? decodeURIComponent(req.query.department as string) : undefined;
+        console.log('=== Route Handler Department Filter ===');
+        console.log('Raw department query param:', req.query.department);
+        console.log('Decoded department param:', departmentParam);
+        
         const filters = {
-            department: req.query.department,
+            department: departmentParam,
             status: req.query.status,
             // Extract domain from user email for better performance
             clientDomain: requesterEmail.split('@')[1]
         };
+        console.log('Final filters object:', JSON.stringify(filters, null, 2));
+        
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
         const lastKey = req.query.lastKey ? JSON.parse(req.query.lastKey as string) : null;
 
         const result = await assessmentService.getAllAssessments(filters, limit, lastKey);
+        console.log('=== Route Handler Result ===');
+        console.log('Number of assessments returned:', result.items.length);
+        console.log('Department values in returned assessments:', result.items.map((a: any) => ({ id: a.assessmentId, dept: a.department })));
         res.status(200).json({
             success: true,
             data: result.items,
