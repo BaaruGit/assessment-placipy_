@@ -8,6 +8,8 @@ export interface User {
     enabled: boolean;
     status: string;
     groups: string[];
+    department?: string;
+    rollNumber?: string;
 }
 
 // User creation attributes
@@ -27,5 +29,6 @@ export interface UserLoginAttributes {
 // User profile update attributes
 export interface UserProfileUpdateAttributes {
     email?: string;
+    rollNumber?: string;
     // Add other updatable fields as needed
 }

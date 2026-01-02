@@ -19,16 +19,22 @@ class StudentAssessmentService {
   async getAllAssessments(filters?: any): Promise<any> {
     try {
       const params = new URLSearchParams();
+      const token = AuthService.getAccessToken();
+      const userProfile = token ? await AuthService.getUserProfile(token) : null;
+      const userEmail = userProfile?.email;
+      const clientDomain = userEmail ? userEmail.split('@')[1] : undefined;
+
+      if (clientDomain) params.append('clientDomain', clientDomain);
       if (filters?.department) params.append('department', filters.department);
       if (filters?.status) params.append('status', filters.status);
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.lastKey) params.append('lastKey', filters.lastKey);
 
       const url = `${API_BASE_URL}/api/assessments?${params.toString()}`;
-      console.log('Fetching assessments from:', url);
+      console.log('Fetching all assessments from:', url);
       
       const response = await axios.get(url, { headers: this.getAuthHeaders() });
-      console.log('Assessment response:', response.data);
+      console.log('All Assessment response:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('Error getting assessments:', error);
@@ -56,16 +62,29 @@ class StudentAssessmentService {
   /**
    * Get a specific assessment by ID
    */
-  async getAssessmentById(assessmentId: string): Promise<any> {
+  async getAssessmentById(assessmentId: string, department?: string): Promise<any> {
     try {
       if (!assessmentId) {
         throw new Error('Assessment ID is required');
       }
+
+      const params = new URLSearchParams();
+      const token = AuthService.getAccessToken();
+      const userProfile = token ? await AuthService.getUserProfile(token) : null;
+      const userEmail = userProfile?.email;
+      const clientDomain = userEmail ? userEmail.split('@')[1] : undefined;
+
+      if (clientDomain) params.append('clientDomain', clientDomain);
+      if (department) params.append('department', department);
+
+      const url = `${API_BASE_URL}/api/assessments/${assessmentId}?${params.toString()}`;
+      console.log('Fetching assessment by ID from:', url);
       
       const response = await axios.get(
-        `${API_BASE_URL}/api/assessments/${assessmentId}`,
+        url,
         { headers: this.getAuthHeaders() }
       );
+      console.log('Assessment by ID response:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('Error getting assessment:', error);

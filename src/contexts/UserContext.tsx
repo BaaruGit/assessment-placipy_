@@ -9,6 +9,7 @@ interface User {
     department?: string;
     year?: string;
     joiningDate?: string;
+    rollNumber?: string;
 }
 
 interface UserContextType {
