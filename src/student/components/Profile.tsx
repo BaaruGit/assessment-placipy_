@@ -1,4 +1,4 @@
-﻿﻿﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿﻿import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { User, Lock, BarChart3, Calendar } from 'lucide-react';
 import { useUser } from '../../contexts/UserContext';
@@ -9,6 +9,7 @@ interface StudentInfo {
   email: string;
   phone: string;
   regNo: string;
+  rollNumber: string;
   department: string;
   enrollmentDate: string;
 }
@@ -35,6 +36,7 @@ const Profile: React.FC = () => {
     email: '',
     phone: '',
     regNo: '',
+    rollNumber: '',
     department: '',
     enrollmentDate: new Date().toISOString().split('T')[0]
   });
@@ -67,7 +69,8 @@ const Profile: React.FC = () => {
       name: (rawProfile.name as string) || (rawProfile.firstName as string) || user?.name || '',
       email: (rawProfile.email as string) || user?.email || '',
       phone: (rawProfile.phone as string) || (rawProfile.mobile as string) || '',
-      regNo: (rawProfile.regNo as string) || (rawProfile.rollNumber as string) || (rawProfile.registrationNumber as string) || '',
+      regNo: (rawProfile.regNo as string) || (rawProfile.registrationNumber as string) || '',
+      rollNumber: (rawProfile.rollNumber as string) || '',
       department: (rawProfile.department as string) || '',
       enrollmentDate: (rawProfile.enrollmentDate as string) ||
         (rawProfile.joiningDate as string) ||
@@ -104,7 +107,8 @@ const Profile: React.FC = () => {
         name: user?.name || prev.name,
         email: user?.email || prev.email,
         phone: getUserAttr<string>('phone') || prev.phone,
-        regNo: getUserAttr<string>('regNo') || getUserAttr<string>('rollNumber') || prev.regNo,
+        regNo: getUserAttr<string>('regNo') || prev.regNo,
+        rollNumber: getUserAttr<string>('rollNumber') || prev.rollNumber,
         department: user?.department || prev.department,
       }));
     } catch (error) {
@@ -176,6 +180,7 @@ const Profile: React.FC = () => {
       const payload = {
         name: studentInfo.name,
         regNo: studentInfo.regNo,
+        rollNumber: studentInfo.rollNumber,
         department: studentInfo.department,
         phone: studentInfo.phone,
       };
@@ -205,6 +210,7 @@ const Profile: React.FC = () => {
             ...prev,
             name: payload.name,
             regNo: payload.regNo,
+            rollNumber: payload.rollNumber,
             department: payload.department,
             phone: payload.phone,
           }));
@@ -294,7 +300,7 @@ const Profile: React.FC = () => {
                 </div>
                 <div>
                   <label className="pts-form-label">Roll Number</label>
-                  <div className="pts-form-display">{studentInfo.regNo || 'N/A'}</div>
+                  <div className="pts-form-display">{studentInfo.rollNumber || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="pts-form-label">Department</label>
@@ -344,8 +350,8 @@ const Profile: React.FC = () => {
                   <label className="pts-form-label">Roll Number</label>
                   <input
                     type="text"
-                    value={studentInfo.regNo}
-                    onChange={(e) => handleInfoChange('regNo', e.target.value)}
+                    value={studentInfo.rollNumber}
+                    onChange={(e) => handleInfoChange('rollNumber', e.target.value)}
                     className="pts-form-input"
                     placeholder="Enter your roll number"
                   />

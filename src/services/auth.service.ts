@@ -12,6 +12,7 @@ export interface User {
     department?: string;
     year?: string;
     joiningDate?: string;
+    rollNumber?: string;
 }
 
 // Define challenge response interface
@@ -75,7 +76,7 @@ class AuthService {
             localStorage.setItem('accessToken', accessToken);
             this.userProfileCache = { data: userProfile, timestamp: Date.now() };
 
-            return { email: userProfile.email, name: userProfile.name, role: userProfile.role, accessToken, department: userProfile.department, year: userProfile.year, joiningDate: userProfile.joiningDate };
+            return { email: userProfile.email, name: userProfile.name, role: userProfile.role, accessToken, department: userProfile.department, year: userProfile.year, joiningDate: userProfile.joiningDate, rollNumber: userProfile.rollNumber };
         } catch (error: any) {
             console.error('Login error:', error);
             if (error.response) {
@@ -102,7 +103,7 @@ class AuthService {
             const userProfile = await this.getUserProfile(accessToken, true);
             localStorage.setItem('accessToken', accessToken);
             this.userProfileCache = { data: userProfile, timestamp: Date.now() };
-            return { email: userProfile.email, name: userProfile.name, role: userProfile.role, accessToken, department: userProfile.department, year: userProfile.year, joiningDate: userProfile.joiningDate };
+            return { email: userProfile.email, name: userProfile.name, role: userProfile.role, accessToken, department: userProfile.department, year: userProfile.year, joiningDate: userProfile.joiningDate, rollNumber: userProfile.rollNumber };
         } catch (error: any) {
             console.error('Challenge response error:', error);
             if (error.response) {
@@ -164,7 +165,8 @@ class AuthService {
             if (!validRoles.includes(normalizedRole)) {
                 throw new Error(`Invalid user role: ${role}`);
             }
-            return { email, name, role: normalizedRole, department, year, joiningDate };
+            const rollNumber = userData.user?.rollNumber || userData.rollNumber || undefined;
+            return { email, name, role: normalizedRole, department, year, joiningDate, rollNumber };
         } catch (error: any) {
             console.error('Error getting user profile:', error);
             if (error.response) {

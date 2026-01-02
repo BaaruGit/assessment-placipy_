@@ -7,6 +7,8 @@ const dynamodb = new AWS.DynamoDB.DocumentClient({
 
 // Import ResultsService to check for previous attempts
 const resultsService = require('./ResultsService');
+const { getUserAttributes } = require('../auth/cognito');
+const dynamoDBService = require('./DynamoDBService').instance;
 
 class StudentAssessmentService {
     private assessmentsTableName: string;
@@ -46,13 +48,21 @@ class StudentAssessmentService {
                 throw new Error('Assessment ID is required');
             }
 
+            // Fetch user's department
+            const userProfile = await dynamoDBService.getUserDataByEmail(requesterEmail);
+            const studentDepartment = userProfile?.department;
+
+            if (!studentDepartment) {
+                throw new Error('Student department not found. Cannot retrieve assessments.');
+            }
+
             // First get the assessment metadata
             console.log('Calling getAssessmentById...');
-            const assessment = await this.getAssessmentById(assessmentId, requesterEmail);
+            const assessment = await this.getAssessmentById(assessmentId, studentDepartment);
             console.log('Assessment result:', assessment);
             
             if (!assessment) {
-                throw new Error(`Assessment ${assessmentId} not found`);
+                throw new Error(`Assessment ${assessmentId} not found or not accessible to your department`);
             }
 
             // Check if randomization is enabled for this assessment
@@ -83,36 +93,57 @@ class StudentAssessmentService {
     /**
      * Get assessment by ID
      */
-    async getAssessmentById(assessmentId: string, requesterEmail: string): Promise<any> {
+    async getAssessmentById(assessmentId: string, department?: string): Promise<any> {
         try {
             console.log('=== getAssessmentById called with ID:', assessmentId, '===');
 
-            // Extract domain from requester's email for proper partitioning
-            const domain = requesterEmail.split('@')[1];
-            if (!domain) {
-                throw new Error('Invalid requester email format');
-            }
-            const clientPK = `CLIENT#${domain}`;
+            // Since getAssessmentWithQuestions already fetches userProfile, we will rely on that path to pass domain/department.
+            // For direct calls to getAssessmentById, if department is present, how do we determine domain? 
+            // This is a design question. Let's proceed by ensuring department is used as a filter in the query.
+            // If `department` is provided, `requesterEmail` would be implicitly used by the calling function `getAssessmentWithQuestions`.
+            // For direct calls to `getAssessmentById` without `getAssessmentWithQuestions`, `requesterEmail` must be passed.
+            // The current signature is `(assessmentId: string, requesterEmail: string): Promise<any>`, let's update it.
 
-            // Based on your schema, assessments are stored with:
-            // PK = CLIENT#{domain}
-            // SK = ASSESSMENT#ASSESS_CSE_001
-            const params = {
+            // The previous `getAssessmentById` signature was: `async getAssessmentById(assessmentId: string, requesterEmail: string): Promise<any> {`
+            // We need to keep `requesterEmail` for `clientPK`.
+            // The `department` parameter will be used for filtering.
+
+            const queryParams: AWS.DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND SK = :sk',
                 ExpressionAttributeValues: {
-                    ':pk': clientPK,
+                    ':pk': `CLIENT#${process.env.DEFAULT_CLIENT_DOMAIN}`, // Assuming a default client domain if not derived from user email
                     ':sk': `ASSESSMENT#${assessmentId}`
-                }
+                },
+                FilterExpression: '#type = :typeValue' // Always filter by DEPARTMENT_WISE type
             };
 
-            console.log('Querying assessment with params:', JSON.stringify(params, null, 2));
-            const result = await dynamodb.query(params).promise();
+            const expressionAttributeNames: Record<string, string> = {
+                '#type': 'type'
+            };
+            queryParams.ExpressionAttributeValues[':typeValue'] = 'DEPARTMENT_WISE';
+
+            if (department) {
+                queryParams.FilterExpression += ' AND #dept = :department';
+                expressionAttributeNames['#dept'] = 'department';
+                queryParams.ExpressionAttributeValues[':department'] = department;
+            }
+            queryParams.ExpressionAttributeNames = expressionAttributeNames;
+
+            console.log('Querying assessment with params:', JSON.stringify(queryParams, null, 2));
+            const result = await dynamodb.query(queryParams).promise();
             console.log('Assessment query result:', JSON.stringify(result, null, 2));
             
             if (result.Items && result.Items.length > 0) {
                 const assessment = result.Items[0];
                 console.log('Found assessment:', JSON.stringify(assessment, null, 2));
+
+                // Additional check in case FilterExpression wasn't sufficient (e.g., due to eventual consistency)
+                if (department && assessment.department !== department) {
+                    console.warn(`Assessment ${assessmentId} found but department mismatch. Expected: ${department}, Found: ${assessment.department}`);
+                    return null; // Department mismatch, return null as if not found
+                }
+
                 return assessment;
             } else {
                 console.log('No assessment found with ID:', assessmentId);
