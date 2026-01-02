@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = `${import.meta.env.VITE_URL || 'http://localhost:3000'}/api`;
 
 // Create axios instance with default config
 const api = axios.create({
@@ -81,7 +81,15 @@ class AdminService {
       return response.data.data;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
-      throw error;
+      return {
+        totalColleges: 0,
+        totalOfficers: 0,
+        totalStudents: 0,
+        activeAssessments: 0,
+        totalAssessments: 0,
+        topColleges: [],
+        recentActivity: []
+      };
     }
   }
 
