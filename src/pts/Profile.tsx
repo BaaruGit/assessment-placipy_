@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Lock, Settings, BarChart3, Calendar, Globe, Camera } from "lucide-react";
 import { useUser } from "../contexts/UserContext";
 import ProfileService from "../services/profile.service";
+import AuthService from "../services/auth.service";
 
 interface PersonalInfo {
   firstName: string;
@@ -54,30 +55,80 @@ const Profile: React.FC = () => {
     joiningDate: ""
   });
 
-  // Initialize personal info with user context data from login
+  // Initialize personal info with user context data from login and fetch complete profile
   useEffect(() => {
-    if (user && user.email) {
-      // Split name into first and last name
-      let firstName = "";
-      let lastName = "";
-      
-      if (user.name) {
-        const nameParts = user.name.trim().split(' ');
-        if (nameParts.length > 0) {
-          firstName = nameParts[0];
-          lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+    const fetchProfile = async () => {
+      if (user && user.email) {
+        try {
+          // Fetch complete profile data from backend using fetch API
+          const token = localStorage.getItem('accessToken');
+          if (token) {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/users/profile`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            const profileData = result.user;
+            
+            // Split name into first and last name
+            let firstName = "";
+            let lastName = "";
+            
+            if (profileData.name) {
+              const nameParts = profileData.name.trim().split(' ');
+              if (nameParts.length > 0) {
+                firstName = nameParts[0];
+                lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+              }
+            }
+            
+            setPersonalInfo({
+              firstName: profileData.firstName || firstName || "",
+              lastName: profileData.lastName || lastName || "",
+              email: profileData.email || user.email,
+              phone: profileData.phone || profileData.mobile || "",
+              department: profileData.department || user.department || "",
+              employeeId: profileData.employeeId || "",
+              designation: profileData.designation || profileData.role || "PTS Administrator",
+              joiningDate: profileData.joiningDate || user.joiningDate || ""
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+          
+          // Fallback to user context data if API fails
+          let firstName = "";
+          let lastName = "";
+          
+          if (user.name) {
+            const nameParts = user.name.trim().split(' ');
+            if (nameParts.length > 0) {
+              firstName = nameParts[0];
+              lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+            }
+          }
+          
+          setPersonalInfo(prev => ({
+            ...prev,
+            email: user.email,
+            firstName,
+            lastName,
+            department: user.department || prev.department,
+            joiningDate: user.joiningDate || prev.joiningDate
+          }));
         }
       }
-      
-      setPersonalInfo(prev => ({
-        ...prev,
-        email: user.email,
-        firstName,
-        lastName,
-        department: user.department || prev.department,
-        joiningDate: user.joiningDate || prev.joiningDate
-      }));
-    }
+    };
+    
+    fetchProfile();
   }, [user]);
 
   // Security Settings State
@@ -173,8 +224,17 @@ const Profile: React.FC = () => {
 
       // Call real API based on section
       if (section === 'personal') {
-        console.log('Sending profile update:', personalInfo);
-        const response = await ProfileService.updateProfile(personalInfo);
+        // Allow updating specific fields including phone number
+        const profileDataToSend = {
+          firstName: personalInfo.firstName,
+          lastName: personalInfo.lastName,
+          email: personalInfo.email,
+          phone: personalInfo.phone,
+          department: personalInfo.department
+          // Note: designation and joiningDate are excluded and managed by system
+        };
+        console.log('Sending profile update:', profileDataToSend);
+        const response = await ProfileService.updateProfile(profileDataToSend);
         console.log('Profile updated:', response);
       } else if (section === 'preferences') {
         console.log('Sending preferences update:', preferences);
@@ -383,7 +443,7 @@ const Profile: React.FC = () => {
                 onChange={(e) => handlePersonalInfoChange('phone', e.target.value)}
               />
             ) : (
-              <div className="pts-form-display">{personalInfo.phone}</div>
+              <div className="pts-form-display">{personalInfo.phone || 'Not specified'}</div>
             )}
           </div>
 
@@ -396,29 +456,16 @@ const Profile: React.FC = () => {
 
           <div className="pts-form-group">
             <label className="pts-form-label">Designation</label>
-            {isEditing.personal ? (
-              <select
-                className="pts-form-select"
-                value={personalInfo.designation}
-                onChange={(e) => handlePersonalInfoChange('designation', e.target.value)}
-              >
-                {designations.map(designation => (
-                  <option key={designation} value={designation}>{designation}</option>
-                ))}
-              </select>
-            ) : (
-              <div className="pts-form-display">{personalInfo.designation}</div>
-            )}
-          </div>
-
-          <div className="pts-form-group">
-            <label className="pts-form-label">Employee ID</label>
-            <div className="pts-form-display">{personalInfo.employeeId}</div>
+            <div className="pts-form-display" style={{ backgroundColor: '#f5f5f5' }}>
+              {personalInfo.designation}
+            </div>
           </div>
 
           <div className="pts-form-group">
             <label className="pts-form-label">Joining Date</label>
-            <div className="pts-form-display">{new Date(personalInfo.joiningDate).toLocaleDateString()}</div>
+            <div className="pts-form-display" style={{ backgroundColor: '#f5f5f5' }}>
+              {personalInfo.joiningDate ? new Date(personalInfo.joiningDate).toLocaleDateString() : 'Not specified'}
+            </div>
           </div>
         </div>
       </div>
