@@ -1,0 +1,150 @@
+/* Skeleton loader styles for assessment taking component */
+
+.skeleton-loader {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.skeleton-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.skeleton-timer {
+  height: 30px;
+  width: 100px;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: loading 1.5s infinite;
+}
+
+.skeleton-header-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.skeleton-btn {
+  height: 36px;
+  width: 80px;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: loading 1.5s infinite;
+}
+
+.skeleton-section {
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.skeleton-title {
+  height: 28px;
+  width: 60%;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: loading 1.5s infinite;
+  margin-bottom: 16px;
+}
+
+.skeleton-content {
+  height: 16px;
+  width: 100%;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  animation: loading 1.5s infinite;
+  margin-bottom: 8px;
+}
+
+.skeleton-content-medium {
+  height: 16px;
+  width: 80%;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  animation: loading 1.5s infinite;
+  margin-bottom: 8px;
+}
+
+.skeleton-content-short {
+  height: 16px;
+  width: 60%;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  animation: loading 1.5s infinite;
+  margin-bottom: 8px;
+}
+
+.skeleton-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.skeleton-option {
+  height: 50px;
+  width: 100%;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  animation: loading 1.5s infinite;
+}
+
+.skeleton-progress {
+  height: 12px;
+  width: 100%;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: loading 1.5s infinite;
+  margin: 16px 0;
+}
+
+.skeleton-nav-btn {
+  height: 40px;
+  width: 120px;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: loading 1.5s infinite;
+}
+
+.skeleton-editor {
+  height: 300px;
+  width: 100%;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  animation: loading 1.5s infinite;
+}
+
+.skeleton-language-selector {
+  height: 40px;
+  width: 150px;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

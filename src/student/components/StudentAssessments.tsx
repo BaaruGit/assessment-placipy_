@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
+import Pagination from './Pagination';
 
 import StudentAssessmentService from '../../services/student.assessment.service';
 import './AssessmentTaking.css';
@@ -32,12 +33,15 @@ interface Assessment {
 const StudentAssessments: React.FC = () => {
   const [allAssessments, setAllAssessments] = useState<Assessment[]>([]);
   const [filteredAssessments, setFilteredAssessments] = useState<Assessment[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'active' | 'completed'>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const { user } = useUser();
+  
+  const PAGE_SIZE = 8; // Define page size for pagination
 
   // Fetch assessments and results
   useEffect(() => {
@@ -132,7 +136,15 @@ const StudentAssessments: React.FC = () => {
     }
 
     setFilteredAssessments(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [allAssessments, activeTab, searchTerm]);
+
+  // Pagination logic
+  const totalItems = filteredAssessments.length;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * PAGE_SIZE;
+  const paginatedAssessments = filteredAssessments.slice(startIndex, startIndex + PAGE_SIZE);
 
   const handleTakeAssessment = (assessmentId: string) => {
     navigate(`/student/assessment/${assessmentId}`);
@@ -205,7 +217,7 @@ const StudentAssessments: React.FC = () => {
             No assessments found.
           </div>
         ) : (
-          filteredAssessments.map((assessment) => (
+          paginatedAssessments.map((assessment) => (
             <div key={assessment.id} className="assessment-card">
               <div className="assessment-header">
                 <h3>{assessment.title}</h3>
@@ -261,6 +273,17 @@ const StudentAssessments: React.FC = () => {
           ))
         )}
       </div>
+      
+      {totalPages > 1 && (
+        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
+          <Pagination
+            currentPage={safeCurrentPage}
+            totalItems={totalItems}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
     </div>
   );
 };

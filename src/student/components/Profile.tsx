@@ -1,6 +1,6 @@
 ﻿﻿import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { User, Lock, BarChart3, Calendar } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useUser } from '../../contexts/UserContext';
 import { useLocation } from 'react-router-dom';
 
@@ -14,17 +14,11 @@ interface StudentInfo {
   enrollmentDate: string;
 }
 
-interface SecuritySettings {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
-  twoFactorEnabled: boolean;
-  emailNotifications: boolean;
-}
+
 
 const Profile: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'activity'>('personal');
-  const [isEditing, setIsEditing] = useState<{ personal: boolean; security: boolean }>({ personal: false, security: false });
+  const [activeTab, setActiveTab] = useState<'personal'>('personal');
+  const [isEditing, setIsEditing] = useState<{ personal: boolean }>({ personal: false });
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -41,20 +35,8 @@ const Profile: React.FC = () => {
     enrollmentDate: new Date().toISOString().split('T')[0]
   });
 
-  const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-    twoFactorEnabled: false,
-    emailNotifications: true
-  });
 
-  const [activityLog] = useState([
-    { id: 1, action: 'Logged in to account', timestamp: 'Today at 2:30 PM' },
-    { id: 2, action: 'Updated profile information', timestamp: 'Yesterday at 10:15 AM' },
-    { id: 3, action: 'Changed password', timestamp: '5 days ago' },
-    { id: 4, action: 'Downloaded assessment results', timestamp: '1 week ago' },
-  ]);
+
 
   const location = useLocation();
 
@@ -142,28 +124,17 @@ const Profile: React.FC = () => {
     setStudentInfo(prev => ({ ...prev, [field]: value }));
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleSecurityChange = (field: keyof SecuritySettings, value: any) => {
-    setSecuritySettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
 
-  const toggleEdit = (section: 'personal' | 'security') => {
+
+  const toggleEdit = (section: 'personal') => {
     setIsEditing(prev => ({ ...prev, [section]: !prev[section] }));
     setErrorMessage('');
   };
 
-  const saveChanges = async (section: 'personal' | 'security') => {
+  const saveChanges = async (section: 'personal') => {
     if (section === 'personal') {
       if (!studentInfo.name.trim() || !studentInfo.email.trim()) {
         setErrorMessage('Name and Email are required');
-        return;
-      }
-    } else if (section === 'security') {
-      if (securitySettings.newPassword && securitySettings.newPassword.length < 6) {
-        setErrorMessage('New password must be at least 6 characters');
         return;
       }
     }
@@ -231,15 +202,6 @@ const Profile: React.FC = () => {
         setSuccessMessage(response.data.message || 'Profile updated successfully!');
         setIsEditing(prev => ({ ...prev, [section]: false }));
         setErrorMessage('');
-
-        if (section === 'security') {
-          setSecuritySettings(prev => ({
-            ...prev,
-            currentPassword: '',
-            newPassword: '',
-            confirmPassword: ''
-          }));
-        }
       } else {
         // Backend didn't confirm persistence
         console.warn('[profile] Profile update did not return success:', response?.data);
@@ -255,18 +217,9 @@ const Profile: React.FC = () => {
     }
   };
 
-  const cancelEdit = (section: 'personal' | 'security') => {
+  const cancelEdit = (section: 'personal') => {
     setIsEditing(prev => ({ ...prev, [section]: false }));
     setErrorMessage('');
-
-    if (section === 'security') {
-      setSecuritySettings(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      }));
-    }
   };
 
   const renderPersonalTab = () => (
@@ -400,176 +353,15 @@ const Profile: React.FC = () => {
     </div>
   );
 
-  const renderSecurityTab = () => (
-    <div className="pts-fade-in">
-      <div className="pts-form-container">
-        <h3 className="pts-form-title">Password & Security</h3>
 
-        {!isEditing.security ? (
-          <div>
-            <div style={{ padding: '20px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '25px' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#523C48', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Lock size={18} /> Security Settings
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #e9ecef' }}>
-                  <span style={{ color: '#523C48' }}>Two-Factor Authentication</span>
-                  <span style={{ color: securitySettings.twoFactorEnabled ? '#27ae60' : '#e74c3c' }}>
-                    {securitySettings.twoFactorEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #e9ecef' }}>
-                  <span style={{ color: '#523C48' }}>Email Notifications</span>
-                  <span style={{ color: securitySettings.emailNotifications ? '#27ae60' : '#e74c3c' }}>
-                    {securitySettings.emailNotifications ? 'Enabled' : 'Disabled'}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => toggleEdit('security')}
-              className="pts-btn-primary"
-            >
-              Change Security Settings
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div style={{ marginBottom: '25px' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#523C48' }}>Change Password</h4>
-              <div className="pts-form-grid">
-                <div>
-                  <label className="pts-form-label">Current Password</label>
-                  <input
-                    type="password"
-                    value={securitySettings.currentPassword}
-                    onChange={(e) => handleSecurityChange('currentPassword', e.target.value)}
-                    className="pts-form-input"
-                    placeholder="Enter current password"
-                  />
-                </div>
-                <div>
-                  <label className="pts-form-label">New Password</label>
-                  <input
-                    type="password"
-                    value={securitySettings.newPassword}
-                    onChange={(e) => handleSecurityChange('newPassword', e.target.value)}
-                    className="pts-form-input"
-                    placeholder="Enter new password"
-                  />
-                </div>
-                <div>
-                  <label className="pts-form-label">Confirm Password</label>
-                  <input
-                    type="password"
-                    value={securitySettings.confirmPassword}
-                    onChange={(e) => handleSecurityChange('confirmPassword', e.target.value)}
-                    className="pts-form-input"
-                    placeholder="Confirm new password"
-                  />
-                </div>
-              </div>
-            </div>
 
-            <div style={{ padding: '20px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '25px' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#523C48' }}>Security Settings</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={securitySettings.twoFactorEnabled}
-                    onChange={(e) => handleSecurityChange('twoFactorEnabled', e.target.checked)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                  />
-                  <span style={{ color: '#523C48' }}>Enable Two-Factor Authentication</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={securitySettings.emailNotifications}
-                    onChange={(e) => handleSecurityChange('emailNotifications', e.target.checked)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                  />
-                  <span style={{ color: '#523C48' }}>Email Security Notifications</span>
-                </label>
-              </div>
-            </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => saveChanges('security')}
-                className="pts-btn-primary"
-                disabled={isSaving}
-              >
-                {isSaving ? 'Saving...' : 'Save Security Settings'}
-              </button>
-              <button
-                type="button"
-                onClick={() => cancelEdit('security')}
-                className="pts-btn-secondary"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderActivityTab = () => (
-    <div className="pts-fade-in">
-      <div className="pts-form-container">
-        <h3 className="pts-form-title">Account Activity</h3>
-        <p style={{ color: '#A4878D', marginBottom: '25px' }}>Recent activities on your account</p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          {activityLog.map((activity) => (
-            <div key={activity.id} style={{ padding: '20px', border: '1px solid #e9ecef', borderRadius: '8px', background: 'white' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <h4 style={{ margin: '0 0 8px 0', color: '#523C48' }}>{activity.action}</h4>
-                  <div style={{ display: 'flex', gap: '20px', fontSize: '0.9rem', color: '#A4878D', alignItems: 'center' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Calendar size={14} /> {activity.timestamp}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 
   if (loading || loadingProfile) return <div>Loading...</div>;
 
   return (
     <div className="profile-page">
       <h2>Student Profile</h2>
-      
-      <div className="tabs">
-        <button 
-          className={`tab-btn ${activeTab === 'personal' ? 'active' : ''}`}
-          onClick={() => setActiveTab('personal')}
-        >
-          Personal Information
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'security' ? 'active' : ''}`}
-          onClick={() => setActiveTab('security')}
-        >
-          Security Settings
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
-          onClick={() => setActiveTab('activity')}
-        >
-          Activity Log
-        </button>
-      </div>
 
       {successMessage && <div className="pts-success">{successMessage}</div>}
       {errorMessage && <div className="pts-error">{errorMessage}</div>}
@@ -578,8 +370,6 @@ const Profile: React.FC = () => {
         <div style={{ display: 'flex', gap: '10px', marginBottom: '0', flexWrap: 'wrap' }}>
           {([
             { key: 'personal' as const, label: 'Personal Info', icon: <User size={16} /> },
-            { key: 'security' as const, label: 'Security', icon: <Lock size={16} /> },
-            { key: 'activity' as const, label: 'Activity Log', icon: <BarChart3 size={16} /> },
           ] as const).map(tab => (
             <button
               key={tab.key}
@@ -587,7 +377,7 @@ const Profile: React.FC = () => {
               onClick={() => {
                 setActiveTab(tab.key);
                 setErrorMessage('');
-                if (tab.key !== 'activity' && isEditing[tab.key]) { cancelEdit(tab.key); }
+                if (isEditing[tab.key]) { cancelEdit(tab.key); }
               }}
               style={{ marginBottom: '10px' }}
             >
@@ -600,8 +390,6 @@ const Profile: React.FC = () => {
 
         <div style={{ marginTop: '20px' }}>
           {activeTab === 'personal' && renderPersonalTab()}
-          {activeTab === 'security' && renderSecurityTab()}
-          {activeTab === 'activity' && renderActivityTab()}
         </div>
       </div>
     </div>

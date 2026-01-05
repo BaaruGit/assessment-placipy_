@@ -219,47 +219,78 @@ const ResultDetail: React.FC = () => {
 
       {/* Answers */}
       {result.answers && result.answers.length > 0 && (
-        <div style={{
-          background: 'white',
-          borderRadius: '10px',
-          padding: '30px',
-          marginBottom: '20px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
-        }}>
+        <div
+          style={{
+            background: 'white',
+            borderRadius: '10px',
+            padding: '30px',
+            marginBottom: '20px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+          }}
+        >
           <h2 style={{ margin: '0 0 20px 0', color: '#333' }}>Answers</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {result.answers.map((answer: any, index: number) => (
-              <div 
-                key={index}
-                style={{
-                  padding: '15px',
-                  border: `2px solid ${answer.isCorrect ? '#4caf50' : '#e74c3c'}`,
-                  borderRadius: '8px',
-                  background: answer.isCorrect ? '#f1f8f4' : '#fef5f5'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <div style={{ fontWeight: '500', color: '#333' }}>
-                    Question ID: {answer.questionId}
-                  </div>
-                  <div style={{
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    background: answer.isCorrect ? '#4caf50' : '#e74c3c',
-                    color: 'white'
-                  }}>
-                    {answer.isCorrect ? 'Correct' : 'Incorrect'}
-                  </div>
-                </div>
-                <div style={{ fontSize: '14px', color: '#666' }}>
-                  <strong>Selected:</strong> {answer.selected && answer.selected.length > 0 
-                    ? answer.selected.join(', ') 
-                    : 'No answer selected'}
-                </div>
-              </div>
-            ))}
+
+          <div className="answers-table-wrapper" role="region" aria-label="Answer breakdown table">
+            <table className="answers-table">
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Your Answer</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.answers.map((answer: any, index: number) => {
+                  const hasSelection = answer.selected && answer.selected.length > 0;
+                  const status =
+                    answer.isCorrect && hasSelection
+                      ? 'Correct'
+                      : !answer.isCorrect && hasSelection
+                      ? 'Incorrect'
+                      : 'Unattempted';
+
+                  const statusClass =
+                    status === 'Correct'
+                      ? 'status-correct'
+                      : status === 'Incorrect'
+                      ? 'status-incorrect'
+                      : 'status-unattempted';
+
+                  return (
+                    <tr key={index}>
+                      <td>
+                        <div className="answer-question-cell">
+                          <div className="answer-question-label">
+                            Question {index + 1}
+                          </div>
+                          {answer.questionText && (
+                            <div className="answer-question-text">
+                              {answer.questionText}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        {hasSelection ? (
+                          <span className="answer-text">
+                            {answer.selected.join(', ')}
+                          </span>
+                        ) : (
+                          <span className="answer-text answer-text-muted">
+                            No answer selected
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`status-pill ${statusClass}`}>
+                          {status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

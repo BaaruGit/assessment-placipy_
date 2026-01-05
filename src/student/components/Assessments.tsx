@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
+import SkeletonLoader from './SkeletonLoader';
+import Pagination from './Pagination';
 
 import StudentAssessmentService from '../../services/student.assessment.service';
 import ResultsService from '../../services/results.service';
@@ -50,15 +52,19 @@ interface Assessment {
 }
 
 const Assessments: React.FC = () => {
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'completed', or subject name
+  const [currentPage, setCurrentPage] = useState(1);
   
   // State for real assessments
   const [allAssessments, setAllAssessments] = useState<Assessment[]>([]);
-  const [attemptedAssessments, setAttemptedAssessments] = useState<Set<string>>(new Set());
+  // Store attempted assessments with completion timestamps
+  const [attemptedAssessments, setAttemptedAssessments] = useState<Map<string, Date>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useUser();
+  
+  const PAGE_SIZE = 8; // Define page size for pagination
 
   // Fetch real assessments from the backend and check for attempts
   useEffect(() => {
@@ -77,19 +83,21 @@ const Assessments: React.FC = () => {
         console.log('Fetched assessments:', assessmentsResponse);
         console.log('Fetched results:', resultsResponse);
         
-        // Get list of attempted assessment IDs
+        // Get list of attempted assessment IDs with completion dates
         const results = resultsResponse?.data || resultsResponse || [];
-        const attemptedIds = new Set<string>();
+        const attemptedMap = new Map<string, Date>();
         
         if (Array.isArray(results)) {
           results.forEach((result: any) => {
             if (result.assessmentId) {
-              attemptedIds.add(result.assessmentId);
+              // Use submittedAt if available, otherwise use current date
+              const completionDate = result.submittedAt ? new Date(result.submittedAt) : new Date();
+              attemptedMap.set(result.assessmentId, completionDate);
             }
           });
         }
         
-        setAttemptedAssessments(attemptedIds);
+        setAttemptedAssessments(attemptedMap);
         
         // Transform the data to match our interface
         const transformedAssessments = assessmentsResponse.data.map((item: any) => ({
@@ -144,10 +152,43 @@ const Assessments: React.FC = () => {
 
   // Filter assessments based on active filter
   const filteredAssessments = activeFilter === 'all'
-    ? allAssessments
-    : allAssessments.filter(assessment => 
-        assessment.category.map(cat => cat.toLowerCase()).includes(activeFilter)
-      );
+    ? allAssessments.filter(assessment => {
+        const isAttempted = attemptedAssessments.has(assessment.assessmentId);
+        if (!isAttempted) return true; // Include non-completed assessments
+        
+        // For completed assessments, check if they were completed within the last 10 days
+        const completionDate = attemptedAssessments.get(assessment.assessmentId)!;
+        const daysSinceCompletion = (Date.now() - completionDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceCompletion <= 10; // Only include completed assessments within last 10 days
+      })
+    : activeFilter === 'completed'
+    ? allAssessments.filter(assessment => {
+        const isAttempted = attemptedAssessments.has(assessment.assessmentId);
+        if (!isAttempted) return false; // Only include completed assessments
+        
+        // Check if they were completed within the last 10 days
+        const completionDate = attemptedAssessments.get(assessment.assessmentId)!;
+        const daysSinceCompletion = (Date.now() - completionDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceCompletion <= 10; // Only include completed assessments within last 10 days
+      })
+    : allAssessments.filter(assessment => {
+        const matchesCategory = assessment.category.map(cat => cat.toLowerCase()).includes(activeFilter);
+        const isAttempted = attemptedAssessments.has(assessment.assessmentId);
+        
+        if (!matchesCategory) return false; // Must match category
+        
+        // For subject filters, exclude completed assessments
+        if (isAttempted) return false;
+        
+        return matchesCategory;
+      });
+
+  // Pagination logic for filtered assessments
+  const totalItems = filteredAssessments.length;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * PAGE_SIZE;
+  const paginatedAssessments = filteredAssessments.slice(startIndex, startIndex + PAGE_SIZE);
 
   // Get unique subjects/categories from assessments
   const uniqueSubjects = Array.from(
@@ -199,14 +240,15 @@ const Assessments: React.FC = () => {
   // Get button style and text based on status and attempt status
   const getButtonConfig = (assessment: Assessment) => {
     const isAttempted = attemptedAssessments.has(assessment.assessmentId);
+    const completionDate = attemptedAssessments.get(assessment.assessmentId);
     const { status, isPublished } = assessment;
     const now = new Date();
     
-    // If already attempted, show "View Results" button
+    // If already attempted, show "Completed" button
     if (isAttempted) {
       return { 
-        text: 'View Results', 
-        style: { background: '#9768E1', color: 'white' },
+        text: 'Completed', 
+        style: { background: '#4B5563', color: 'white' },
         disabled: false
       };
     }
@@ -240,11 +282,270 @@ const Assessments: React.FC = () => {
     }
   };
 
-  // Render loading state
+  // Render loading state with skeleton loader
   if (loading) {
     return (
-      <div className="assessments-page" style={{ padding: '20px', textAlign: 'center' }}>
-        <h2>Loading Assessments...</h2>
+      <div className="assessments-page" style={{ padding: '20px' }}>
+        <h2 style={{ marginBottom: '24px' }}>Programming Assessments</h2>
+        <div className="filters" style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          <div style={{
+            border: '1px solid #E5E7EB',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            background: '#f8f9fa',
+            width: '120px',
+            height: '36px',
+            animation: 'loading 1.5s infinite'
+          }}></div>
+          <div style={{
+            border: '1px solid #E5E7EB',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            background: '#f8f9fa',
+            width: '120px',
+            height: '36px',
+            animation: 'loading 1.5s infinite'
+          }}></div>
+        </div>
+        <div className="assessments-grid" style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          gap: '20px',
+          width: '100%'
+        }}>
+          <div style={{
+            border: '1px solid #E5E7EB',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            height: '300px'
+          }}>
+            <div style={{
+              padding: '16px',
+              borderBottom: '1px solid #E5E7EB',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{
+                height: '24px',
+                width: '150px',
+                background: '#f0f0f0',
+                borderRadius: '4px',
+                animation: 'loading 1.5s infinite'
+              }}></div>
+              <div style={{
+                padding: '4px 12px',
+                borderRadius: '9999px',
+                height: '24px',
+                width: '80px',
+                background: '#f0f0f0',
+                animation: 'loading 1.5s infinite'
+              }}></div>
+            </div>
+            <div style={{ padding: '16px', flexGrow: 1 }}>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  height: '16px',
+                  width: '80px',
+                  background: '#f0f0f0',
+                  borderRadius: '4px',
+                  marginBottom: '8px',
+                  animation: 'loading 1.5s infinite'
+                }}></div>
+                <div style={{
+                  height: '20px',
+                  width: '120px',
+                  background: '#f0f0f0',
+                  borderRadius: '4px',
+                  animation: 'loading 1.5s infinite'
+                }}></div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <div style={{
+                    height: '12px',
+                    width: '60px',
+                    background: '#f0f0f0',
+                    borderRadius: '4px',
+                    marginBottom: '4px',
+                    animation: 'loading 1.5s infinite'
+                  }}></div>
+                  <div style={{
+                    height: '16px',
+                    width: '50px',
+                    background: '#f0f0f0',
+                    borderRadius: '4px',
+                    animation: 'loading 1.5s infinite'
+                  }}></div>
+                </div>
+                <div>
+                  <div style={{
+                    height: '12px',
+                    width: '60px',
+                    background: '#f0f0f0',
+                    borderRadius: '4px',
+                    marginBottom: '4px',
+                    animation: 'loading 1.5s infinite'
+                  }}></div>
+                  <div style={{
+                    height: '16px',
+                    width: '50px',
+                    background: '#f0f0f0',
+                    borderRadius: '4px',
+                    animation: 'loading 1.5s infinite'
+                  }}></div>
+                </div>
+              </div>
+              <div>
+                <div style={{
+                  height: '12px',
+                  width: '70px',
+                  background: '#f0f0f0',
+                  borderRadius: '4px',
+                  marginBottom: '4px',
+                  animation: 'loading 1.5s infinite'
+                }}></div>
+                <div style={{
+                  height: '16px',
+                  width: '100px',
+                  background: '#f0f0f0',
+                  borderRadius: '4px',
+                  animation: 'loading 1.5s infinite'
+                }}></div>
+              </div>
+            </div>
+            <div style={{ padding: '16px', borderTop: '1px solid #E5E7EB' }}>
+              <div style={{
+                width: '100%',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#f0f0f0',
+                height: '36px',
+                animation: 'loading 1.5s infinite'
+              }}></div>
+            </div>
+          </div>
+          <div style={{
+            border: '1px solid #E5E7EB',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            height: '300px'
+          }}>
+            <div style={{
+              padding: '16px',
+              borderBottom: '1px solid #E5E7EB',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{
+                height: '24px',
+                width: '150px',
+                background: '#f0f0f0',
+                borderRadius: '4px',
+                animation: 'loading 1.5s infinite'
+              }}></div>
+              <div style={{
+                padding: '4px 12px',
+                borderRadius: '9999px',
+                height: '24px',
+                width: '80px',
+                background: '#f0f0f0',
+                animation: 'loading 1.5s infinite'
+              }}></div>
+            </div>
+            <div style={{ padding: '16px', flexGrow: 1 }}>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  height: '16px',
+                  width: '80px',
+                  background: '#f0f0f0',
+                  borderRadius: '4px',
+                  marginBottom: '8px',
+                  animation: 'loading 1.5s infinite'
+                }}></div>
+                <div style={{
+                  height: '20px',
+                  width: '120px',
+                  background: '#f0f0f0',
+                  borderRadius: '4px',
+                  animation: 'loading 1.5s infinite'
+                }}></div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <div style={{
+                    height: '12px',
+                    width: '60px',
+                    background: '#f0f0f0',
+                    borderRadius: '4px',
+                    marginBottom: '4px',
+                    animation: 'loading 1.5s infinite'
+                  }}></div>
+                  <div style={{
+                    height: '16px',
+                    width: '50px',
+                    background: '#f0f0f0',
+                    borderRadius: '4px',
+                    animation: 'loading 1.5s infinite'
+                  }}></div>
+                </div>
+                <div>
+                  <div style={{
+                    height: '12px',
+                    width: '60px',
+                    background: '#f0f0f0',
+                    borderRadius: '4px',
+                    marginBottom: '4px',
+                    animation: 'loading 1.5s infinite'
+                  }}></div>
+                  <div style={{
+                    height: '16px',
+                    width: '50px',
+                    background: '#f0f0f0',
+                    borderRadius: '4px',
+                    animation: 'loading 1.5s infinite'
+                  }}></div>
+                </div>
+              </div>
+              <div>
+                <div style={{
+                  height: '12px',
+                  width: '70px',
+                  background: '#f0f0f0',
+                  borderRadius: '4px',
+                  marginBottom: '4px',
+                  animation: 'loading 1.5s infinite'
+                }}></div>
+                <div style={{
+                  height: '16px',
+                  width: '100px',
+                  background: '#f0f0f0',
+                  borderRadius: '4px',
+                  animation: 'loading 1.5s infinite'
+                }}></div>
+              </div>
+            </div>
+            <div style={{ padding: '16px', borderTop: '1px solid #E5E7EB' }}>
+              <div style={{
+                width: '100%',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#f0f0f0',
+                height: '36px',
+                animation: 'loading 1.5s infinite'
+              }}></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -295,6 +596,24 @@ const Assessments: React.FC = () => {
         >
           All Assessments
         </button>
+        <button 
+          className={`filter-btn ${activeFilter === 'completed' ? 'active' : ''}`}
+          style={{
+            border: '1px solid #E5E7EB',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            background: activeFilter === 'completed' ? '#9768E1' : '#FFFFFF',
+            color: activeFilter === 'completed' ? '#FFFFFF' : '#111827',
+            transition: 'all 0.2s ease',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+            boxShadow: activeFilter === 'completed' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+          }}
+          onClick={() => setActiveFilter('completed')}
+        >
+          Completed
+        </button>
         {uniqueSubjects.map(subject => (
           <button 
             key={subject}
@@ -332,7 +651,7 @@ const Assessments: React.FC = () => {
           <p>There are currently no assessments available.</p>
         </div>
       ) : (
-        filteredAssessments.map(assessment => {
+        paginatedAssessments.map(assessment => {
           const statusStyle = getStatusBadgeStyle(assessment.status);
           const buttonConfig = getButtonConfig(assessment);
           const isAttempted = attemptedAssessments.has(assessment.assessmentId);
@@ -397,9 +716,9 @@ const Assessments: React.FC = () => {
                 </div>
                 
                 <div style={{ marginTop: '12px' }}>
-                  <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Created By</p>
+                  <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Created Date</p>
                   <p style={{ margin: 0, fontWeight: 500, fontSize: '14px' }}>
-                    {assessment.createdByName || assessment.createdBy || 'Unknown'}
+                    {assessment.createdAt ? new Date(assessment.createdAt).toLocaleDateString() : 'Unknown'}
                   </p>
                 </div>
               </div>
@@ -427,6 +746,18 @@ const Assessments: React.FC = () => {
         })
       )}
     </div>
+    
+    {/* Add pagination controls */}
+    {totalPages > 1 && (
+      <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalItems={totalItems}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+        />
+      </div>
+    )}
   </div>
   );
 };

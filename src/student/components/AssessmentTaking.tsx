@@ -6,6 +6,7 @@ import StudentAssessmentService from '../../services/student.assessment.service'
 import ResultsService from '../../services/results.service';
 import { useUser } from '../../contexts/UserContext';
 import AuthService from '../../services/auth.service';
+import SkeletonLoader from './SkeletonLoader';
 
 // Define interfaces for assessment data
 interface MCQOption {
@@ -1675,14 +1676,11 @@ useEffect(() => {
 
 
 
-  // Render loading state
+  // Render loading state with skeleton loader
   if (loading) {
     return (
       <div className="assessment-taking-container">
-        <div className="loading-container">
-          <h2>Loading Assessment...</h2>
-          <p>Please wait while we prepare your assessment.</p>
-        </div>
+        <SkeletonLoader type="assessment" count={1} />
       </div>
     );
   }
