@@ -585,42 +585,29 @@ const Profile: React.FC = () => {
       {/* Tab Navigation */}
       <div className="pts-form-container">
         <div style={{ display: "flex", gap: "10px", marginBottom: "0", flexWrap: "wrap" }}>
-          {[
-            { key: 'personal', label: 'Personal Info', icon: <User size={16} /> },
-            { key: 'security', label: 'Security', icon: <Shield size={16} /> },
-            { key: 'activity', label: 'Activity Log', icon: <BarChart3 size={16} /> },
-          ].map(tab => (
-            <button
-              key={tab.key}
-              className={activeTab === tab.key ? "pts-btn-primary" : "pts-btn-secondary"}
-              onClick={() => {
-                setActiveTab(tab.key as any);
-                setErrorMessage("");
-                // Cancel any active edits when switching tabs
-                if (isEditing[tab.key]) {
-                  cancelEdit(tab.key);
-                }
-                if (tab.key === 'security' && isPasswordEditing) {
-                  setIsPasswordEditing(false);
-                  setPasswordChange({
-                    currentPassword: "",
-                    newPassword: "",
-                    confirmPassword: ""
-                  });
-                }
-              }}
-              style={{ marginBottom: "10px" }}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
+          <button
+            key={'personal'}
+            className={activeTab === 'personal' ? "pts-btn-primary" : "pts-btn-secondary"}
+            onClick={() => {
+              setActiveTab('personal' as any);
+              setErrorMessage("");
+              // Cancel any active edits when switching tabs
+              if (isEditing['personal']) {
+                cancelEdit('personal');
+              }
+            }}
+            style={{ marginBottom: "10px" }}
+          >
+            <User size={16} /> Personal Info
+          </button>
         </div>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'personal' && renderPersonalTab()}
-      {activeTab === 'security' && renderSecurityTab()}
-      {activeTab === 'activity' && renderActivityTab()}
+      {/* Security and Activity tabs commented out for future implementation */}
+      {/* {activeTab === 'security' && renderSecurityTab()}
+      {activeTab === 'activity' && renderActivityTab()} */}
     </div>
   );
 };

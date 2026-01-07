@@ -215,10 +215,11 @@ const Dashboard: React.FC = () => {
     day: 'numeric',
   });
 
-  // Show loading state (simplified)
+  // Show loading state with skeleton UI
   if (loading || userLoading) {
     return (
       <div className="pts-fade-in">
+        {/* Welcome Banner Skeleton */}
         <div className="pts-welcome-container" style={{
           background: 'linear-gradient(135deg, #9768E1 0%, #523C48 100%)',
           borderRadius: '15px',
@@ -226,28 +227,73 @@ const Dashboard: React.FC = () => {
           minHeight: '160px',
           marginBottom: '24px',
           color: '#FFFFFF',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
+          position: 'relative',
+          overflow: 'hidden',
         }}>
-          <h2>Loading...</h2>
+          <div style={{ zIndex: 1, position: 'relative' }}>
+            <div className="pts-skeleton pts-skeleton-text" style={{ width: '120px', height: '20px', marginBottom: '10px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-text" style={{ width: '300px', height: '30px', marginBottom: '10px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-text" style={{ width: '400px', height: '20px', borderRadius: '4px' }}></div>
+          </div>
         </div>
-        {/* Render the rest of the dashboard with default values while loading */}
-        <div className="pts-stats-grid">
-          <div className="pts-stat-card">
-            <h3>Total Assessments</h3>
-            <div className="pts-stat-value">{stats.totalAssessments}</div>
-            <div className="pts-stat-change">+4 from last month</div>
+        
+        {/* Statistics Cards Skeleton */}
+        <div className="pts-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+          <div className="pts-skeleton pts-stat-card" style={{ padding: '20px', borderRadius: '8px', minHeight: '120px' }}>
+            <div className="pts-skeleton pts-skeleton-text" style={{ height: '24px', width: '80%', marginBottom: '10px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-number" style={{ height: '32px', width: '60%', marginBottom: '10px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-text" style={{ height: '18px', width: '70%', borderRadius: '4px' }}></div>
           </div>
-          <div className="pts-stat-card">
-            <h3>Active Assessments</h3>
-            <div className="pts-stat-value">{stats.activeAssessments}</div>
-            <div className="pts-stat-change">Currently running</div>
+          <div className="pts-skeleton pts-stat-card" style={{ padding: '20px', borderRadius: '8px', minHeight: '120px' }}>
+            <div className="pts-skeleton pts-skeleton-text" style={{ height: '24px', width: '80%', marginBottom: '10px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-number" style={{ height: '32px', width: '60%', marginBottom: '10px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-text" style={{ height: '18px', width: '70%', borderRadius: '4px' }}></div>
           </div>
-          <div className="pts-stat-card">
-            <h3>Total Submissions</h3>
-            <div className="pts-stat-value">{stats.totalSubmissions}</div>
-            <div className="pts-stat-change">Across all assessments</div>
+          <div className="pts-skeleton pts-stat-card" style={{ padding: '20px', borderRadius: '8px', minHeight: '120px' }}>
+            <div className="pts-skeleton pts-skeleton-text" style={{ height: '24px', width: '80%', marginBottom: '10px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-number" style={{ height: '32px', width: '60%', marginBottom: '10px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-text" style={{ height: '18px', width: '70%', borderRadius: '4px' }}></div>
+          </div>
+        </div>
+        
+        {/* Quick Actions Skeleton */}
+        <div className="pts-actions-section" style={{ marginBottom: '30px' }}>
+          <div className="pts-skeleton pts-skeleton-text" style={{ width: '150px', height: '28px', marginBottom: '20px', borderRadius: '4px' }}></div>
+          <div className="pts-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+            <div className="pts-skeleton pts-action-card" style={{ padding: '20px', borderRadius: '8px', minHeight: '150px' }}>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '24px', width: '80%', marginBottom: '10px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '16px', width: '100%', marginBottom: '8px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '16px', width: '70%', marginBottom: '15px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-button" style={{ width: '80px', height: '32px', borderRadius: '6px' }}></div>
+            </div>
+            <div className="pts-skeleton pts-action-card" style={{ padding: '20px', borderRadius: '8px', minHeight: '150px' }}>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '24px', width: '80%', marginBottom: '10px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '16px', width: '100%', marginBottom: '8px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '16px', width: '70%', marginBottom: '15px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-button" style={{ width: '80px', height: '32px', borderRadius: '6px' }}></div>
+            </div>
+            <div className="pts-skeleton pts-action-card" style={{ padding: '20px', borderRadius: '8px', minHeight: '150px' }}>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '24px', width: '80%', marginBottom: '10px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '16px', width: '100%', marginBottom: '8px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: '16px', width: '70%', marginBottom: '15px', borderRadius: '4px' }}></div>
+              <div className="pts-skeleton pts-skeleton-button" style={{ width: '80px', height: '32px', borderRadius: '6px' }}></div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Recent Activity Skeleton */}
+        <div className="pts-activity-section">
+          <div className="pts-skeleton pts-skeleton-text" style={{ width: '180px', height: '28px', marginBottom: '20px', borderRadius: '4px' }}></div>
+          <div className="pts-activity-list">
+            {[...Array(4)].map((_, index) => (
+              <div key={index} className="pts-skeleton pts-activity-item" style={{ padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
+                <div className="pts-activity-info">
+                  <div className="pts-skeleton pts-skeleton-text" style={{ height: '20px', width: '70%', marginBottom: '8px', borderRadius: '4px' }}></div>
+                  <div className="pts-skeleton pts-skeleton-text" style={{ height: '16px', width: '50%', borderRadius: '4px' }}></div>
+                </div>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: '16px', width: '60px', borderRadius: '4px' }}></div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Download } from 'lucide-react';
 import AnalyticsService from '../services/analytics.service';
 import { useUser } from '../contexts/UserContext';
+import { getStudentByEmail } from '../services/student.service';
 
 interface StudentPerformance {
   id: number;
@@ -51,6 +52,7 @@ const StudentStats: React.FC = () => {
   // The assessmentAnalytics data will be used directly for the new chart
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [enrichedStudentData, setEnrichedStudentData] = useState<any[]>([]);
   
   const { user, loading: userLoading } = useUser();
 
@@ -94,6 +96,62 @@ const StudentStats: React.FC = () => {
 
     fetchAnalytics();
   }, [userLoading]);
+
+  // Fetch roll numbers for attempt report students
+  useEffect(() => {
+    const fetchStudentRollNumbers = async () => {
+      if (rawResults.length === 0) {
+        setEnrichedStudentData([]);
+        return;
+      }
+      
+      // Group attempts by student (email)
+      const attemptsByStudent: Record<string, any[]> = {};
+      rawResults.forEach((result: any) => {
+        const email = result.email || result.studentEmail || 'Unknown';
+        if (!attemptsByStudent[email]) {
+          attemptsByStudent[email] = [];
+        }
+        attemptsByStudent[email].push(result);
+      });
+      
+      // Create student data with roll numbers fetched from student management
+      const studentDataPromises = Object.entries(attemptsByStudent)
+        .map(async ([email, results]) => {
+          let rollNumber = 'N/A';
+          try {
+            // Fetch student details from student management system
+            const studentDetails = await getStudentByEmail(email);
+            rollNumber = studentDetails.rollNumber || 'N/A';
+          } catch (error) {
+            console.warn(`Could not fetch roll number for ${email}:`, error);
+            // Fallback to any roll number in the results if available
+            rollNumber = results[0]?.rollNumber || 'N/A';
+          }
+          
+          return {
+            email,
+            rollNumber,
+            attempts: results.length,
+            totalScore: results.reduce((sum, r) => sum + (r.percentage || 0), 0),
+            averageScore: results.length > 0 ? 
+              results.reduce((sum, r) => sum + (r.percentage || 0), 0) / results.length : 0
+          };
+        });
+      
+      // Wait for all student data to be fetched
+      const studentData = await Promise.all(studentDataPromises);
+      
+      // Sort and limit to top 10 students
+      const sortedStudentData = studentData
+        .sort((a, b) => b.attempts - a.attempts)
+        .slice(0, 10);
+        
+      setEnrichedStudentData(sortedStudentData);
+    };
+    
+    fetchStudentRollNumbers();
+  }, [rawResults]);
 
   const getOverallStats = () => {
     // Use data directly from the backend analytics response
@@ -187,16 +245,35 @@ const StudentStats: React.FC = () => {
 
       {/* Assessment Participation Trend */}
       <div className="pts-form-container">
-        <h3 className="pts-form-title">Assessment Participation Trend</h3>
-        <ResponsiveContainer width="100%" height={700}>
-          <BarChart data={topPerformers.slice(0, 6)}>
+        <h3 className="pts-form-title">Top Assessment Participation Trend</h3>
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart
+            data={assessmentAnalytics
+              .map(assessment => ({
+                name: assessment.assessmentTitle,
+                participants: assessment.totalParticipants
+              }))
+              .sort((a, b) => b.participants - a.participants)
+              .slice(0, 10)
+            }
+            margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
+          >
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} angle={-45} textAnchor="end" height={100} />
-            <YAxis allowDecimals={false} domain={[0, 60]} interval={0} />
+            <XAxis 
+              dataKey="name" 
+              tick={{ fontSize: 12 }} 
+              angle={-45} 
+              textAnchor="end" 
+              height={100} 
+            />
+            <YAxis type="number" domain={[0, 10]} tickCount={6} allowDecimals={false} />
             <Tooltip />
-            <Bar dataKey="assessmentsTaken" fill="#9768E1" />
+            <Bar dataKey="participants" fill="#9768E1" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
+        <div style={{ marginTop: "10px", fontSize: "0.9rem", color: "#A4878D", fontStyle: "italic" }}>
+          Note: Shows the top 10 assessments by student participation count
+        </div>
       </div>
 
       {/* Performance Overview */}
@@ -243,7 +320,7 @@ const StudentStats: React.FC = () => {
     // Calculate attempt report data
     const totalAttempts = rawResults.length;
     
-    // Group attempts by student (email)
+    // Group attempts by student (email) - needed for stats
     const attemptsByStudent: Record<string, any[]> = {};
     rawResults.forEach((result: any) => {
       const email = result.email || result.studentEmail || 'Unknown';
@@ -278,16 +355,8 @@ const StudentStats: React.FC = () => {
       .map(([date, results]) => ({ date, count: results.length }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    const studentData = Object.entries(attemptsByStudent)
-      .map(([email, results]) => ({
-        email,
-        attempts: results.length,
-        totalScore: results.reduce((sum, r) => sum + (r.percentage || 0), 0),
-        averageScore: results.length > 0 ? 
-          results.reduce((sum, r) => sum + (r.percentage || 0), 0) / results.length : 0
-      }))
-      .sort((a, b) => b.attempts - a.attempts)
-      .slice(0, 10); // Top 10 students
+    // Use enriched student data with roll numbers from student management
+    const studentData = enrichedStudentData;
     
     const assessmentData = Object.entries(attemptsByAssessment)
       .map(([assessmentId, results]) => ({
@@ -304,7 +373,7 @@ const StudentStats: React.FC = () => {
     return (
       <div className="pts-fade-in">
         <div className="pts-form-container">
-          <h3 className="pts-form-title">Attempt Report</h3>
+          <h3 className="pts-form-title">Assessment-wise </h3>
           
           {/* Attempt Overview Stats - using PTO style */}
           <div className="stats-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "30px" }}>
@@ -313,77 +382,81 @@ const StudentStats: React.FC = () => {
               padding: "20px",
               borderRadius: "8px",
               boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              border: "1px solid #e9ecef"
+              border: "1px solid #e9ecef",
+              minHeight: "120px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between"
             }}>
-              <h4>Total Attempts</h4>
-              <div className="stat-details">
-                <div className="stat-item">
-                  <span className="stat-label">Attempts:</span>
-                  <span className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#9768E1" }}>{totalAttempts}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">All assessment attempts</span>
-                </div>
+              <div>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "1.3rem", fontWeight: "600", color: "#523C48" }}>Total Attempts</h4>
+                <div style={{ fontSize: "1.7rem", fontWeight: "bold", color: "#9768E1", marginBottom: "4px" }}>{totalAttempts}</div>
+              </div>
+              <div style={{ fontSize: "1rem", color: "#A4878D" }}>
+                All assessment attempts
               </div>
             </div>
-            
+                      
             <div className="stat-card" style={{
               background: "white",
               padding: "20px",
               borderRadius: "8px",
               boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              border: "1px solid #e9ecef"
+              border: "1px solid #e9ecef",
+              minHeight: "120px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between"
             }}>
-              <h4>Active Students</h4>
-              <div className="stat-details">
-                <div className="stat-item">
-                  <span className="stat-label">Students:</span>
-                  <span className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#9768E1" }}>{Object.keys(attemptsByStudent).length}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Who attempted assessments</span>
-                </div>
+              <div>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "1.3rem", fontWeight: "600", color: "#523C48" }}>Active Students</h4>
+                <div style={{ fontSize: "1.7rem", fontWeight: "bold", color: "#9768E1", marginBottom: "4px" }}>{Object.keys(attemptsByStudent).length}</div>
+              </div>
+              <div style={{ fontSize: "1rem", color: "#A4878D" }}>
+                Who attempted assessments
               </div>
             </div>
-            
+                      
             <div className="stat-card" style={{
               background: "white",
               padding: "20px",
               borderRadius: "8px",
               boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              border: "1px solid #e9ecef"
+              border: "1px solid #e9ecef",
+              minHeight: "120px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between"
             }}>
-              <h4>Assessments</h4>
-              <div className="stat-details">
-                <div className="stat-item">
-                  <span className="stat-label">Assessments:</span>
-                  <span className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#9768E1" }}>{Object.keys(attemptsByAssessment).length}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">With at least one attempt</span>
-                </div>
+              <div>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "1.3rem", fontWeight: "600", color: "#523C48" }}>Assessments</h4>
+                <div style={{ fontSize: "1.7rem", fontWeight: "bold", color: "#9768E1", marginBottom: "4px" }}>{Object.keys(attemptsByAssessment).length}</div>
+              </div>
+              <div style={{ fontSize: "1rem", color: "#A4878D" }}>
+                With at least one attempt
               </div>
             </div>
-            
+                      
             <div className="stat-card" style={{
               background: "white",
               padding: "20px",
               borderRadius: "8px",
               boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              border: "1px solid #e9ecef"
+              border: "1px solid #e9ecef",
+              minHeight: "120px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between"
             }}>
-              <h4>Avg. Attempts/Student</h4>
-              <div className="stat-details">
-                <div className="stat-item">
-                  <span className="stat-label">Rate:</span>
-                  <span className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#9768E1" }}>
-                    {Object.keys(attemptsByStudent).length > 0 ? 
-                      Math.round((totalAttempts / Object.keys(attemptsByStudent).length) * 100) / 100 : 0}
-                  </span>
+              <div>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "1.3rem", fontWeight: "600", color: "#523C48" }}>Avg. Attempts/Student</h4>
+                <div style={{ fontSize: "1.7rem", fontWeight: "bold", color: "#9768E1", marginBottom: "4px" }}>
+                  {Object.keys(attemptsByStudent).length > 0 ? 
+                    Math.round((totalAttempts / Object.keys(attemptsByStudent).length) * 100) / 100 : 0}
                 </div>
-                <div className="stat-item">
-                  <span className="stat-label">Per active student</span>
-                </div>
+              </div>
+              <div style={{ fontSize: "1rem", color: "#A4878D" }}>
+                Per active student
               </div>
             </div>
           </div>
@@ -417,7 +490,8 @@ const StudentStats: React.FC = () => {
             boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
             border: "1px solid #e9ecef",
             overflow: "hidden",
-            marginBottom: "30px"
+            marginBottom: "30px",
+            maxWidth: "700px"  /* Expanded to accommodate new column */
           }}>
             <table className="data-table" style={{
               width: "100%",
@@ -428,8 +502,9 @@ const StudentStats: React.FC = () => {
                 color: "white"
               }}>
                 <tr>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Student Email</th>
-                  <th style={{ padding: "12px", textAlign: "center" }}>Attempts</th>
+                  <th style={{ padding: "16px", textAlign: "left", width: "40%", fontSize: "1.1rem" }}>Student Email</th>
+                  <th style={{ padding: "16px", textAlign: "center", width: "30%", fontSize: "1.1rem" }}>Roll No</th>
+                  <th style={{ padding: "16px", textAlign: "center", width: "30%", fontSize: "1.1rem" }}>Attempts</th>
 
                 </tr>
               </thead>
@@ -440,14 +515,15 @@ const StudentStats: React.FC = () => {
                       backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white",
                       borderBottom: "1px solid #ddd"
                     }}>
-                      <td style={{ padding: "12px" }}>{student.email}</td>
-                      <td style={{ padding: "12px", textAlign: "center" }}>{student.attempts}</td>
+                      <td style={{ padding: "16px", wordBreak: "break-word", fontSize: "1rem" }}>{student.email}</td>
+                      <td style={{ padding: "16px", textAlign: "center", fontSize: "1rem" }}>{student.rollNumber}</td>
+                      <td style={{ padding: "16px", textAlign: "center", fontWeight: "600", color: "#9768E1", fontSize: "1rem" }}>{student.attempts}</td>
 
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} style={{
+                    <td colSpan={5} style={{
                       padding: "40px",
                       textAlign: "center",
                       fontStyle: "italic",
@@ -461,14 +537,16 @@ const StudentStats: React.FC = () => {
             </table>
           </div>
           
-          {/* Attempts by Assessment */}
-          <h3 className="pts-form-title" style={{ marginTop: "30px" }}>Top Assessments by Attempts</h3>
+          {/* Assessment-wise Pass/Fail Analysis */}
+          <h3 className="pts-form-title" style={{ marginTop: "30px" }}>Assessment-wise Pass/Fail Analysis</h3>
           <div className="table-container" style={{
             background: "white",
             borderRadius: "8px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
             border: "1px solid #e9ecef",
-            overflow: "hidden"
+            overflow: "hidden",
+            marginBottom: "30px",
+            maxWidth: "1400px"
           }}>
             <table className="data-table" style={{
               width: "100%",
@@ -479,38 +557,70 @@ const StudentStats: React.FC = () => {
                 color: "white"
               }}>
                 <tr>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Assessment ID</th>
-                  <th style={{ padding: "12px", textAlign: "center" }}>Attempts</th>
-                  <th style={{ padding: "12px", textAlign: "center" }}>Students</th>
+                  <th style={{ padding: "16px", textAlign: "left", width: "25%", fontSize: "1.1rem" }}>Assessment</th>
+                  <th style={{ padding: "16px", textAlign: "left", width: "25%", fontSize: "1.1rem" }}>Student</th>
+                  <th style={{ padding: "16px", textAlign: "center", width: "15%", fontSize: "1.1rem" }}>Score</th>
+                  <th style={{ padding: "16px", textAlign: "center", width: "15%", fontSize: "1.1rem" }}>Pass/Fail</th>
+                  <th style={{ padding: "16px", textAlign: "center", width: "20%", fontSize: "1.1rem" }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {assessmentData.length > 0 ? (
-                  assessmentData.map((assessment, index) => (
-                    <tr key={index} style={{
-                      backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white",
-                      borderBottom: "1px solid #ddd"
-                    }}>
-                      <td style={{ padding: "12px" }}>{assessment.assessmentId}</td>
-                      <td style={{ padding: "12px", textAlign: "center" }}>{assessment.attempts}</td>
-                      <td style={{ padding: "12px", textAlign: "center" }}>{assessment.studentEmails || 'N/A'}</td>
-                    </tr>
-                  ))
+                {rawResults.length > 0 ? (
+                  rawResults.map((result, index) => {
+                    // Determine pass/fail based on score
+                    const score = result.percentage || (result.score && result.maxScore ? 
+                      (result.score / result.maxScore) * 100 : 0);
+                    const isPass = score >= 50; // Assuming 50% is the pass threshold
+                    
+                    return (
+                      <tr key={index} style={{
+                        backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white",
+                        borderBottom: "1px solid #ddd"
+                      }}>
+                        <td style={{ padding: "16px", wordBreak: "break-word", fontSize: "1rem" }}>{result.assessmentTitle || result.assessmentId || 'N/A'}</td>
+                        <td style={{ padding: "16px", wordBreak: "break-word", fontSize: "1rem" }}>{result.email || result.studentEmail || 'N/A'}</td>
+                        <td style={{ padding: "16px", textAlign: "center", fontWeight: "600", fontSize: "1rem" }}>{score.toFixed(2)}%</td>
+                        <td style={{ padding: "16px", textAlign: "center" }}>
+                          <span style={{
+                            padding: "6px 10px",
+                            borderRadius: "4px",
+                            backgroundColor: isPass ? "#d4edda" : "#f8d7da",
+                            color: isPass ? "#155724" : "#721c24",
+                            fontSize: "1rem"
+                          }}>
+                            {isPass ? 'PASS' : 'FAIL'}
+                          </span>
+                        </td>
+                        <td style={{ padding: "16px", textAlign: "center" }}>
+                          <span style={{
+                            padding: "6px 10px",
+                            borderRadius: "4px",
+                            backgroundColor: score >= 90 ? "#d1ecf1" : score >= 75 ? "#d4edda" : score >= 60 ? "#fff3cd" : "#f8d7da",
+                            color: score >= 90 ? "#0c5460" : score >= 75 ? "#155724" : score >= 60 ? "#856404" : "#721c24",
+                            fontSize: "1rem"
+                          }}>
+                            {score >= 90 ? 'Excellent' : score >= 75 ? 'Good' : score >= 60 ? 'Average' : 'Below Average'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan={3} style={{
+                    <td colSpan={5} style={{
                       padding: "40px",
                       textAlign: "center",
                       fontStyle: "italic",
                       color: "#A4878D"
                     }}>
-                      No assessment attempts recorded yet.
+                      No assessment results recorded yet.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+          
         </div>
       </div>
     );
@@ -518,8 +628,176 @@ const StudentStats: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="pts-fade-in" style={{ padding: "20px", textAlign: "center" }}>
-        <div>Loading analytics data...</div>
+      <div className="pts-fade-in">
+        {/* Skeleton for Tab Navigation */}
+        <div className="pts-form-container" style={{ marginBottom: "20px" }}>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "0", flexWrap: "wrap" }}>
+            <div className="pts-skeleton pts-skeleton-button" style={{ width: "100px", height: "36px", marginBottom: "10px" }}></div>
+            <div className="pts-skeleton pts-skeleton-button" style={{ width: "120px", height: "36px", marginBottom: "10px" }}></div>
+            <div className="pts-skeleton pts-skeleton-button" style={{ width: "100px", height: "36px", marginBottom: "10px", marginLeft: "auto" }}></div>
+          </div>
+        </div>
+        
+        {/* Skeleton for Overview Tab */}
+        {selectedView === 'overview' && (
+          <div className="pts-fade-in">
+            {/* Skeleton for Key Metrics */}
+            <div className="pts-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "30px" }}>
+              <div className="pts-skeleton pts-stat-card" style={{ padding: "20px", borderRadius: "8px", minHeight: "120px" }}>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "10px" }}></div>
+                <div className="pts-skeleton pts-skeleton-number" style={{ height: "32px", width: "60%", marginBottom: "10px" }}></div>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "18px", width: "70%" }}></div>
+              </div>
+              <div className="pts-skeleton pts-stat-card" style={{ padding: "20px", borderRadius: "8px", minHeight: "120px" }}>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "10px" }}></div>
+                <div className="pts-skeleton pts-skeleton-number" style={{ height: "32px", width: "60%", marginBottom: "10px" }}></div>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "18px", width: "70%" }}></div>
+              </div>
+              <div className="pts-skeleton pts-stat-card" style={{ padding: "20px", borderRadius: "8px", minHeight: "120px" }}>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "10px" }}></div>
+                <div className="pts-skeleton pts-skeleton-number" style={{ height: "32px", width: "60%", marginBottom: "10px" }}></div>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "18px", width: "70%" }}></div>
+              </div>
+              <div className="pts-skeleton pts-stat-card" style={{ padding: "20px", borderRadius: "8px", minHeight: "120px" }}>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "10px" }}></div>
+                <div className="pts-skeleton pts-skeleton-number" style={{ height: "32px", width: "60%", marginBottom: "10px" }}></div>
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "18px", width: "70%" }}></div>
+              </div>
+            </div>
+            
+            {/* Skeleton for Chart */}
+            <div className="pts-form-container" style={{ marginBottom: "30px" }}>
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "20px" }}></div>
+              <div className="pts-skeleton" style={{ width: "100%", height: "400px", borderRadius: "8px" }}></div>
+            </div>
+            
+            {/* Skeleton for Top Performers */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
+              <div className="pts-form-container">
+                <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "60%", marginBottom: "20px" }}></div>
+                <div style={{ maxHeight: "250px", overflowY: "auto" }}>
+                  {[...Array(5)].map((_, index) => (
+                    <div key={index} style={{ 
+                      display: "flex", 
+                      justifyContent: "space-between", 
+                      alignItems: "center",
+                      padding: "10px",
+                      borderBottom: "1px solid #e9ecef",
+                    }}>
+                      <div>
+                        <div className="pts-skeleton pts-skeleton-text" style={{ height: "20px", width: "120px", marginBottom: "8px" }}></div>
+                        <div className="pts-skeleton pts-skeleton-text" style={{ height: "16px", width: "100px" }}></div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div className="pts-skeleton pts-skeleton-number" style={{ height: "20px", width: "60px", marginBottom: "8px" }}></div>
+                        <div className="pts-skeleton pts-skeleton-text" style={{ height: "16px", width: "80px" }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Skeleton for Assessments Tab */}
+        {selectedView === 'assessments' && (
+          <div className="pts-fade-in">
+            <div className="pts-form-container">
+              {/* Skeleton for Stats Cards */}
+              <div className="stats-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "30px" }}>
+                <div className="pts-skeleton stat-card" style={{
+                  padding: "20px",
+                  borderRadius: "8px",
+                  minHeight: "120px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "8px" }}></div>
+                    <div className="pts-skeleton pts-skeleton-number" style={{ height: "32px", width: "60%", marginBottom: "4px" }}></div>
+                  </div>
+                  <div className="pts-skeleton pts-skeleton-text" style={{ height: "18px", width: "70%" }}></div>
+                </div>
+                <div className="pts-skeleton stat-card" style={{
+                  padding: "20px",
+                  borderRadius: "8px",
+                  minHeight: "120px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "8px" }}></div>
+                    <div className="pts-skeleton pts-skeleton-number" style={{ height: "32px", width: "60%", marginBottom: "4px" }}></div>
+                  </div>
+                  <div className="pts-skeleton pts-skeleton-text" style={{ height: "18px", width: "70%" }}></div>
+                </div>
+                <div className="pts-skeleton stat-card" style={{
+                  padding: "20px",
+                  borderRadius: "8px",
+                  minHeight: "120px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "8px" }}></div>
+                    <div className="pts-skeleton pts-skeleton-number" style={{ height: "32px", width: "60%", marginBottom: "4px" }}></div>
+                  </div>
+                  <div className="pts-skeleton pts-skeleton-text" style={{ height: "18px", width: "70%" }}></div>
+                </div>
+                <div className="pts-skeleton stat-card" style={{
+                  padding: "20px",
+                  borderRadius: "8px",
+                  minHeight: "120px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "80%", marginBottom: "8px" }}></div>
+                    <div className="pts-skeleton pts-skeleton-number" style={{ height: "32px", width: "60%", marginBottom: "4px" }}></div>
+                  </div>
+                  <div className="pts-skeleton pts-skeleton-text" style={{ height: "18px", width: "70%" }}></div>
+                </div>
+              </div>
+              
+              {/* Skeleton for Chart */}
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "60%", marginBottom: "20px" }}></div>
+              <div className="chart-container" style={{
+                borderRadius: "8px",
+                padding: "20px",
+                marginBottom: "30px"
+              }}>
+                <div className="pts-skeleton" style={{ width: "100%", height: "400px" }}></div>
+              </div>
+              
+              {/* Skeleton for Table */}
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "60%", marginBottom: "20px" }}></div>
+              <div className="table-container" style={{
+                borderRadius: "8px",
+                overflow: "hidden",
+                marginBottom: "30px",
+                maxWidth: "700px"
+              }}>
+                <div className="pts-skeleton" style={{ width: "100%", height: "300px" }}></div>
+              </div>
+              
+              {/* Skeleton for Assessment Analysis Table */}
+              <div className="pts-skeleton pts-skeleton-text" style={{ height: "24px", width: "60%", marginBottom: "20px" }}></div>
+              <div className="table-container" style={{
+                borderRadius: "8px",
+                overflow: "hidden",
+                marginBottom: "30px",
+                maxWidth: "1400px"
+              }}>
+                <div className="pts-skeleton" style={{ width: "100%", height: "400px" }}></div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

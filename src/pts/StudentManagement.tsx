@@ -427,7 +427,46 @@ const StudentManagement: React.FC = () => {
       fileInputRef.current.click();
     }
   };
-
+  
+  // Show loading state with skeleton UI when data is being fetched
+  if (loading && students.length === 0) { // Only show full page skeleton on initial load
+    return (
+      <div className="pts-fade-in">
+        {/* Skeleton for Header Actions */}
+        <div className="action-buttons-section" style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '0', flexWrap: 'wrap' }}>
+            <div className="pts-skeleton pts-skeleton-button" style={{ width: '120px', height: '36px', marginBottom: '10px' }}></div>
+            <div className="pts-skeleton pts-skeleton-button" style={{ width: '100px', height: '36px', marginBottom: '10px', marginLeft: '10px' }}></div>
+            <div className="pts-skeleton pts-skeleton-button" style={{ width: '100px', height: '36px', marginBottom: '10px', marginLeft: '10px' }}></div>
+          </div>
+        </div>
+        
+        {/* Skeleton for Search and Filters */}
+        <div className="pts-form-container" style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'end' }}>
+            <div className="pts-skeleton pts-skeleton-input" style={{ flex: 1, maxWidth: '300px', height: '50px', borderRadius: '6px' }}></div>
+            <div className="pts-skeleton pts-skeleton-input" style={{ flex: 1, maxWidth: '200px', height: '50px', borderRadius: '6px' }}></div>
+          </div>
+        </div>
+        
+        {/* Skeleton for Students Table */}
+        <div className="pts-form-container">
+          <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="pts-skeleton pts-skeleton-text" style={{ width: '150px', height: '24px', borderRadius: '4px' }}></div>
+            <div className="pts-skeleton pts-skeleton-text" style={{ width: '120px', height: '20px', borderRadius: '4px' }}></div>
+          </div>
+          
+          {/* Table header line */}
+          <div style={{ height: '4px', background: 'linear-gradient(90deg, #9768E1 0%, #7c4dce 100%)', borderRadius: '2px', marginBottom: '20px' }}></div>
+          
+          <div>
+            <div className="pts-skeleton" style={{ width: '100%', height: '300px', borderRadius: '8px' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="pts-fade-in">
       {/* Hidden file input */}
@@ -568,7 +607,7 @@ const StudentManagement: React.FC = () => {
         <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 className="pts-form-title">Students List</h3>
           <div style={{ color: '#A4878D', fontSize: '0.9rem' }}>
-            Showing {filteredStudents.length} of {students.length} students
+            Showing {filteredStudents.length} of {filteredStudents.length} students
           </div>
         </div>
         
@@ -591,8 +630,11 @@ const StudentManagement: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#A4878D' }}>
-                    Loading students...
+                  <td colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                      <div className="pts-skeleton" style={{ width: '100%', height: '400px', borderRadius: '8px' }}></div>
+                      <div className="pts-skeleton pts-skeleton-text" style={{ width: '60%', height: '24px', borderRadius: '4px' }}></div>
+                    </div>
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
@@ -700,64 +742,53 @@ const StudentManagement: React.FC = () => {
                       </button>
                     </td>
 
-                    <td style={{ 
-                      padding: '10px 12px', 
-                      display: 'flex', 
-                      gap: '8px',
-                      position: 'relative',
-                      zIndex: 10,
-                      verticalAlign: 'middle',
-                      height: 'auto',
-                      alignItems: 'center',
-                      lineHeight: '1.4'
-                    }}>
-                      {/* Edit Button */}
-                      <button
-                        onClick={() => openEditModal(student)}
+                    <td
+                      style={{
+                        padding: '12px',
+                        verticalAlign: 'middle',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <div
                         style={{
-                          padding: '6px 10px',
-                          background: '#cce5ff',
-                          color: '#004085',
-                          border: 'none',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          zIndex: 20,
-                          pointerEvents: 'auto',
-                          margin: '0',
-                          minHeight: '30px',
                           display: 'flex',
+                          justifyContent: 'center',
                           alignItems: 'center',
-                          justifyContent: 'center'
+                          gap: '8px'
                         }}
-                        title="Edit student"
                       >
-                        Edit
-                      </button>
+                        {/* Edit Button */}
+                        <button
+                          onClick={() => openEditModal(student)}
+                          style={{
+                            padding: '6px 10px',
+                            background: '#cce5ff',
+                            color: '#004085',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                          title="Edit student"
+                        >
+                          Edit
+                        </button>
 
-                      {/* Delete Button */}
-                      <button
-                        onClick={() => handleDeleteStudent(student.email)}
-                        style={{
-                          padding: '6px 10px',
-                          background: '#f8d7da',
-                          color: '#721c24',
-                          border: 'none',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          zIndex: 20,
-                          pointerEvents: 'auto',
-                          margin: '0',
-                          minHeight: '30px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title="Delete student"
-                      >
-                        Delete
-                      </button>
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => handleDeleteStudent(student.email)}
+                          style={{
+                            padding: '6px 10px',
+                            background: '#f8d7da',
+                            color: '#721c24',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                          title="Delete student"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

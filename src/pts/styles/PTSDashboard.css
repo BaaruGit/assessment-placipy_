@@ -1,27 +1,63 @@
 /* PTS Module Dashboard Styles - Following Student Module Design */
+
+/* Skeleton Loading Styles */
+.pts-skeleton {
+  background: linear-gradient(90deg, #f0e6ff 25%, #e2d6f2 50%, #f0e6ff 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.pts-skeleton-text {
+  height: 16px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.pts-skeleton-number {
+  height: 24px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.pts-skeleton-button {
+  border-radius: 6px;
+}
 .pts-dashboard {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
   background-color: #f8f9fa;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   position: relative;
+  transition: all 0.3s ease;
 }
 
 /* Hamburger Menu Button */
 .pts-hamburger-menu {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  display: none;
+  display: flex;
   flex-direction: column;
-  justify-content: space-around;
-  width: 30px;
-  height: 30px;
-  background: transparent;
+  justify-content: space-between;
+  width: 26px;
+  height: 20px;
+  background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
-  z-index: 1000;
+}
+
+.pts-hamburger-menu span {
+  height: 3px;
+  width: 100%;
+  background: #9768E1;
+  border-radius: 2px;
 }
 
 .pts-hamburger-menu span {
@@ -34,6 +70,10 @@
   transform-origin: center;
 }
 
+.pts-hamburger-menu.inside span {
+  background-color: white;
+}
+
 /* Sidebar Styles */
 .pts-sidebar {
   width: 250px;
@@ -42,13 +82,37 @@
   display: flex;
   flex-direction: column;
   box-shadow: 3px 0 10px rgba(0, 0, 0, 0.1);
-  z-index: 100;
+  z-index: 1000; /* High z-index, but hamburger menu is higher */
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  transform: translateX(-100%);
   transition: transform 0.3s ease;
+}
+
+.pts-sidebar.open {
+  transform: translateX(0);
 }
 
 .pts-sidebar-header {
   padding: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pts-sidebar-header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.pts-sidebar-title {
+  margin: 0;
+  flex-grow: 1;
 }
 
 .pts-sidebar-header h2 {
@@ -161,17 +225,92 @@ li:nth-child(6) .pts-sidebar-link:before {
   flex: 1;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.3s ease;
+  margin-left: 70px;
+}
+
+.pts-dashboard.sidebar-open .pts-main-content {
+  margin-left: 250px;
+}
+
+.pts-dashboard.sidebar-closed .pts-main-content {
+  margin-left: 22px; /* Match default spacing when sidebar is closed */
+}
+
+@media (max-width: 768px) {
+  .pts-dashboard.sidebar-open .pts-main-content {
+    margin-left: 0;
+  }
+}
+
+/* Overlay for mobile when sidebar is open */
+.pts-sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+  display: none;
+  /* Overlay is shown only on mobile when sidebar is open */
+}
+
+.pts-sidebar-overlay.active {
+  display: block;
+}
+
+/* Content area with fixed sidebar width */
+.pts-dashboard .pts-content {
+  transition: padding-left 0.3s ease;
+}
+
+.pts-dashboard.sidebar-closed .pts-content {
+  padding-left: 0;
 }
 
 /* Header */
 .pts-header {
-  background: white;
+  background: #f0e6ff;
   padding: 20px 30px;
   border-bottom: 1px solid #e9ecef;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: padding-left 0.3s ease;
+  z-index: 900;
+  border-radius: 12px;
+  margin-top: 16px;  
+  margin-right: 26px;
+  margin-bottom: 12px;
+}
+
+.pts-dashboard.sidebar-open .pts-header {
+  padding-left: 50px; /* Reduced from 280px to bring content closer to sidebar */
+}
+
+@media (max-width: 768px) {
+  .pts-dashboard.sidebar-open .pts-header {
+    padding-left: 30px;
+  }
+}
+
+.pts-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 20px;
+}
+
+.pts-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.pts-header-title {
+  margin: 0;
+  flex-grow: 1;
 }
 
 .pts-header-title {
@@ -212,6 +351,17 @@ li:nth-child(6) .pts-sidebar-link:before {
   padding: 30px;
   overflow-y: auto;
   background-color: #f8f9fa;
+  transition: padding-left 0.3s ease;
+}
+
+.pts-dashboard.sidebar-open .pts-content {
+  padding-left: 50px; /* Reduced padding when sidebar is open */
+}
+
+@media (max-width: 768px) {
+  .pts-dashboard.sidebar-open .pts-content {
+    padding-left: 30px; /* Reset padding on mobile */
+  }
 }
 
 /* Dashboard Home Styles */
@@ -1099,10 +1249,26 @@ li:nth-child(6) .pts-sidebar-link:before {
   background: #d1d5db;
 }
 
+/* Hide overlay on desktop */
+@media (min-width: 769px) {
+  .pts-sidebar-overlay {
+    display: none;
+  }
+  
+  /* Desktop-specific styles for sidebar-open state */
+  .pts-dashboard.sidebar-open .pts-sidebar {
+    transform: translateX(0);
+  }
+  
+  .pts-dashboard.sidebar-open .pts-main-content {
+    margin-left: 250px;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .pts-hamburger-menu {
-    display: flex;
+    /* Already displayed via !important rule above */
   }
 
   .pts-sidebar {
@@ -1110,12 +1276,7 @@ li:nth-child(6) .pts-sidebar-link:before {
     top: 0;
     left: 0;
     height: 100vh;
-    transform: translateX(-100%);
     z-index: 1001;
-  }
-
-  .pts-sidebar.open {
-    transform: translateX(0);
   }
 
   .pts-main-content {
@@ -1125,6 +1286,22 @@ li:nth-child(6) .pts-sidebar-link:before {
   .pts-header {
     margin-left: 0;
     padding-left: 70px;
+  }
+
+  /* Overlay for mobile when sidebar is open */
+  .pts-sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: none;
+  }
+  
+  .pts-sidebar-overlay.active {
+    display: block;
   }
 
   .pts-stats-grid {
