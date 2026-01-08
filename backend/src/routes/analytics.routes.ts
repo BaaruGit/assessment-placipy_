@@ -97,19 +97,20 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
         const studentParams = {
             TableName: studentsTableName,
             KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+            FilterExpression: '#createdBy = :requesterEmail',
+            ExpressionAttributeNames: {
+                '#createdBy': 'createdBy'
+            },
             ExpressionAttributeValues: {
                 ':pk': `CLIENT#${requesterDomain}`,
-                ':skPrefix': 'STUDENT#'
+                ':skPrefix': 'STUDENT#',
+                ':requesterEmail': requesterEmail
             }
         };
         
-        console.log('Querying students for domain:', `CLIENT#${requesterDomain}`);
+        console.log('Querying students for domain:', `CLIENT#${requesterDomain}`, 'owned by:', requesterEmail);
         const studentResult = await dynamodb.query(studentParams).promise();
-        const allStudentsInDomain = studentResult.Items || [];
-        console.log('Found students in domain:', allStudentsInDomain.length);
-        
-        // Filter students by the requesting user's email (ownership)
-        const studentList = allStudentsInDomain.filter(student => student.createdBy === requesterEmail);
+        const studentList = studentResult.Items || [];
         console.log('Found students owned by requester:', studentList.length);
         
         // Step 2: Build an email-based Map for O(1) lookups
@@ -119,6 +120,8 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
                 studentEmailMap.set(student.email.toLowerCase(), student);
             }
         }
+        console.log('Student email map size:', studentEmailMap.size);
+        console.log('Sample student emails in map:', Array.from(studentEmailMap.keys()).slice(0, 5));
         
         // Step 3: Query results for this domain only
         const resultsParams = {
@@ -131,8 +134,41 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
         
         console.log('Query params for results:', JSON.stringify(resultsParams, null, 2));
         const resultsResult = await dynamodb.query(resultsParams).promise();
-        const allResults = resultsResult.Items || [];
-        console.log('Found all results:', allResults.length);
+        const allResultsFromDB = resultsResult.Items || [];
+        console.log('Found all results:', allResultsFromDB.length);
+        
+        // Get all assessments created by the current user to filter results
+        const assessmentParams = {
+            TableName: process.env.ASSESSMENTS_TABLE_NAME || 'Assesment_placipy_assesments',
+            KeyConditionExpression: 'PK = :pk',
+            ExpressionAttributeValues: {
+                ':pk': `CLIENT#${requesterDomain}`
+            }
+        };
+        
+        console.log('Querying assessments for domain:', `CLIENT#${requesterDomain}`);
+        const assessmentResult = await dynamodb.query(assessmentParams).promise();
+        const assessments = assessmentResult.Items || [];
+        
+        // Filter to only include assessments created by the current user
+        const userAssessmentIds = new Set();
+        for (const assessment of assessments) {
+            if (assessment.createdBy && assessment.createdBy.toLowerCase() === requesterEmail.toLowerCase()) {
+                userAssessmentIds.add(assessment.assessmentId);
+            }
+        }
+        
+        console.log('Number of assessments created by user:', userAssessmentIds.size);
+        
+        // Filter allResults to only include results for assessments created by the current user
+        const allResults = allResultsFromDB.filter(result => 
+            userAssessmentIds.has(result.assessmentId)
+        );
+        
+        console.log('Filtered results for user assessments:', allResults.length);
+        
+        console.log('Number of students after ownerEmail filtering:', studentList.length);
+        console.log('All results after user assessment filtering:', allResults.length);
         
         // Step 4: Create analytics data by iterating over Student Management students
         // and matching with results from the Results table using same email
@@ -159,6 +195,7 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
         }
         
         // Process results and aggregate performance data only for matched students
+        let matchedResultsCount = 0;
         for (const result of allResults) {
             if (!result.email) continue;
             
@@ -166,10 +203,21 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
             
             // Only process results that map to a Student Management student
             if (studentEmailMap.has(emailKey)) {
+                matchedResultsCount++;
                 const studentAnalytics = studentAnalyticsMap.get(emailKey);
                 if (studentAnalytics) {
+                    // Track unique assessments to avoid counting multiple attempts of the same assessment
+                    if (!studentAnalytics.uniqueAssessmentIds) {
+                        studentAnalytics.uniqueAssessmentIds = new Set();
+                    }
+                    
+                    // Only increment assessmentsTaken if this is a new unique assessment for this student
+                    if (!studentAnalytics.uniqueAssessmentIds.has(result.assessmentId)) {
+                        studentAnalytics.uniqueAssessmentIds.add(result.assessmentId);
+                        studentAnalytics.assessmentsTaken += 1;
+                    }
+                    
                     // Aggregate performance data
-                    studentAnalytics.assessmentsTaken += 1;
                     studentAnalytics.totalScore += result.percentage || 0;
                     studentAnalytics.totalMarks += result.score || 0;
                     
@@ -185,6 +233,9 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
                 }
             }
         }
+        
+        console.log('Results that matched students in Student Management:', matchedResultsCount);
+        console.log('Total results processed:', allResults.length);
         
         // Calculate average scores for each student
         for (const [emailKey, studentAnalytics] of studentAnalyticsMap) {
@@ -226,6 +277,109 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
         }
         const overallAvgScore = totalActive > 0 ? Math.round((totalScore / totalActive) * 100) / 100 : 0;
         
+        console.log('Active students (with assessments taken):', totalActive);
+        console.log('Total assessments aggregated:', totalAssessments);
+        console.log('Top performers count:', topPerformers.length);
+        if (topPerformers.length > 0) {
+            console.log('Sample top performer:', topPerformers[0]);
+        }
+        
+        // Create completion report data
+        // Count unique students who have taken at least one assessment
+        const studentsWhoAttended = new Set();
+        for (const result of allResults) {
+            if (studentEmailMap.has(result.email.toLowerCase())) {
+                studentsWhoAttended.add(result.email.toLowerCase());
+            }
+        }
+                
+        // Calculate completion rate
+        const totalStudents = studentList.length;
+        const attendedStudents = studentsWhoAttended.size;
+        const completionRate = totalStudents > 0 ? Math.round((attendedStudents / totalStudents) * 10000) / 100 : 0;
+                
+        // Get total number of unique assessments taken by this PTS's students
+        const uniqueAssessments = new Set();
+        for (const result of allResults) {
+            if (studentEmailMap.has(result.email.toLowerCase())) {
+                uniqueAssessments.add(result.assessmentId);
+            }
+        }
+                
+        const completionReport = {
+            totalAssessments: uniqueAssessments.size,
+            totalStudents: totalStudents,
+            studentsAttended: attendedStudents,
+            completionRate: completionRate
+        };
+                
+        // Also keep the detailed assessment analytics for individual assessment data
+        const assessmentMap = new Map();
+        for (const result of allResults) {
+            if (studentEmailMap.has(result.email.toLowerCase())) {
+                const assessmentId = result.assessmentId;
+                if (!assessmentMap.has(assessmentId)) {
+                    assessmentMap.set(assessmentId, {
+                        assessmentTitle: result.assessmentId,
+                        date: result.submittedAt,
+                        totalParticipants: 0,
+                        averageScore: 0,
+                        highestScore: 0,
+                        lowestScore: 100, // Start with maximum possible score
+                        completionRate: 0,
+                        scores: []
+                    });
+                }
+                        
+                const assessment = assessmentMap.get(assessmentId);
+                assessment.totalParticipants += 1;
+                        
+                // Use percentage if available, otherwise calculate from score/maxScore
+                let score = result.percentage;
+                if (score === undefined || score === null) {
+                    if (result.score !== undefined && result.maxScore && result.maxScore > 0) {
+                        score = (result.score / result.maxScore) * 100;
+                    } else {
+                        score = 0; // Default to 0 if no valid score data
+                    }
+                }
+                        
+                assessment.scores.push(score);
+                        
+                if (score > assessment.highestScore) {
+                    assessment.highestScore = score;
+                }
+                if (score < assessment.lowestScore) {
+                    assessment.lowestScore = score;
+                }
+            }
+        }
+                
+        // Calculate averages and completion rates for each assessment
+        const assessmentAnalytics = Array.from(assessmentMap.values()).map(assessment => {
+            const avgScore = assessment.scores.length > 0 
+                ? assessment.scores.reduce((sum, score) => sum + score, 0) / assessment.scores.length
+                : 0;
+                    
+            return {
+                assessmentTitle: assessment.assessmentTitle,
+                date: assessment.date,
+                totalParticipants: assessment.totalParticipants,
+                averageScore: Math.round(avgScore * 100) / 100,
+                highestScore: assessment.highestScore,
+                lowestScore: assessment.lowestScore,
+                completionRate: Math.round((assessment.totalParticipants / studentList.length) * 10000) / 100
+            };
+        });
+                
+        // Sort assessments by date (most recent first)
+        assessmentAnalytics.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        // rawResults already filtered by user assessments at the beginning of the function
+        const rawResults = allResults.filter(result => 
+            studentEmailMap.has(result.email.toLowerCase())
+        );
+        
         res.json({
             success: true,
             data: {
@@ -234,7 +388,9 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
                 totalAssessments: totalAssessments,
                 avgScore: overallAvgScore,
                 topPerformers,
-                assessments: [] // Will be populated with recent assessments if needed
+                completionReport, // Include completion report data
+                assessments: assessmentAnalytics,
+                rawResults // Include raw results for attempt report
             }
         });
     } catch (error) {

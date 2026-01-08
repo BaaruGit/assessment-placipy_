@@ -152,11 +152,27 @@ const AssessmentCreation: React.FC = () => {
   const [showReferenceMaterialForm, setShowReferenceMaterialForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-
+  
+  // Assessment toggle state
+  const [showAssessments, setShowAssessments] = useState(false);
+  const [assessments, setAssessments] = useState<any[]>([]);
+  const [loadingAssessments, setLoadingAssessments] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [assessmentsPerPage] = useState(7);
+  const [currentAssessments, setCurrentAssessments] = useState<any[]>([]);
+  
   // Add CSV import state variables
   const [importLoading, setImportLoading] = useState(false);
   const [importResults, setImportResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Update current assessments when assessments or page changes
+  useEffect(() => {
+    const indexOfLastAssessment = currentPage * assessmentsPerPage;
+    const indexOfFirstAssessment = indexOfLastAssessment - assessmentsPerPage;
+    const current = assessments.slice(indexOfFirstAssessment, indexOfLastAssessment);
+    setCurrentAssessments(current);
+  }, [assessments, currentPage, assessmentsPerPage]);
 
   const departments = ["Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil", "All Departments"];
   
@@ -491,6 +507,59 @@ const AssessmentCreation: React.FC = () => {
     } catch (err: any) {
       console.error('Error exporting CSV:', err);
       alert('Failed to export assessment: ' + err.message);
+    }
+  };
+  
+  // Function to fetch assessments created by the current PTS
+  const fetchAssessments = async () => {
+    try {
+      setLoadingAssessments(true);
+      
+      // Call the assessment service to get assessments
+      // We'll use the assessment service to make an API call to fetch assessments
+      // that belong to the current user based on ownerEmail and domain
+      const response = await AssessmentService.getAssessmentsByOwner();
+      
+      // Update the assessments state
+      setAssessments(response.data || []);
+    } catch (error) {
+      console.error('Error fetching assessments:', error);
+      alert('Failed to fetch assessments: ' + (error as Error).message);
+      setAssessments([]); // Set to empty array on error
+    } finally {
+      setLoadingAssessments(false);
+    }
+  };
+  
+  // Toggle function for showing/hiding assessments
+  const toggleAssessments = async () => {
+    if (!showAssessments) {
+      // Fetch assessments when showing for the first time
+      await fetchAssessments();
+    }
+    setShowAssessments(!showAssessments);
+  };
+  
+  // Function to delete an assessment
+  const deleteAssessment = async (assessmentId: string) => {
+    if (!window.confirm('Are you sure you want to delete this assessment? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await AssessmentService.deleteAssessment(assessmentId);
+      
+      // Remove the deleted assessment from the state
+      setAssessments(prev => prev.filter(assessment => assessment.assessmentId !== assessmentId));
+      
+      // Show success message
+      alert('Assessment deleted successfully!');
+      
+      // Refresh the list
+      await fetchAssessments();
+    } catch (error) {
+      console.error('Error deleting assessment:', error);
+      alert('Failed to delete assessment: ' + (error as Error).message);
     }
   };
 
@@ -952,27 +1021,251 @@ const AssessmentCreation: React.FC = () => {
         }
       `}</style>
 
-      <div className="pts-form-container">
-        {/* Add Import/Export buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
+      <div className="pts-section-card">
+        {/* Toggle button for showing/hiding assessments */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '8px', marginBottom: '20px' }}>
           <button
-            className="pts-btn-secondary"
-            onClick={triggerFileInput}
-            disabled={importLoading}
+            className="pts-btn-primary"
+            onClick={toggleAssessments}
           >
-            Import CSV
+            {showAssessments ? 'Hide Assessments' : 'Show Assessments'}
           </button>
           <button
             className="pts-btn-secondary"
-            onClick={exportToCSV}
+            onClick={() => {
+              setShowAssessments(false);
+              // Reset form when switching to create mode
+              setAssessmentData({
+                title: "",
+                description: "",
+                duration: 60,
+                instructions: "",
+                department: user?.department || "",
+                difficulty: "",
+                category: ["MCQ", "Coding"],
+                questions: [],
+                referenceMaterials: [],
+                status: "ACTIVE",
+                type: "DEPARTMENT_WISE",
+                domain: "ksrce.ac.in",
+                configuration: {
+                  maxAttempts: 2,
+                  passingScore: 60,
+                  randomizeQuestions: true,
+                  totalQuestions: 0
+                },
+                scheduling: {
+                  startDate: new Date().toISOString(),
+                  endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                  timezone: "Asia/Kolkata"
+                },
+                target: {
+                  departments: [],
+                  years: [3, 4]
+                },
+                stats: {
+                  avgScore: 0,
+                  completed: 0,
+                  highestScore: 0,
+                  totalParticipants: 0
+                },
+                entities: [],
+                isPublished: false
+              });
+              // Reset date/time components
+              setStartDateComponents(extractTimeComponents(new Date().toISOString()));
+              setEndDateComponents(extractTimeComponents(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()));
+              // Reset question forms
+              setShowMcqForm(false);
+              setShowProgrammingForm(false);
+              // Reset current question
+              setCurrentQuestion({
+                id: 0,
+                text: "",
+                options: ["", "", "", ""],
+                correctAnswer: [],
+                marks: 1,
+                subcategory: "",
+                starterCode: "",
+                testCases: []
+              });
+            }}
           >
-            Export CSV
+            Create Assessment
           </button>
         </div>
+        
+        {/* Assessments table - shown when toggle is active */}
+        {showAssessments && (
+          <div style={{ marginBottom: '30px' }}>
+            {loadingAssessments ? (
+              <div>Loading assessments...</div>
+            ) : assessments.length === 0 ? (
+              <div className="pts-form-group">
+                <p>No assessments found for this PTS</p>
+              </div>
+            ) : (
+              <div className="table-container" style={{
+                background: "white",
+                borderRadius: "8px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                border: "1px solid #e9ecef",
+                overflow: "hidden"
+              }}>
+                <table className="data-table" style={{
+                  width: "100%",
+                  borderCollapse: "collapse"
+                }}>
+                  <thead style={{
+                    backgroundColor: "#9768E1",
+                    color: "white"
+                  }}>
+                    <tr>
+                      <th style={{ padding: "12px", textAlign: "left" }}>Assessment ID</th>
+                      <th style={{ padding: "12px", textAlign: "left" }}>Title</th>
+                      <th style={{ padding: "12px", textAlign: "left" }}>Difficulty</th>
+                      <th style={{ padding: "12px", textAlign: "left" }}>Categories</th>
+                      <th style={{ padding: "12px", textAlign: "center" }}>Questions</th>
+                      <th style={{ padding: "12px", textAlign: "left" }}>Duration</th>
+                      <th style={{ padding: "12px", textAlign: "left" }}>Scheduling</th>
+                      <th style={{ padding: "12px", textAlign: "center" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentAssessments.map((assessment, index) => {
+                      const globalIndex = (currentPage - 1) * assessmentsPerPage + index;
+                      return (
+                        <tr key={assessment.assessmentId || globalIndex} style={{
+                          backgroundColor: globalIndex % 2 === 0 ? "#f9f9f9" : "white",
+                          borderBottom: "1px solid #ddd"
+                        }}>
+                          <td style={{ padding: "12px" }}>{assessment.assessmentId || 'N/A'}</td>
+                          <td style={{ padding: "12px" }}>{assessment.title || 'N/A'}</td>
+                          <td style={{ padding: "12px" }}>{assessment.difficulty || 'N/A'}</td>
+                          <td style={{ padding: "12px" }}>{Array.isArray(assessment.category) ? assessment.category.join(', ') : assessment.category || 'N/A'}</td>
+                          <td style={{ padding: "12px", textAlign: "center" }}>{assessment.configuration?.totalQuestions || 0}</td>
+                          <td style={{ padding: "12px" }}>{assessment.duration || assessment.configuration?.duration || 'N/A'} min</td>
+                          <td style={{ padding: "12px" }}>{new Date(assessment.scheduling?.startDate || '').toLocaleDateString() || 'N/A'}</td>
+                          <td style={{ padding: "12px", textAlign: "center" }}>
+                            <button
+                              className="pts-btn-danger"
+                              onClick={() => deleteAssessment(assessment.assessmentId)}
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Add Import/Export buttons */}
+        {showAssessments && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
+            <button
+              className="pts-btn-secondary"
+              onClick={triggerFileInput}
+              disabled={importLoading}
+            >
+              Import CSV
+            </button>
+            <button
+              className="pts-btn-secondary"
+              onClick={exportToCSV}
+            >
+              Export CSV
+            </button>
+          </div>
+        )}
+        
+        {/* Pagination Controls */}
+        {showAssessments && assessments.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '20px' }}>
+            <button 
+              className="pts-btn-secondary"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.9rem',
+                opacity: currentPage === 1 ? 0.5 : 1,
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              Previous
+            </button>
+            
+            <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+              {(() => {
+                const totalPages = Math.ceil(assessments.length / assessmentsPerPage);
+                const pages = [];
+                
+                // Show first page
+                if (totalPages > 0) pages.push(1);
+                
+                // Show pages around current page
+                const startPage = Math.max(2, currentPage - 1);
+                const endPage = Math.min(totalPages - 1, currentPage + 1);
+                
+                for (let i = startPage; i <= endPage; i++) {
+                  if (i !== pages[pages.length - 1]) pages.push(i);
+                }
+                
+                // Show last page if not already included
+                if (totalPages > 1 && !pages.includes(totalPages)) pages.push(totalPages);
+                
+                return pages.map(page => (
+                  <button
+                    key={page}
+                    className="pts-btn-secondary"
+                    onClick={() => setCurrentPage(page)}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.9rem',
+                      backgroundColor: currentPage === page ? '#9768E1' : 'white',
+                      color: currentPage === page ? 'white' : '#374151',
+                      border: currentPage === page ? '1px solid #9768E1' : '1px solid #d1d5db',
+                      minWidth: '36px'
+                    }}
+                  >
+                    {page}
+                  </button>
+                ));
+              })()}
+            </div>
+            
+            <button
+              className="pts-btn-secondary"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(assessments.length / assessmentsPerPage)))}
+              disabled={currentPage === Math.ceil(assessments.length / assessmentsPerPage) || assessments.length === 0}
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.9rem',
+                opacity: currentPage === Math.ceil(assessments.length / assessmentsPerPage) || assessments.length === 0 ? 0.5 : 1,
+                cursor: (currentPage === Math.ceil(assessments.length / assessmentsPerPage) || assessments.length === 0) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              Next
+            </button>
+            
+            <div style={{ fontSize: '0.9rem', color: '#6b7280', marginLeft: '15px' }}>
+              Page {currentPage} of {Math.ceil(assessments.length / assessmentsPerPage)}
+            </div>
+          </div>
+        )}
+        
+        {/* Create Assessment Form - shown when toggle is inactive */}
+        {!showAssessments && (
+          <div>
+            <h2 className="pts-form-title">Create New Assessment</h2>
 
-        <h2 className="pts-form-title">Create New Assessment</h2>
-
-        <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit}>
           <div className="pts-form-grid">
             <div className="pts-form-group">
               <label className="pts-form-label">Assessment Title *</label>
@@ -1025,7 +1318,7 @@ const AssessmentCreation: React.FC = () => {
               </div>
             </div>
 
-            <div className="pts-form-group">
+            <div className="pts-form-group pts-short-field">
               <label className="pts-form-label">Difficulty Level</label>
               <select
                 className="pts-form-select"
@@ -1038,7 +1331,7 @@ const AssessmentCreation: React.FC = () => {
               </select>
             </div>
 
-            <div className="pts-form-group">
+            <div className="pts-form-group pts-short-field">
               <label className="pts-form-label">Duration (minutes) *</label>
               <input
                 type="number"
@@ -1051,7 +1344,7 @@ const AssessmentCreation: React.FC = () => {
               />
             </div>
 
-            <div className="pts-form-group">
+            <div className="pts-form-group pts-short-field">
               <label className="pts-form-label">Status</label>
               <select
                 className="pts-form-select"
@@ -1068,9 +1361,10 @@ const AssessmentCreation: React.FC = () => {
           </div>
 
           {/* Scheduling Section */}
-          <div className="pts-form-section">
-            <h3 className="pts-form-subtitle">Scheduling</h3>
-            <div className="pts-form-grid">
+          <div className="pts-section-card">
+            <h3 className="pts-section-header">Scheduling</h3>
+            <div className="pts-scheduling-group">
+            <div className="pts-scheduling-row">
               <div className="pts-form-group">
                 <label className="pts-form-label">Start Date *</label>
                 <input
@@ -1157,6 +1451,7 @@ const AssessmentCreation: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
 
           <div className="pts-form-group">
             <label className="pts-form-label">Description</label>
@@ -1169,21 +1464,24 @@ const AssessmentCreation: React.FC = () => {
             />
           </div>
 
-          <div className="pts-form-group">
-            <label className="pts-form-label">Instructions</label>
-            <textarea
-              className="pts-form-textarea"
-              placeholder="Enter assessment instructions"
-              value={assessmentData.instructions}
-              onChange={(e) => handleInputChange("instructions", e.target.value)}
-              rows={3}
-            />
+          <div className="pts-section-card">
+            <h3 className="pts-section-header">Instructions</h3>
+            <div className="pts-form-group">
+              <label className="pts-form-label">Instructions</label>
+              <textarea
+                className="pts-form-textarea"
+                placeholder="Enter assessment instructions"
+                value={assessmentData.instructions}
+                onChange={(e) => handleInputChange("instructions", e.target.value)}
+                rows={3}
+              />
+            </div>
           </div>
 
           {/* Reference Materials Section */}
-          <div className="pts-form-section">
+          <div className="pts-section-card">
+            <h3 className="pts-section-header">Reference Materials</h3>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-              <h3 className="pts-form-subtitle">Reference Materials</h3>
               <button
                 type="button"
                 className="pts-btn-secondary"
@@ -1249,16 +1547,9 @@ const AssessmentCreation: React.FC = () => {
             )}
 
             {assessmentData.referenceMaterials.length === 0 && (
-              <div style={{
-                textAlign: "center",
-                padding: "40px",
-                background: "#f8f9fa",
-                borderRadius: "8px",
-                border: "2px dashed #dee2e6"
-              }}>
-                <p style={{ color: "#6c757d", margin: 0 }}>
-                  No reference materials added yet. Click "Add Reference Material" to attach PDFs, videos, or links.
-                </p>
+              <div className="pts-empty-state">
+                <div className="pts-empty-state-icon">📚</div>
+                <div className="pts-empty-state-text">No reference materials added yet. Click "Add Reference Material" to attach PDFs, videos, or links.</div>
               </div>
             )}
           </div>
@@ -1349,9 +1640,9 @@ const AssessmentCreation: React.FC = () => {
           )}
 
           {/* Questions Section */}
-          <div className="pts-form-section">
+          <div className="pts-section-card">
+            <h3 className="pts-section-header">Questions</h3>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-              <h3 className="pts-form-subtitle">Questions</h3>
               <div style={{ display: "flex", gap: "10px" }}>
                 {assessmentData.category.includes("MCQ") && (
                   <button
@@ -1378,14 +1669,9 @@ const AssessmentCreation: React.FC = () => {
                   </button>
                 )}
                 {!assessmentData.category.includes("MCQ") && !assessmentData.category.includes("Coding") && (
-                  <div style={{
-                    padding: "8px 12px",
-                    background: '#f8f9fa',
-                    borderRadius: '4px',
-                    color: '#6c757d',
-                    fontSize: '0.9rem'
-                  }}>
-                    Select category to add questions
+                  <div className="pts-empty-state">
+                    <div className="pts-empty-state-icon">📝</div>
+                    <div className="pts-empty-state-text">Select category to add questions</div>
                   </div>
                 )}
               </div>
@@ -1542,17 +1828,10 @@ const AssessmentCreation: React.FC = () => {
               </div>
             )}
 
-            {assessmentData.questions.length === 0 && (
-              <div style={{
-                textAlign: "center",
-                padding: "40px",
-                background: "#f8f9fa",
-                borderRadius: "8px",
-                border: "2px dashed #dee2e6"
-              }}>
-                <p style={{ color: "#6c757d", margin: 0 }}>
-                  No questions added yet. Click "Add Question" to start adding questions.
-                </p>
+            {assessmentData.questions.length === 0 && assessmentData.category.length > 0 && (
+              <div className="pts-empty-state">
+                <div className="pts-empty-state-icon">❓</div>
+                <div className="pts-empty-state-text">No questions added yet. Start by adding MCQ or Programming questions to build your assessment.</div>
               </div>
             )}
           </div>
@@ -1924,8 +2203,10 @@ const AssessmentCreation: React.FC = () => {
           </div>
         </form>
       </div>
+      )}
     </div>
-  );
+  </div>
+);
 };
 
 export default AssessmentCreation;

@@ -54,6 +54,10 @@ const PTSModule: React.FC = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
+  const closeSidebar = () => {
+    setSidebarOpen(false);
+  };
+
   const handleNavigation = (path: string, id: string) => {
     setActiveTab(id);
     navigate(path);
@@ -80,18 +84,19 @@ const PTSModule: React.FC = () => {
   }, [user, loading]);
 
   return (
-    <div className="pts-dashboard">
-      {/* Hamburger Menu Button */}
-      <button className="pts-hamburger-menu" onClick={toggleSidebar}>
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-
+    <div className={`pts-dashboard ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
       {/* Sidebar Navigation */}
       <nav className={`pts-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="pts-sidebar-header">
-          <h2>PTS Portal</h2>
+          <div className="pts-sidebar-header-content">
+            <button className="pts-hamburger-menu inside" onClick={toggleSidebar}>
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+
+            <h2 className="pts-sidebar-title">PTS Portal</h2>
+          </div>
         </div>
         <ul className="pts-sidebar-menu">
           {navItems.map((item) => (
@@ -112,27 +117,41 @@ const PTSModule: React.FC = () => {
         </div>
       </nav>
 
+      {/* Overlay for mobile when sidebar is open */}
+      {sidebarOpen && <div className="pts-sidebar-overlay" onClick={closeSidebar}></div>}
+
       {/* Main Content Area */}
       <div className="pts-main-content">
         {/* Header */}
         <header className="pts-header">
-          <h1 className="pts-header-title">
-            {navItems.find(item => item.id === activeTab)?.label || 'Dashboard'}
-          </h1>
-          <div
-            className="pts-user-info"
-            onClick={() => handleNavigation('/pts/profile', 'profile')}
-            style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-            title="Go to Profile Settings"
-          >
-            <img
-              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"
-              alt="Profile"
-              className="pts-user-avatar"
-            />
-            {userInfo}
+          <div className="pts-header-content">
+            <div className="pts-header-left">
+              {!sidebarOpen && (
+                <button className="pts-hamburger-menu" onClick={toggleSidebar}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </button>
+              )}
+              <h1 className="pts-header-title">
+                {navItems.find(item => item.id === activeTab)?.label || 'Dashboard'}
+              </h1>
+            </div>
+            <div
+              className="pts-user-info"
+              onClick={() => handleNavigation('/pts/profile', 'profile')}
+              style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              title="Go to Profile Settings"
+            >
+              <div
+                className="pts-user-avatar-first-letter"
+              >
+                {user?.name?.charAt(0) || 'U'}
+              </div>
+              {userInfo}
+            </div>
           </div>
         </header>
 

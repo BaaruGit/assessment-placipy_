@@ -1,6 +1,12 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_URL || 'http://localhost:3000';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  import.meta.env.VITE_URL;
+
+if (!API_BASE_URL) {
+  throw new Error('API base URL is missing');
+}
 
 export interface Student {
   email: string;

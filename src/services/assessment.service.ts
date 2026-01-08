@@ -159,6 +159,19 @@ class AssessmentService {
       throw new Error(error.response?.data?.message || 'Failed to import assessments from CSV');
     }
   }
+  
+  async getAssessmentsByOwner(): Promise<any> {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/assessments/my-assessments`,
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Error getting assessments by owner:', error);
+      throw new Error(error.response?.data?.message || 'Failed to retrieve assessments');
+    }
+  }
 }
 
 export default new AssessmentService();

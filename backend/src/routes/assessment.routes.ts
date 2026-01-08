@@ -67,7 +67,7 @@ router.get('/', authMiddleware.authenticateToken, async (req, res) => {
         const result = await assessmentService.getAllAssessments(filters, limit, lastKey);
         console.log('=== Route Handler Result ===');
         console.log('Number of assessments returned:', result.items.length);
-        console.log('Department values in returned assessments:', result.items.map((a: any) => ({ id: a.assessmentId, dept: a.department })));
+        console.log('Department values in returned assessments:', result.items.map((a: any) => ({ id: a.assessmentId, dept: a.department })));        
         res.status(200).json({
             success: true,
             data: result.items,
@@ -75,6 +75,51 @@ router.get('/', authMiddleware.authenticateToken, async (req, res) => {
         });
     } catch (error: any) {
         console.error('Error fetching assessments:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch assessments'
+        });
+    }
+});
+
+// Get assessments created by the current user (PTS)
+router.get('/my-assessments', authMiddleware.authenticateToken, async (req, res) => {
+    try {
+        console.log('=== Get My Assessments Request ===');
+        console.log('User:', req.user);
+        
+        // Get requester email from Cognito profile
+        const requesterEmail = await getEmailFromRequest(req);
+        
+        // Extract domain from user email
+        const requesterDomain = requesterEmail.split('@')[1];
+        
+        console.log('Requester email:', requesterEmail);
+        console.log('Requester domain:', requesterDomain);
+        
+        // Get all assessments for the requester's domain
+        const filters = {
+            clientDomain: requesterDomain
+        };
+        
+        // Call the assessment service to get all assessments
+        const result = await assessmentService.getAllAssessments(filters);
+        
+        // Filter assessments by the owner (createdBy field)
+        const userAssessments = result.items.filter((assessment: any) => {
+            // Check if the assessment was created by the current user
+            // This can be checked by comparing the createdBy field with the requester email
+            return assessment.createdBy && assessment.createdBy.toLowerCase() === requesterEmail.toLowerCase();
+        });
+        
+        console.log('Number of assessments found for user:', userAssessments.length);
+        
+        res.status(200).json({
+            success: true,
+            data: userAssessments
+        });
+    } catch (error: any) {
+        console.error('Error fetching user assessments:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Failed to fetch assessments'
