@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import './AssessmentTaking.css';
 import judge0Service, { type SubmissionResult } from '../../services/judge0.service';
 import StudentAssessmentService from '../../services/student.assessment.service';
 import ResultsService from '../../services/results.service';
 import { useUser } from '../../contexts/UserContext';
 import AuthService from '../../services/auth.service';
-import { getStudentByEmail } from '../../services/student.service';
-import SkeletonLoader from './SkeletonLoader';
 
 // Define interfaces for assessment data
 interface MCQOption {
@@ -92,8 +90,8 @@ const AssessmentTaking: React.FC = () => {
     const fetchStudentProfile = async () => {
       if (user?.email) {
         try {
-          const profile = await getStudentByEmail(user.email);
-          setStudentProfile(profile);
+          // const profile = await getStudentByEmail(user.email);
+          // setStudentProfile(profile); // Commenting out as studentProfile is not used
         } catch (error) {
           console.error('Error fetching student profile:', error);
         }
@@ -121,20 +119,12 @@ const AssessmentTaking: React.FC = () => {
     setActiveTab(newTab);
   };
 
-  // State for showing language selection alert
-  const [showLanguageAlert, setShowLanguageAlert] = useState<boolean>(true);
+
 
   // State for timer
   const [timeLeft, setTimeLeft] = useState<number>(0); // Start with 0, will be set by assessment config
   
-  // State for watermark
-  const [watermarkSize, setWatermarkSize] = useState<number>(12);
-  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(0.08);
-  // State for student profile
-  const [studentProfile, setStudentProfile] = useState<any>(null);
-  
-  // Get student roll number from profile or fallback to email
-  const studentRollNo = studentProfile?.rollNumber || user?.email || 'Reg Number';
+
   // State for MCQ section
   const [currentMCQIndex, setCurrentMCQIndex] = useState<number>(0);
   const [mcqAnswers, setMcqAnswers] = useState<{ [key: string]: number }>({});
@@ -145,17 +135,19 @@ const AssessmentTaking: React.FC = () => {
   const [code, setCode] = useState<{ [key: string]: { [key: string]: string } }>({});
   const [executionResult, setExecutionResult] = useState<{ [key: string]: SubmissionResult }>({});
   const [testCaseResults, setTestCaseResults] = useState<{ [key: string]: { passed: boolean, actualOutput: string, expectedOutput: string, input: string }[] }>({});
-  // // const [allTestCasesPassed, setAllTestCasesPassed] = useState<boolean>(false); // Commenting out unused state // Commenting out unused state
+  // const [allTestCasesPassed, setAllTestCasesPassed] = useState<boolean>(false); // Commenting out unused state // Commenting out unused state
   // State to track which coding challenges have been successfully executed without errors
   const [successfulExecutions, setSuccessfulExecutions] = useState<Record<string, boolean>>({});
-  // const [isAutoRunEnabled, setIsAutoRunEnabled] = useState<boolean>(false); // Commenting out unused state
+  const [isAutoRunEnabled] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // State for assessment completion
   // // const [isAssessmentCompleted, setIsAssessmentCompleted] = useState<boolean>(false); // Commenting out unused state // Commenting out unused state
   const [submitted, setSubmitted] = useState(false);
-  const [mcqResults, setMcqResults] = useState<Record<string, any> | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  // State for showing language selection alert
+  const [showLanguageAlert, setShowLanguageAlert] = useState<boolean>(false);
  // State for showing submit button after 20 minutes (keeping for compatibility)
 const [showSubmitButton, setShowSubmitButton] = useState<boolean>(false);
 
@@ -225,6 +217,33 @@ useEffect(() => {
     return { mcqQuestions, codingChallenges };
   }, [assessmentData]);
 
+  // Handle focus loss event - removed warning flow
+  const handleFocusLoss = useCallback(() => {
+    console.log('=== Focus Loss Event Detected ===');
+    console.log('Current focusLossCount:', focusLossCount);
+    console.log('isSubmittingRef.current:', isSubmittingRef.current);
+    console.log('hasFocusedRef.current:', hasFocusedRef.current);
+    
+    // Don't count focus loss if we're already submitting
+    if (isSubmittingRef.current) {
+      console.log('Skipping focus loss - already submitting');
+      return;
+    }
+    
+    // Don't count focus loss if we haven't entered the assessment yet
+    if (!hasFocusedRef.current) {
+      console.log('Skipping focus loss - not focused yet');
+      return;
+    }
+
+    // Simply increment the focus loss count without showing warnings
+    const newCount = focusLossCount + 1;
+    console.log('New focus loss count:', newCount);
+    setFocusLossCount(newCount);
+    
+    console.log('=== End Focus Loss Event ===');
+  }, [focusLossCount]);
+
   // Strict focus loss detection effect
   useEffect(() => {
     console.log('=== Focus Loss Detection Effect Mounted ===');
@@ -290,7 +309,7 @@ useEffect(() => {
       console.log('=== End Focus Event ===');
     };
 
-    const handleBeforeUnload = (_: BeforeUnloadEvent) => {
+    const handleBeforeUnload = () => {
       console.log('=== Before Unload Event ===');
       // Mark that we're submitting to prevent focus loss counting
       isSubmittingRef.current = true;
@@ -539,11 +558,7 @@ useEffect(() => {
         return;
       }
 
-      // Store MCQ results for UI feedback
-      setMcqResults(mcqAnswersArray.reduce((acc, ans) => {
-        acc[ans.questionId] = ans;
-        return acc;
-      }, {} as Record<string, any>));
+
       setSubmitted(true);
 
       console.log('Submitting assessment result...', resultData);
@@ -566,7 +581,7 @@ useEffect(() => {
         }
       });
 
-      setIsAssessmentCompleted(true);
+      // setIsAssessmentCompleted(true); // Commented out as setIsAssessmentCompleted is not defined
 
       // Clear persisted timer for this assessment now that it is completed
       try {
@@ -583,38 +598,33 @@ useEffect(() => {
       }
     } catch (error: unknown) {
       console.error('Error saving assessment result:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        url: error.config?.url
-      });
-
+      
       setIsSubmitting(false);
       setSubmitted(false);
 
       // Provide more specific error messages
       let errorMessage = 'Assessment completed but there was an error saving your results.';
 
-      if (error.response) {
-        // Server responded with error
-        const serverMessage = error.response.data?.message || error.response.data?.error || 'Unknown server error';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const errorResponse = error as { response?: { data?: { message?: string; error?: string }; status?: number } };
+        const serverMessage = errorResponse.response?.data?.message || errorResponse.response?.data?.error || 'Unknown server error';
         errorMessage = `Error: ${serverMessage}`;
 
-        if (error.response.status === 401) {
+        if (errorResponse.response?.status === 401) {
           errorMessage = 'Your session has expired. Please log in again to save your results.';
-        } else if (error.response.status === 404) {
+        } else if (errorResponse.response?.status === 404) {
           errorMessage = 'API endpoint not found. Please check if backend server is running.';
-        } else if (error.response.status === 500) {
+        } else if (errorResponse.response?.status === 500) {
           errorMessage = `Server error: ${serverMessage}. Please check backend logs.`;
         }
-      } else if (error.request) {
+      } else if (error && typeof error === 'object' && 'request' in error) {
         // Request was made but no response received
         errorMessage = 'Cannot connect to server. Please check:\n1. Backend server is running on port 3000\n2. Your internet connection\n3. Check browser console for details';
-      } else if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+      } else if (error && typeof error === 'object' && 'message' in error && (error.message as string)?.includes('Network Error') || (error && typeof error === 'object' && 'code' in error && (error.code as string) === 'ERR_NETWORK')) {
         errorMessage = 'Network error. Please check:\n1. Backend server is running\n2. CORS is configured correctly\n3. Check browser console for details';
       } else {
-        errorMessage = `Error: ${error.message || 'Unknown error occurred'}`;
+        const errorObj = error as { message?: string };
+        errorMessage = `Error: ${errorObj.message || 'Unknown error occurred'}`;
       }
 
       console.error('Final error message:', errorMessage);
@@ -622,32 +632,6 @@ useEffect(() => {
     }
   }, [assessmentData, assessmentId, code, codingChallenges, isSubmitting, mcqAnswers, mcqQuestions, navigate, selectedLanguage, submitted, successfulExecutions, timeLeft, user]);
 
-  // Handle focus loss event - removed warning flow
-  const handleFocusLoss = useCallback(() => {
-    console.log('=== Focus Loss Event Detected ===');
-    console.log('Current focusLossCount:', focusLossCount);
-    console.log('isSubmittingRef.current:', isSubmittingRef.current);
-    console.log('hasFocusedRef.current:', hasFocusedRef.current);
-    
-    // Don't count focus loss if we're already submitting
-    if (isSubmittingRef.current) {
-      console.log('Skipping focus loss - already submitting');
-      return;
-    }
-    
-    // Don't count focus loss if we haven't entered the assessment yet
-    if (!hasFocusedRef.current) {
-      console.log('Skipping focus loss - not focused yet');
-      return;
-    }
-
-    // Simply increment the focus loss count without showing warnings
-    const newCount = focusLossCount + 1;
-    console.log('New focus loss count:', newCount);
-    setFocusLossCount(newCount);
-    
-    console.log('=== End Focus Loss Event ===');
-  }, [focusLossCount]);
   // Get current challenge safely
   const currentChallenge = codingChallenges[currentCodingIndex];
 
@@ -658,7 +642,7 @@ useEffect(() => {
     // Simple approach: Remove JSX syntax and extract JavaScript logic
     try {
       // Remove comments first
-      let cleanCode = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      const cleanCode = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
       // Extract JavaScript logic by removing JSX tags but preserving the code structure
       // This is a simplified approach for basic React code testing
@@ -723,7 +707,7 @@ try {
 }
 `;
 
-    } catch (_error) {
+    } catch {
       // If all else fails, provide a safe fallback
       return `
 console.log("React/JSX code detected:");
@@ -881,7 +865,7 @@ console.log("In a browser environment, this would render as HTML");
     } finally {
       setIsLoading(false);
     }
-  }, [currentChallenge, code, selectedLanguage, customInput, runTestCases]);
+  }, [currentChallenge, code, selectedLanguage]);
 
   // Utility function for delay
   const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -910,7 +894,7 @@ console.log("In a browser environment, this would render as HTML");
 
         try {
           // Preprocess input for array inputs in specific languages
-          let processedInput = testCase.input;
+          const processedInput = testCase.input;
 
           // For Python and JavaScript, convert array string to actual array if needed
           if ((selectedLanguage === 'python' || selectedLanguage === 'javascript') &&
@@ -1057,7 +1041,7 @@ console.log("In a browser environment, this would render as HTML");
     } finally {
       setIsLoading(false);
     }
-  }, [currentCodingIndex, selectedLanguage]);
+  }, [codingChallenges, currentCodingIndex, selectedLanguage]);
 
   // Fetch assessment data when component mounts or assessmentId changes
   useEffect(() => {
@@ -1141,17 +1125,30 @@ console.log("In a browser environment, this would render as HTML");
             const durationSeconds = durationMinutes * 60;
             console.log('Setting timeLeft from configuration duration:', durationMinutes, 'minutes =', durationSeconds, 'seconds');
             setTimeLeft(durationSeconds); // Convert minutes to seconds
+            
+            // Also set the assessment as started if there's no scheduling (for backward compatibility)
+            if (!assessmentDataFormatted.scheduling || !assessmentDataFormatted.scheduling.startDate) {
+              setIsAssessmentStarted(true);
+              console.log('Assessment started automatically (no scheduling)');
+            }
           } else {
             console.log('Setting default timeLeft: 3600 seconds (60 minutes)');
             setTimeLeft(3600); // Default to 60 minutes
+            
+            // Also set the assessment as started if there's no scheduling (for backward compatibility)
+            if (!assessmentDataFormatted.scheduling || !assessmentDataFormatted.scheduling.startDate) {
+              setIsAssessmentStarted(true);
+              console.log('Assessment started automatically with default time');
+            }
           }          
           setLoading(false);
         } else {
           throw new Error(response.message || 'Failed to fetch assessment data');
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching assessment data:', error);
-        setError(error.message || 'Failed to load assessment. Please try again.');
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load assessment. Please try again.';
+        setError(errorMessage);
         setLoading(false);
       }
     };
@@ -1193,26 +1190,41 @@ console.log("In a browser environment, this would render as HTML");
   // Initialize code state for each challenge and language
   useEffect(() => {
     if (codingChallenges.length > 0) {
-      const initialCode: { [key: string]: { [key: string]: string } } = {};
-      const initialTestCases: { [key: string]: { passed: boolean, actualOutput: string, expectedOutput: string, input: string }[] } = {};
-
-      codingChallenges.forEach(challenge => {
-        if (challenge.questionId) {
-          initialCode[challenge.questionId] = {};
-          languages.forEach(lang => {
-            // Use starter code if available, otherwise empty string
-            initialCode[challenge.questionId][lang.id] = challenge.starterCode || '';
-          });
-
-          // Initialize empty test case results
-          initialTestCases[challenge.questionId] = [];
-        }
+      setCode(prevCode => {
+        const newCode = { ...prevCode };
+        let hasChanges = false;
+        
+        codingChallenges.forEach(challenge => {
+          if (challenge.questionId && !newCode[challenge.questionId]) {
+            newCode[challenge.questionId] = {};
+            languages.forEach(lang => {
+              // Use starter code if available, otherwise empty string
+              newCode[challenge.questionId][lang.id] = challenge.starterCode || '';
+            });
+            hasChanges = true;
+          }
+        });
+        
+        // Only update state if there are new challenges to initialize
+        return hasChanges ? newCode : prevCode; // Return new state if changes, otherwise previous
       });
-
-      setCode(initialCode);
-      setTestCaseResults(initialTestCases);
+      
+      setTestCaseResults(prevResults => {
+        const newResults = { ...prevResults };
+        let updated = false;
+        
+        codingChallenges.forEach(challenge => {
+          if (challenge.questionId && !newResults[challenge.questionId]) {
+            // Initialize empty test case results
+            newResults[challenge.questionId] = [];
+            updated = true;
+          }
+        });
+        
+        return updated ? newResults : prevResults;
+      });
     }
-  }, [codingChallenges]); // Only depend on codingChallenges array
+  }, [codingChallenges]); // Removed languages from dependency to prevent unnecessary re-renders
 
   // Ensure code state is properly initialized for current challenge and language
   useEffect(() => {
@@ -1256,9 +1268,9 @@ console.log("In a browser environment, this would render as HTML");
       return;
     }
 
-    // Don't start timer if timeLeft is 0 or negative, or if assessment hasn't started
-    if (timeLeft <= 0 || !isAssessmentStarted) {
-      console.log('Not starting timer - timeLeft is 0 or negative, or assessment has not started');
+    // Don't start timer if timeLeft is 0 or negative
+    if (timeLeft <= 0) {
+      console.log('Not starting timer - timeLeft is 0 or negative');
       // Clear any existing timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -1277,6 +1289,16 @@ console.log("In a browser environment, this would render as HTML");
     
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
+        // Handle invalid time values
+        if (isNaN(prev) || prev <= 0) {
+          console.log('Invalid time value in timer tick:', prev);
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          return 0;
+        }
+        
         // Persist timer state to localStorage
         if (assessmentData?.assessmentId) {
           try {
@@ -1322,7 +1344,9 @@ console.log("In a browser environment, this would render as HTML");
         clearTimeout(autoRunTimeoutRef.current);
       }
     };
-  }, [assessmentData, isAssessmentStarted, isAssessmentEnded, submitted, timeLeft, handleSubmit]);  // Add useEffect to periodically sync with server time
+  }, [assessmentData, isAssessmentStarted, isAssessmentEnded, submitted, handleSubmit, serverTime]); // Added serverTime to fix exhaustive-deps warning
+
+  // Add useEffect to periodically sync with server time
   useEffect(() => {
     const syncTime = async () => {
       try {
@@ -1330,7 +1354,7 @@ console.log("In a browser environment, this would render as HTML");
         // For now, we'll use client time but in production you should sync with server
         setServerTime(new Date());
       } catch (error) {
-        console.warn('Could not sync with server time, using client time');
+        console.warn('Could not sync with server time, using client time', error);
         setServerTime(new Date());
       }
     };
@@ -1343,6 +1367,15 @@ console.log("In a browser environment, this would render as HTML");
 
     return () => clearInterval(interval);
   }, []);
+
+  // Effect to ensure timer display updates consistently
+  useEffect(() => {
+    if (timeLeft <= 0 && timerRef.current) {
+      // Clear timer when time is up
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, [timeLeft]);
 
 // Add useEffect to show submit button after a percentage of the assessment time (for compatibility)
 useEffect(() => {
@@ -1449,8 +1482,8 @@ useEffect(() => {
     // Handle scheduling if present
     if (assessmentData.scheduling) {
       // Parse dates - they're already in ISO format with timezone info
-      let startDate = new Date(assessmentData.scheduling.startDate);
-      let endDate = new Date(assessmentData.scheduling.endDate);
+      const startDate = new Date(assessmentData.scheduling.startDate);
+      const endDate = new Date(assessmentData.scheduling.endDate);
       
       console.log('Assessment timing check:', {
         now: now.toISOString(),
@@ -1500,6 +1533,7 @@ useEffect(() => {
       }
       
       // Assessment should be active now (with 1 second tolerance)
+      // Check if assessment has started and timer needs to be initialized
       if (!isAssessmentStarted && now >= new Date(startDate.getTime() - 1000)) {
         console.log('Starting assessment now');
         setIsAssessmentStarted(true);
@@ -1533,6 +1567,7 @@ useEffect(() => {
       }
     } else {
       // No scheduling, just use configuration duration
+      // For assessments without scheduling, ensure they start automatically
       if (!isAssessmentStarted) {
         setIsAssessmentStarted(true);
         // If we have a persisted timer state, use it adjusted for elapsed time
@@ -1560,7 +1595,21 @@ useEffect(() => {
         }
       }
     }
-  }, [assessmentData, loading, isAssessmentStarted, isAssessmentEnded, serverTime]);  // Helper function to convert UTC date to Asia/Kolkata time
+    
+  }, [assessmentData, loading, isAssessmentStarted, isAssessmentEnded, serverTime, handleSubmit, submitted]);  // Dependencies kept for proper assessment timing
+  
+  // Separate effect to handle timer initialization when assessment starts
+  useEffect(() => {
+    if (isAssessmentStarted && assessmentData && timeLeft === 0 && assessmentData.configuration?.duration && !submitted) {
+      // Initialize timer when assessment starts but timeLeft is still 0
+      const durationMinutes = assessmentData.configuration.duration;
+      const durationSeconds = durationMinutes * 60;
+      console.log('Initializing timer after assessment started:', durationMinutes, 'minutes =', durationSeconds, 'seconds');
+      setTimeLeft(durationSeconds);
+    }
+  }, [isAssessmentStarted, assessmentData, timeLeft, submitted]);
+  
+  // Helper function to convert UTC date to Asia/Kolkata time
   const convertToIndiaTime = (date: Date): Date => {
     // India Standard Time is UTC+5:30
     return new Date(date.getTime() + (date.getTimezoneOffset() * 60000) + (5.5 * 3600000));
@@ -1568,20 +1617,42 @@ useEffect(() => {
   
   // Format time for display
   const formatTime = (seconds: number): string => {
+    if (isNaN(seconds) || seconds < 0) {
+      console.log('Invalid time value received:', seconds);
+      return '00:00';
+    }
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     const formattedTime = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     console.log('Formatting time:', { seconds, mins, secs, formattedTime });
     return formattedTime;
   };
+  
+  // Force re-render timer display every second to ensure it stays up to date
+  const [, forceUpdate] = React.useState({});
+  useEffect(() => {
+    const timerDisplayInterval = setInterval(() => {
+      // Force a re-render to update the timer display
+      forceUpdate({});
+    }, 1000);
+    
+    return () => {
+      clearInterval(timerDisplayInterval);
+    };
+  }, []);
 
 
   // Format assessment ID to remove prefix and add custom format
   const formatAssessmentId = (id: string): string => {
     if (!id) return 'Assessment';
-    // Remove 'ASSESS_IT_' prefix and return in format 'Assessment-XXX'
-    const formatted = id.replace('ASSESS_IT_', 'Assessment-');
-    return formatted;
+    // Extract the number from various prefixes like ASSESS_IT_, ASSESS_CE_, etc.
+    const match = id.match(/ASSESS_[A-Z]+_(\d+)/);
+    if (match) {
+      // Return in format 'Assessment -X' where X is the extracted number
+      return `Assessment -${parseInt(match[1])}`;
+    }
+    // Fallback: if no match, just return the original ID
+    return id;
   };
 
   // Handle MCQ answer selection
@@ -1648,7 +1719,11 @@ useEffect(() => {
 
     // Check if language is not selected
     if (selectedLanguage === 'select') {
-      alert('Please select an option first before typing in the code editor.');
+      setShowLanguageAlert(true);
+      // Hide the alert after 3 seconds
+      setTimeout(() => {
+        setShowLanguageAlert(false);
+      }, 3000);
       return;
     }
 
@@ -1695,50 +1770,9 @@ useEffect(() => {
     }
   }, [currentCodingIndex, codingChallenges, selectedLanguage, executionResult, isAutoRunEnabled, runCode]);
 
-  // Handle language selection and dismiss alert
-  const handleLanguageSelect = (language: string) => {
-    setSelectedLanguage(language);
-    setShowLanguageAlert(false);
-  };
 
-  // Calculate MCQ score
-  const calculateMCQScore = () => {
-    let score = 0;
-    let maxScore = 0;
-    const answers: any = {};
 
-    mcqQuestions.forEach((question, index) => {
-      maxScore += question.points || 1;
-      answers[question.questionId] = {
-        selectedOption: mcqAnswers[question.questionId],
-        correctOption: question.correctAnswer,
-        points: question.points || 1
-      };
 
-      // Check if answer is correct by comparing selected option with correct answer
-      if (mcqAnswers[question.questionId] !== undefined) {
-        // Get the option ID (A, B, C, D) for the selected index
-        const selectedOptionId = String.fromCharCode(65 + mcqAnswers[question.questionId]);
-
-        // Check if the selected option matches any of the correct answers
-        let isCorrect = false;
-        if (Array.isArray(question.correctAnswer)) {
-          isCorrect = question.correctAnswer.includes(selectedOptionId);
-        } else if (typeof question.correctAnswer === 'string') {
-          isCorrect = question.correctAnswer === selectedOptionId;
-        }
-
-        if (isCorrect) {
-          score += question.points || 1;
-        }
-
-        // Store correctness for UI feedback
-        answers[question.questionId].isCorrect = isCorrect;
-      }
-    });
-
-    return { score, maxScore, answers };
-  };
 
 
 
@@ -1788,8 +1822,8 @@ useEffect(() => {
   if (assessmentData.scheduling) {
     const now = serverTime || new Date();
     // Parse dates - they're already in ISO format with timezone info
-    let startDate = new Date(assessmentData.scheduling.startDate);
-    let endDate = new Date(assessmentData.scheduling.endDate);
+    const startDate = new Date(assessmentData.scheduling.startDate);
+    const endDate = new Date(assessmentData.scheduling.endDate);
     
     console.log('Timezone-aware date comparison:', {
       now: now.toISOString(),
@@ -1868,6 +1902,14 @@ useEffect(() => {
       {/* Header with logo, assessment title, timer, and buttons */}
       <div className="assessment-header">
         <div className="header-left">
+          <button className="hamburger-menu" onClick={() => {
+            // Dispatch an event to toggle sidebar in the parent component
+            window.dispatchEvent(new CustomEvent('toggleSidebar'));
+          }}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
           <div className="assessment-title">
             {assessmentData ? formatAssessmentId(assessmentData.assessmentId) : 'Assessment'}
           </div>
@@ -1913,7 +1955,7 @@ useEffect(() => {
                   </div>
 
                   <div className="options-container">
-                    {(mcqQuestions[currentMCQIndex]?.options ?? []).map((option: any, index: number) => {
+                    {(mcqQuestions[currentMCQIndex]?.options ?? []).map((option: MCQOption | string, index: number) => {
                       const questionId = mcqQuestions[currentMCQIndex]?.questionId;
                       const isSelected = questionId ? mcqAnswers[questionId] === index : false;
 
@@ -1922,11 +1964,11 @@ useEffect(() => {
                         optionClass += " selected";
                       }
 
-                      const optionText = typeof option === 'string' ? option : (option?.text ?? option?.optionText ?? '');
+                      const optionText = typeof option === 'string' ? option : (option?.text ?? '');
 
                       return (
                         <div
-                          key={option?.id ?? option?.optionId ?? index}
+                          key={typeof option === 'string' ? index : (option?.id ?? index)}
                           className={optionClass}
                           onClick={() => {
                             if (!submitted && questionId) {
@@ -1991,9 +2033,27 @@ useEffect(() => {
 
             {/* Language selection alert */}
             {showLanguageAlert && (
-              <div className="simple-language-alert">
-                Please select the language
-              </div>
+              <>
+                <div 
+                  className="simple-alert-backdrop show" 
+                  onClick={() => setShowLanguageAlert(false)}
+                ></div>
+                <div className="simple-language-alert">
+                  <button 
+                    className="alert-close-btn" 
+                    onClick={() => setShowLanguageAlert(false)}
+                    aria-label="Close alert"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                  <div className="alert-message">
+                    Please select an option first before typing in the code editor.
+                  </div>
+                </div>
+              </>
             )}
 
             <div className="coding-content">
@@ -2155,8 +2215,8 @@ useEffect(() => {
                     ref={codeEditorRef}
                     className="code-editor"
                     value={code[codingChallenges[currentCodingIndex]?.questionId]?.[selectedLanguage] || ''}
-                    onChange={(e) => handleCodeChange(e.target.value)}
-                    onPaste={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleCodeChange(e.target.value)}
+                    onPaste={() => {
                       // Handle paste event to ensure proper scrolling
                       setTimeout(() => {
                         if (codeEditorRef.current) {

@@ -11,10 +11,22 @@ const DashboardHome: React.FC = () => {
   const [activeAssessmentsCount, setActiveAssessmentsCount] = useState(0);
   const [completedAssessmentsCount, setCompletedAssessmentsCount] = useState(0);
   const [averageScore, setAverageScore] = useState(0);
-  const [recentAssessments, setRecentAssessments] = useState<any[]>([]);
+  interface AssessmentResult {
+    id?: string;
+    assessmentId: string;
+    name?: string;
+    status?: string;
+    score?: number;
+    maxScore?: number;
+    percentage?: number;
+    submittedAt?: string;
+    isResultPublished?: boolean;
+  }
+  
+  const [recentAssessments, setRecentAssessments] = useState<AssessmentResult[]>([]);
   const [performanceData, setPerformanceData] = useState<Array<{subject: string, score: number}>>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
   
   // Dynamic stats data
   const stats = [
@@ -50,7 +62,7 @@ const DashboardHome: React.FC = () => {
         
         // Filter active assessments (currently active based on dates)
         const now = new Date();
-        const activeCount = assessments.filter((assessment: any) => {
+        const activeCount = assessments.filter((assessment: { scheduling?: { startDate: string; endDate: string }; createdAt: string; status: string }) => {
           const startDate = new Date(assessment.scheduling?.startDate || assessment.createdAt);
           const endDate = new Date(assessment.scheduling?.endDate || new Date());
           return assessment.status === 'ACTIVE' && startDate <= now && endDate >= now;
@@ -63,7 +75,17 @@ const DashboardHome: React.FC = () => {
           const sessionId = localStorage.getItem('notif_session_id') || String(Date.now());
           localStorage.setItem('notif_session_id', sessionId);
           const upcoming: Array<{ assessmentId: string; scheduledAt: string }> = [];
-          const items: any[] = assessments;
+          interface AssessmentItem {
+            [key: string]: unknown;
+            scheduling?: { startDate: string; createdAt: string };
+            assessmentId?: string;
+            id?: string;
+            status: string;
+            createdAt: string;
+            title?: string;
+          }
+          
+          const items: AssessmentItem[] = assessments;
           items.forEach((a) => {
             const start = a?.scheduling?.startDate || a?.createdAt;
             const aid = a?.assessmentId || a?.id;
@@ -101,10 +123,10 @@ const DashboardHome: React.FC = () => {
             if (statsResponse.data.recentAssessments && Array.isArray(statsResponse.data.recentAssessments)) {
               // Map assessment IDs to titles from assessments list
               const assessmentsMap = new Map(
-                assessments.map((a: any) => [a.assessmentId, a.title])
+                assessments.map((a: { assessmentId: string; title: string }) => [a.assessmentId, a.title])
               );
               
-              const recentWithTitles = statsResponse.data.recentAssessments.map((result: any) => ({
+              const recentWithTitles = statsResponse.data.recentAssessments.map((result: AssessmentResult) => ({
                 ...result,
                 name: assessmentsMap.get(result.assessmentId) || result.assessmentId,
                 id: result.assessmentId
@@ -118,10 +140,16 @@ const DashboardHome: React.FC = () => {
             // Set performance data (map assessment IDs to titles)
             if (statsResponse.data.performanceData && Array.isArray(statsResponse.data.performanceData)) {
               const assessmentsMap = new Map(
-                assessments.map((a: any) => [a.assessmentId, a.title])
+                assessments.map((a: { assessmentId: string; title: string }) => [a.assessmentId, a.title])
               );
               
-              const performanceWithTitles = statsResponse.data.performanceData.map((perf: any) => ({
+              interface PerfData {
+                assessmentId?: string;
+                subject: string;
+                score: number;
+              }
+              
+              const performanceWithTitles = statsResponse.data.performanceData.map((perf: PerfData) => ({
                 ...perf,
                 subject: assessmentsMap.get(perf.assessmentId) || perf.assessmentId || perf.subject
               }));
@@ -133,11 +161,20 @@ const DashboardHome: React.FC = () => {
 
             // PTO announcements -> local notifications
             try {
-              const announcements = (statsResponse.data as any).announcements || [];
+              interface Announcement {
+                id?: string;
+                SK?: string;
+                title: string;
+                createdAt?: string;
+                content?: string;
+                message?: string;
+              }
+              
+              const announcements = (statsResponse.data as { announcements?: Announcement[] }).announcements || [];
               if (Array.isArray(announcements)) {
                 const seenKey = 'student_announcements_seen';
                 const seenIds = new Set<string>((JSON.parse(localStorage.getItem(seenKey) || '[]')) as string[]);
-                announcements.forEach((ann: any) => {
+                announcements.forEach((ann: Announcement) => {
                   const id = String(ann.id || ann.SK || `${ann.title}-${ann.createdAt || ''}`);
                   if (!seenIds.has(id)) {
                     addNotification({
@@ -152,11 +189,12 @@ const DashboardHome: React.FC = () => {
                 });
                 localStorage.setItem(seenKey, JSON.stringify(Array.from(seenIds)));
               }
-            } catch (_) {
-              /* no announcements available */
+            } catch (_unused: unknown) {
+              // no announcements available
+              void _unused; // Mark as intentionally unused
             }
           }
-        } catch (statsError: any) {
+        } catch (statsError: unknown) {
           console.log('Error fetching dashboard stats:', statsError);
           // Set defaults if stats fetch fails
           setCompletedAssessmentsCount(0);
@@ -168,7 +206,7 @@ const DashboardHome: React.FC = () => {
         // Results published notification
         try {
           const res = await ResultsService.getStudentResults();
-          const list: any[] = res?.data || res || [];
+          const list: AssessmentResult[] = res?.data || res || [];
           const seenKey = 'notif_results_seen_ids';
           const seen = new Set<string>((JSON.parse(localStorage.getItem(seenKey) || '[]')) as string[]);
           list.forEach((r) => {
@@ -191,15 +229,17 @@ const DashboardHome: React.FC = () => {
           console.error('Result notification logic failed', e);
         }
         
-        setError(null);
-      } catch (err: any) {
+
+      } catch (err: unknown) {
         console.error('Error fetching data:', err);
-        console.error('Error details:', {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status
-        });
-        setError('Failed to load data. Please try again later.');
+        if (err instanceof Error) {
+          console.error('Error details:', {
+            message: err.message,
+            response: (err as { response?: { data?: string } }).response?.data || 'No response data',
+            status: (err as { response?: { status?: number } }).response?.status || 'No status'
+          });
+        }
+
       } finally {
         setLoading(false);
       }
@@ -210,7 +250,7 @@ const DashboardHome: React.FC = () => {
     // Refresh data every 30 seconds for real-time updates
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [addNotification]);
+  }, [addNotification, user]);
 
   return (
     <div className="dashboard-home">
@@ -243,9 +283,7 @@ const DashboardHome: React.FC = () => {
                     Welcome back, {/** prefer the real user name from context */}
                     {user?.name ? ` ${user.name}` : ' Student'}!
                   </h1>
-          <p style={{ margin: '6px 0 0 0', fontSize: '1rem', opacity: 0.95 }}>
-            You have <strong>{activeAssessmentsCount}</strong> active assessments awaiting your action.
-          </p>
+
         </div>
         <div aria-hidden="true" style={{ position: 'absolute', right: 24, opacity: 0.15, zIndex: 0 }}>
           <div style={{
@@ -279,8 +317,8 @@ const DashboardHome: React.FC = () => {
               <div className="assessment-card" key={assessment.id || assessment.assessmentId}>
                 <div className="assessment-header">
                   <h3>{assessment.name || assessment.assessmentId}</h3>
-                  <span className={`status-badge ${assessment.status}`}>
-                    {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1)}
+                  <span className={`status-badge ${assessment.status || 'pending'}`}>
+                    {(assessment.status || 'Pending').charAt(0).toUpperCase() + (assessment.status || 'Pending').slice(1)}
                   </span>
                 </div>
                 <div className="progress-container">

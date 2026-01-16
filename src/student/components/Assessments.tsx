@@ -214,22 +214,49 @@ const Assessments: React.FC = () => {
       return;
     }
     
+    // Check if assessment has started
+    const now = new Date();
+    const startDate = new Date(assessment.scheduling.startDate);
+    const endDate = new Date(assessment.scheduling.endDate);
+    
+    if (now < startDate) {
+      alert(`This assessment will start at ${startDate.toLocaleString()}`);
+      return;
+    }
+    
+    if (now > endDate) {
+      alert('This assessment has ended.');
+      return;
+    }
+    
     // Navigate to the assessment taking page with the assessment ID
     navigate(`/student/assessment-taking/${assessment.assessmentId}`);
   };
 
-  // Get status badge style based on status
-  const getStatusBadgeStyle = (status: string) => {
-    // Check if assessment is active based on current date
+  // Get status badge style based on status and timing
+  const getStatusBadgeStyle = (assessment: Assessment) => {
     const now = new Date();
+    const startDate = new Date(assessment.scheduling.startDate);
+    const endDate = new Date(assessment.scheduling.endDate);
+    const hasStarted = now >= startDate;
+    const hasEnded = now > endDate;
     
-    switch (status) {
+    if (hasEnded) {
+      return { background: '#FEE2E2', color: '#991B1B' }; // Red for ended
+    }
+    
+    if (!hasStarted) {
+      return { background: '#FEF3C7', color: '#92400E' }; // Yellow for upcoming
+    }
+    
+    // Assessment is active (has started but not ended)
+    switch (assessment.status) {
       case 'ACTIVE':
         return { background: '#DCFCE7', color: '#166534' }; // Green for active
       case 'COMPLETED':
         return { background: '#E5E7EB', color: '#4B5563' }; // Gray for completed
       default:
-        return { background: '#E0F2FE', color: '#075985' }; // Blue for upcoming
+        return { background: '#E0F2FE', color: '#075985' }; // Blue for other statuses
     }
   };
 
@@ -237,7 +264,7 @@ const Assessments: React.FC = () => {
   const getButtonConfig = (assessment: Assessment) => {
     const isAttempted = attemptedAssessments.has(assessment.assessmentId);
     const completionDate = attemptedAssessments.get(assessment.assessmentId);
-    const { status, isPublished } = assessment;
+    const { status, isPublished, scheduling } = assessment;
     const now = new Date();
     
     // If already attempted, show "Completed" button
@@ -248,6 +275,12 @@ const Assessments: React.FC = () => {
         disabled: false
       };
     }
+    
+    // Check if assessment has started
+    const startDate = new Date(scheduling.startDate);
+    const endDate = new Date(scheduling.endDate);
+    const hasStarted = now >= startDate;
+    const hasEnded = now > endDate;
     
     // For testing purposes, allow access to assessments even if not published
     // In production, you might want to uncomment the following lines:
@@ -261,7 +294,31 @@ const Assessments: React.FC = () => {
     }
     */
     
-    // Always allow access for testing
+    // Check if assessment has ended
+    if (hasEnded) {
+      return { 
+        text: 'Ended', 
+        style: { background: '#EF4444', color: 'white', cursor: 'not-allowed' },
+        disabled: true
+      };
+    }
+    
+    // Check if assessment hasn't started yet
+    if (!hasStarted) {
+      const startTime = startDate.toLocaleString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        month: 'short',
+        day: 'numeric'
+      });
+      return { 
+        text: `Starts at ${startTime}`, 
+        style: { background: '#F59E0B', color: 'white', cursor: 'not-allowed' },
+        disabled: true
+      };
+    }
+    
+    // Assessment has started and is active
     switch (status) {
       case 'ACTIVE':
         return { 
@@ -648,9 +705,22 @@ const Assessments: React.FC = () => {
         </div>
       ) : (
         paginatedAssessments.map(assessment => {
-          const statusStyle = getStatusBadgeStyle(assessment.status);
+          const statusStyle = getStatusBadgeStyle(assessment);
           const buttonConfig = getButtonConfig(assessment);
           const isAttempted = attemptedAssessments.has(assessment.assessmentId);
+          
+          // Get status text based on timing
+          const getStatusText = (assessment: Assessment) => {
+            if (isAttempted) return 'Completed';
+            
+            const now = new Date();
+            const startDate = new Date(assessment.scheduling.startDate);
+            const endDate = new Date(assessment.scheduling.endDate);
+            
+            if (now > endDate) return 'Ended';
+            if (now < startDate) return 'Upcoming';
+            return assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).toLowerCase();
+          };
           
           return (
             <div key={assessment.id} style={{
@@ -677,7 +747,7 @@ const Assessments: React.FC = () => {
                   fontWeight: 600,
                   ...(isAttempted ? { background: '#DBEAFE', color: '#1E40AF' } : statusStyle)
                 }}>
-                  {isAttempted ? 'Completed' : (assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).toLowerCase())}
+                  {getStatusText(assessment)}
                 </span>
               </div>
 

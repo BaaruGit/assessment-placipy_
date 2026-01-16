@@ -27,26 +27,22 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ notification, onC
         switch (notification.priority) {
             case 'high':
                 return {
-                    backgroundColor: '#FEE2E2',
-                    borderColor: '#EF4444',
+                        borderColor: '#EF4444',
                     iconColor: '#EF4444'
                 };
             case 'medium':
                 return {
-                    backgroundColor: '#FEF3C7',
-                    borderColor: '#F59E0B',
+                        borderColor: '#F59E0B',
                     iconColor: '#F59E0B'
                 };
             case 'low':
                 return {
-                    backgroundColor: '#DBEAFE',
-                    borderColor: '#3B82F6',
+                        borderColor: '#3B82F6',
                     iconColor: '#3B82F6'
                 };
             default:
                 return {
-                    backgroundColor: '#F3F4F6',
-                    borderColor: '#6B7280',
+                        borderColor: '#6B7280',
                     iconColor: '#6B7280'
                 };
         }
@@ -86,7 +82,6 @@ const NotificationPopup: React.FC<NotificationPopupProps> = ({ notification, onC
                 right: '20px',
                 width: '350px',
                 maxWidth: '90vw',
-                backgroundColor: styles.backgroundColor,
                 border: `2px solid ${styles.borderColor}`,
                 borderRadius: '12px',
                 padding: '16px',

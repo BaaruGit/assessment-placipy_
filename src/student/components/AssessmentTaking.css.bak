@@ -3,7 +3,7 @@
 
 /* Hamburger menu styles for assessment header */
 .hamburger-menu {
-  display: none !important;
+  display: flex !important;
   flex-direction: column;
   justify-content: space-between;
   width: 26px;
@@ -183,34 +183,21 @@
   padding-left: 0 !important;
 }
 
-/* Assessment header styles matching dashboard */
+/* Header styles */
 .assessment-header {
-  background: #f0e6ff;
-  padding: 20px 30px;
-  border-bottom: 1px solid #e9ecef;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: padding-left 0.3s ease;
-  z-index: 900;
-  border-radius: 12px;
-  margin-top: 16px;  
-  margin-right: 26px;
-  margin-bottom: 12px;
-  position: relative;
-  min-height: 70px; /* Ensure space for hamburger menu */
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  margin-left: 0;
-  padding-left: 20px; /* Reduced space since hamburger is in header */
-}
-
-.student-dashboard.sidebar-open .assessment-header {
-  padding-left: 280px; /* Accommodate sidebar when open */
-}
-
-@media (max-width: 768px) {
-  .student-dashboard.sidebar-open .assessment-header {
-    padding-left: 0px; /* Reset padding on mobile */
-  }
+  padding: 16px 24px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  gap: 12px;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-left: -20%;
 }
 
 

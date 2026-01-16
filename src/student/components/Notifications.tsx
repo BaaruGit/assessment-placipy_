@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle, Clock, Megaphone } from 'lucide-react';
+
 import { useNotifications } from '../../contexts/useNotifications';
 import type { Notification } from '../../services/notification.service';
 import Pagination from './Pagination';
@@ -10,8 +10,9 @@ type TabKey = 'all' | 'assessments' | 'results' | 'reminders' | 'general';
 const PAGE_SIZE = 8;
 
 const Notifications: React.FC = () => {
-  const { notifications, markAsRead, markAllAsRead, removeNotification, loading } = useNotifications();
+  const { notifications, markAllAsRead, removeNotification, loading } = useNotifications();
   const [activeTab, setActiveTab] = useState<TabKey>('all');
+  const [removedNotifications, setRemovedNotifications] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
   const getPriorityColor = (priority: Notification['priority']) => {
@@ -42,37 +43,27 @@ const Notifications: React.FC = () => {
   };
 
   const filteredNotifications = useMemo(() => {
-    if (activeTab === 'all') return notifications;
-    if (activeTab === 'assessments') {
-      return notifications.filter((n) => n.type === 'assessment_published');
+    let filtered = notifications;
+    if (activeTab === 'all') filtered = notifications;
+    else if (activeTab === 'assessments') {
+      filtered = notifications.filter((n) => n.type === 'assessment_published');
     }
-    if (activeTab === 'results') {
-      return notifications.filter((n) => n.type === 'result_published');
+    else if (activeTab === 'results') {
+      filtered = notifications.filter((n) => n.type === 'result_published');
     }
-
-    if (activeTab === 'general') {
-      return notifications.filter((n) => n.type === 'announcement');
+    else if (activeTab === 'general') {
+      filtered = notifications.filter((n) => n.type === 'announcement');
     }
-    if (activeTab === 'reminders') {
-      return notifications.filter((n) => n.type === 'reminder');
+    else if (activeTab === 'reminders') {
+      filtered = notifications.filter((n) => n.type === 'reminder');
     }
-    return notifications;
-  }, [notifications, activeTab]);
-
-  const getIcon = (notification: Notification, color: string) => {
-    switch (notification.type) {
-      case 'assessment_published':
-        return <AlertCircle size={20} color={color} />;
-      case 'result_published':
-        return <CheckCircle size={20} color={color} />;
-      case 'reminder':
-        return <Clock size={20} color={color} />;
-
-      case 'announcement':
-      default:
-        return <Megaphone size={20} color={color} />;
-    }
-  };
+    
+    // Filter out removed notifications
+    return filtered.filter(notification => {
+      const id = notification.SK ? String(notification.SK).replace('NOTIF#', '') : notification.createdAt;
+      return !removedNotifications.has(id);
+    });
+  }, [notifications, activeTab, removedNotifications]);
 
   const handleView = (notification: Notification) => {
     if (notification.link) {
@@ -82,6 +73,7 @@ const Notifications: React.FC = () => {
 
   const handleMarkAsRead = async (notification: Notification) => {
     const id = notification.SK ? String(notification.SK).replace('NOTIF#', '') : notification.createdAt;
+    setRemovedNotifications(prev => new Set(prev).add(id));
     await removeNotification(id);
   };
 
@@ -183,21 +175,21 @@ const Notifications: React.FC = () => {
             <div className="notifications-list">
             {paginatedNotifications.map((notification, index) => {
               const borderColor = getPriorityColor(notification.priority);
-              const iconColor = borderColor;
               const isUnread = !notification.isRead;
-
+            
               return (
                 <div
                   key={`${notification.SK || notification.createdAt}-${notification.title}-${index}`}
                   className={`notification-item ${isUnread ? 'unread' : ''}`}
-                  style={{
-                    borderLeft: `4px solid ${borderColor}`,
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'flex-start',
-                  }}
+                  style={
+                    {
+                      borderLeft: `4px solid ${borderColor}`,
+                      display: 'flex',
+                      gap: '12px',
+                      alignItems: 'flex-start',
+                    }
+                  }
                 >
-                  <div style={{ marginTop: '4px' }}>{getIcon(notification, iconColor)}</div>
                   <div className="notification-content" style={{ flex: 1 }}>
                     <h4 style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span>{notification.title}</span>

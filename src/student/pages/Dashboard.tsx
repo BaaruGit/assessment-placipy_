@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import DashboardHome from '../components/DashboardHome';
 import Assessments from '../components/Assessments';
@@ -27,11 +27,11 @@ const StudentDashboard: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [isLoading, setIsLoading] = useState(true);
   const [isAssessmentActive, setIsAssessmentActive] = useState(false);
   const [activePopup, setActivePopup] = useState<Notification | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Navigation items (removed profile)
   const navItems = useMemo(() => [
@@ -55,7 +55,7 @@ const StudentDashboard: React.FC = () => {
 
   // Listen for newNotification events from NotificationContext to show popup
   useEffect(() => {
-    const handleNewNotification = (event: any) => {
+    const handleNewNotification = (event: CustomEvent) => {
       if (event && event.detail) {
         setActivePopup(event.detail as Notification);
       }
@@ -140,10 +140,16 @@ const StudentDashboard: React.FC = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
+  const handleNavigation = (path: string, id: string) => {
+    setActiveTab(id);
+    navigate(path);
+    setSidebarOpen(false);
+  };
+
   const closeSidebar = () => {
     setSidebarOpen(false);
   };
-  
+
   // Handle window resize to update mobile state
   useEffect(() => {
     const handleResize = () => {
@@ -165,81 +171,72 @@ const StudentDashboard: React.FC = () => {
 
   return (
     <div className={`student-dashboard ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      {/* Hamburger Menu Button - Hidden during active assessment */}
-      {!isAssessmentActive && (
-        <button className="hamburger-menu" onClick={toggleSidebar}>
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
-      )}
 
-      {/* Sidebar Navigation - Hidden during active assessment */}
+      {/* Sidebar Navigation */}
       {!isAssessmentActive && (
         <nav className={`dashboard-sidebar ${sidebarOpen ? 'open' : ''}`}>
           <div className="sidebar-header">
-            <h2>Student Portal</h2>
-            {/* Toggle Menu Button - Visible on desktop */}
-            <button className="sidebar-toggle-btn" onClick={toggleSidebar}>
-              {sidebarOpen ? (
-                <>
-                  <span className="toggle-icon">&laquo;</span>
-                  <span className="toggle-text">Hide</span>
-                </>
-              ) : (
-                <>
-                  <span className="toggle-icon">&raquo;</span>
-                  <span className="toggle-text">Show</span>
-                </>
-              )}
-            </button>
+            <div className="sidebar-header-content">
+              <button className="hamburger-menu inside" onClick={toggleSidebar}>
+                <span></span>
+                <span></span>
+                <span></span>
+              </button>
+              <h2 className="sidebar-title">Student Portal</h2>
+            </div>
           </div>
           <ul className="sidebar-menu">
             {navItems.map((item) => (
               <li key={item.id}>
-                <Link
-                  to={item.path}
+                <div
                   className={`sidebar-link ${activeTab === item.id ? 'active' : ''} sidebar-link-${item.id}`}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    closeSidebar();
-                  }}
+                  onClick={() => handleNavigation(item.path, item.id)}
                 >
                   <span className="sidebar-label">{item.label}</span>
-                </Link>
+                </div>
               </li>
             ))}
           </ul>
           <div className="sidebar-footer">
-            <button className="logout-btn" onClick={() => {
-              handleLogout();
-              closeSidebar();
-            }}>
+            <button className="logout-btn" onClick={handleLogout}>
               <span className="sidebar-label">Logout</span>
             </button>
           </div>
         </nav>
       )}
 
-
-
       {/* Overlay for mobile when sidebar is open */}
-      {sidebarOpen && !isAssessmentActive && isMobile && <div className="sidebar-overlay" onClick={closeSidebar}></div>}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar}></div>}
 
       {/* Main Content Area */}
       <main className="dashboard-main">
         {/* Welcome board - Hidden during active assessment */}
         {!isAssessmentActive && (
-          <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1>{user?.name ? `Welcome, ${user.name}!` : 'Welcome, Student!'}</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <NotificationBell />
-              <Link to="/student/profile" className="profile-btn" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#9768E1', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>
-                {user?.name ? user.name.charAt(0).toUpperCase() : 'S'}
+          <header className="dashboard-header">
+            <div className="dashboard-header-content">
+              <div className="dashboard-header-left">
+                {!sidebarOpen && (
+                  <button className="hamburger-menu" onClick={toggleSidebar}>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </button>
+                )}
+                <h1 className="dashboard-header-title">
+                  {user?.name ? `Welcome, ${user.name}!` : 'Welcome, Student!'}
+                </h1>
               </div>
-              <span style={{ color: '#523C48' }}>{user?.name || 'Profile'}</span>
-              </Link>
+              <div className="user-info">
+                <NotificationBell />
+                <Link to="/student/profile" className="profile-btn" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+                  <div className="user-avatar-first-letter">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'S'}
+                  </div>
+                  <div className="user-details">
+                    <p className="name">{user?.name || 'Profile'}</p>
+                  </div>
+                </Link>
+              </div>
             </div>
           </header>
         )}
