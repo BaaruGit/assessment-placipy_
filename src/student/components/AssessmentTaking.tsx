@@ -80,6 +80,13 @@ interface AssessmentData {
 
 const AssessmentTaking: React.FC = () => {
   console.log('=== AssessmentTaking Component Rendered ===');
+  
+  // Helper function to convert UTC date to Asia/Kolkata time
+  const convertToIndiaTime = (date: Date): Date => {
+    // India Standard Time is UTC+5:30
+    return new Date(date.getTime() + (date.getTimezoneOffset() * 60000) + (5.5 * 3600000));
+  };
+  
   // Get assessmentId from URL params
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const navigate = useNavigate();
@@ -119,6 +126,51 @@ const AssessmentTaking: React.FC = () => {
     setActiveTab(newTab);
   };
 
+  // Fullscreen toggle function
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      // Enter fullscreen mode
+      const element = document.documentElement;
+      if (element.requestFullscreen) {
+        element.requestFullscreen();
+      } else if ((element as any).webkitRequestFullscreen) {
+        (element as any).webkitRequestFullscreen();
+      } else if ((element as any).msRequestFullscreen) {
+        (element as any).msRequestFullscreen();
+      }
+      setIsFullscreen(true);
+    } else {
+      // Exit fullscreen mode
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      } else if ((document as any).msExitFullscreen) {
+        (document as any).msExitFullscreen();
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
 
 
   // State for timer
@@ -151,19 +203,17 @@ const AssessmentTaking: React.FC = () => {
  // State for showing submit button after 20 minutes (keeping for compatibility)
 const [showSubmitButton, setShowSubmitButton] = useState<boolean>(false);
 
-// State to track if 25% of assessment time has passed to enable submit button
-const [isSubmitEnabled, setIsSubmitEnabled] = useState<boolean>(false);
+// State for fullscreen mode
+const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+// Submit button is now always enabled
   
   // Debug log for showSubmitButton state changes
   useEffect(() => {
     console.log('showSubmitButton state changed:', showSubmitButton);
   }, [showSubmitButton]);
 
-  // Debug log for isSubmitEnabled state changes
-useEffect(() => {
-  console.log('isSubmitEnabled state changed:', isSubmitEnabled);
-}, [isSubmitEnabled]);
-  
+    
   // Debug log for timeLeft state changes
   useEffect(() => {
     console.log('timeLeft state changed:', timeLeft);
@@ -1417,41 +1467,7 @@ useEffect(() => {
   };
 }, [assessmentData, loading]);
 
-// Add useEffect to enable submit button after 25% of the assessment time
-useEffect(() => {
-  if (!assessmentData || loading) return;
-  
-  console.log('Setting up submit button enable timer based on 25% of assessment duration');
-  
-  // Get assessment duration in minutes
-  const assessmentDurationInMinutes = assessmentData.configuration?.duration || 60;
-  
-  // Calculate 25% of the assessment duration
-  const enableAfterPercentage = 0.25; // 25%
-  const enableAfterMinutes = assessmentDurationInMinutes * enableAfterPercentage;
-  const enableAfterMs = enableAfterMinutes * 60 * 1000; // Convert to milliseconds
-  
-  console.log('Submit button enable settings:', { 
-    assessmentDurationInMinutes, 
-    enableAfterPercentage, 
-    enableAfterMinutes,
-    enableAfterMs 
-  });
-  
-  // Enable submit button after calculated time (25% of assessment duration)
-  const timer = setTimeout(() => {
-    console.log('Enabling submit button after', enableAfterMinutes, 'minutes (25% of assessment)');
-    setIsSubmitEnabled(true);
-  }, enableAfterMs);
-  
-  // Clear the timer when component unmounts or assessment data changes
-  return () => {
-    console.log('Clearing submit button enable timer');
-    clearTimeout(timer);
-  };
-}, [assessmentData, loading]); // Include both dependencies
-
-  // Add useEffect to handle assessment timing logic
+// Add useEffect to handle assessment timing logic
   useEffect(() => {
     if (!assessmentData || loading) return;
     
@@ -1608,12 +1624,6 @@ useEffect(() => {
       setTimeLeft(durationSeconds);
     }
   }, [isAssessmentStarted, assessmentData, timeLeft, submitted]);
-  
-  // Helper function to convert UTC date to Asia/Kolkata time
-  const convertToIndiaTime = (date: Date): Date => {
-    // India Standard Time is UTC+5:30
-    return new Date(date.getTime() + (date.getTimezoneOffset() * 60000) + (5.5 * 3600000));
-  };
   
   // Format time for display
   const formatTime = (seconds: number): string => {
@@ -1923,6 +1933,27 @@ useEffect(() => {
           </div>
         </div>
         
+        <div className="header-right">
+          <button 
+            className="fullscreen-btn"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+              </svg>
+            )}
+            <span className="fullscreen-text">
+              {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            </span>
+          </button>
+        </div>
+        
       </div>
 
       {/* Section buttons between header and tab container */}
@@ -1986,48 +2017,41 @@ useEffect(() => {
                   </div>
                 </div>
               </div>
-              
             </div>
-
-            <div className="bottom-navigation">
-              <button
-                className="clear-response-btn"
-                onClick={() => {
-                  // Clear the current response
-                  const questionId = mcqQuestions[currentMCQIndex]?.questionId;
-                  if (questionId) {
-                    setMcqAnswers(prev => {
-                      const newAnswers = {...prev};
-                      delete newAnswers[questionId];
-                      return newAnswers;
-                    });
-                  }
-                }}
-              >
-                Clear Response
-              </button>
-              
-              <button
-                className="nav-btn save-next"
-                onClick={() => handleMCQNavigation('next')}
-              >
-                Save & Next
-              </button>
-              
-              <button
-                className="submit-btn bottom"
-                onClick={handleSubmit}
-                disabled={isSubmitting || submitted || !isSubmitEnabled}
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Test'}
-              </button>
-            </div>
-
-
           </div>
-        ) : (
+        ) : null}
+
+        {/* Navigation buttons inside tab-content but outside sections */}
+        {activeTab === 'mcq' && (
+          <div className="tab-navigation-buttons">
+            <button
+              className="clear-response-btn"
+              onClick={() => {
+                // Clear current response
+                const questionId = mcqQuestions[currentMCQIndex]?.questionId;
+                if (questionId) {
+                  setMcqAnswers(prev => {
+                    const newAnswers = {...prev};
+                    delete newAnswers[questionId];
+                    return newAnswers;
+                  });
+                }
+              }}
+            >
+              Clear Response
+            </button>
+            
+           
+          </div>
+        )}
+
+        {activeTab === 'coding' ? (
           <div className="coding-section">
             <div className="coding-header">
+              <div className="progress-indicator">
+                <span>Question {currentCodingIndex + 1} of {codingChallenges.length}</span>
+                
+              </div>
               <h2 className="challenge-title">{codingChallenges[currentCodingIndex]?.question || 'Coding Challenge'}</h2>
             </div>
 
@@ -2105,88 +2129,9 @@ useEffect(() => {
                   </div>
                 )}
 
-                {/* Execution output section - moved to be below test cases */}
-                {(executionResult[codingChallenges[currentCodingIndex]?.questionId] || testCaseResults[codingChallenges[currentCodingIndex]?.questionId]) && (
-                  <div className="output-section test-cases-section">
-                    <div className="result-header">Execution Results</div>
-                    <div className="result-content">
-                      {/* Test Case Results - Show first */}
-                      {testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && (
-                        <div className="test-case-results">
-                          <h3>Test Case Results:</h3>
-                          <div className="test-summary">
-                            {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].filter(r => r.passed).length} / {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].length} test cases passed
-                          </div>
-                          {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].map((result, index) => (
-                            <div 
-                              key={index} 
-                              className={`test-case-result ${result.passed ? "test-case-passed" : "test-case-failed"}`}
-                            >
-                              <div className="test-case-header">
-                                <span className="test-case-number">
-                                  Test Case {index + 1}: {result.passed ? '✓ PASSED' : '✗ FAILED'}
-                                </span>
-                              </div>
-                              <div className="test-case-details">
-                                <div className="test-case-input">
-                                  <strong>Input:</strong>
-                                  <pre>{result.input}</pre>
-                                </div>
-                                <div className="test-case-expected">
-                                  <strong>Expected Output:</strong>
-                                  <pre>{result.expectedOutput}</pre>
-                                </div>
-                                <div className="test-case-actual">
-                                  <strong>Actual Output:</strong>
-                                  <pre>{result.actualOutput}</pre>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Compilation Errors */}
-                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output && (
-                        <div className="error-output">
-                          <strong>❌ Compilation Error:</strong>
-                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output}</pre>
-                        </div>
-                      )}
-                      
-                      {/* Runtime Errors */}
-                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr && (
-                        <div className="error-output">
-                          <strong>❌ Runtime Error:</strong>
-                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr}</pre>
-                        </div>
-                      )}
-                      
-                      {/* Example Output (when running with example input) */}
-                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput && (
-                        <div className="result-output">
-                          <strong>📤 Output:</strong>
-                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput}</pre>
-                        </div>
-                      )}
-                      
-                      {/* Standard Output (when no test cases) */}
-                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout && 
-                       !testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && 
-                       !executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput && (
-                        <div className="result-output">
-                          <strong>📤 Output:</strong>
-                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout}</pre>
-                        </div>
-                      )}
-                      
-                      {/* Success Message */}
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
 
-              {/* Right column - Code editor only */}
+              {/* Right column - Code editor with execution results */}
               <div className="right-column">
                 <div className="editor-section">
                   <div className="editor-header">
@@ -2271,43 +2216,166 @@ int main() {
                   />
 
                 </div>
+
+                {/* Execution output section - moved under code editor */}
+                {(executionResult[codingChallenges[currentCodingIndex]?.questionId] || testCaseResults[codingChallenges[currentCodingIndex]?.questionId]) && (
+                  <div className="output-section">
+                    <div className="result-header">Execution Results</div>
+                    <div className="result-content">
+                      {/* Test Case Results - Show first */}
+                      {testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && (
+                        <div className="test-case-results">
+                          <h3>Test Case Results:</h3>
+                          <div className="test-summary">
+                            {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].filter(r => r.passed).length} / {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].length} test cases passed
+                          </div>
+                          {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].map((result, index) => (
+                            <div 
+                              key={index} 
+                              className={`test-case-result ${result.passed ? "test-case-passed" : "test-case-failed"}`}
+                            >
+                              <div className="test-case-header">
+                                <span className="test-case-number">
+                                  Test Case {index + 1}: {result.passed ? '✓ PASSED' : '✗ FAILED'}
+                                </span>
+                              </div>
+                              <div className="test-case-details">
+                                <div className="test-case-input">
+                                  <strong>Input:</strong>
+                                  <pre>{result.input}</pre>
+                                </div>
+                                <div className="test-case-expected">
+                                  <strong>Expected Output:</strong>
+                                  <pre>{result.expectedOutput}</pre>
+                                </div>
+                                <div className="test-case-actual">
+                                  <strong>Actual Output:</strong>
+                                  <pre>{result.actualOutput}</pre>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Compilation Errors */}
+                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output && (
+                        <div className="error-output">
+                          <strong>❌ Compilation Error:</strong>
+                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output}</pre>
+                        </div>
+                      )}
+                      
+                      {/* Runtime Errors */}
+                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr && (
+                        <div className="error-output">
+                          <strong>❌ Runtime Error:</strong>
+                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr}</pre>
+                        </div>
+                      )}
+                      
+                      {/* Example Output (when running with example input) */}
+                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput && (
+                        <div className="result-output">
+                          <strong>📤 Output:</strong>
+                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput}</pre>
+                        </div>
+                      )}
+                      
+                      {/* Standard Output (when no test cases) */}
+                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout && 
+                       !testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && 
+                       !executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput && (
+                        <div className="result-output">
+                          <strong>📤 Output:</strong>
+                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout}</pre>
+                        </div>
+                      )}
+                      
+                      {/* Success Message */}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Navigation buttons container - like a header */}
-            <div className="navigation-container">
-              <div className="navigation-buttons">
-                <button
-                  className="nav-btn prev"
-                  onClick={() => handleCodingNavigation('prev')}
-                  disabled={currentCodingIndex === 0}
-                >
-                  Previous Challenge
-                </button>
-
-                                {/* Small submit button that is always visible but only enabled after 25% of assessment time */}
-                <button
-                  className="submit-btn small"
-                  onClick={handleSubmit}
-                  disabled={!isSubmitEnabled || isSubmitting || submitted}
-                >
-                  Submit
-                </button>
-
-                <button
-                  className="nav-btn next"
-                  onClick={() => handleCodingNavigation('next')}
-                  disabled={currentCodingIndex === codingChallenges.length - 1}
-                >
-                  Next Challenge
-                </button>
-              </div>
-            </div>
+            {/* Navigation buttons container - removed - buttons moved to header-section-buttons */}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Focus Loss Warning Modal - removed as per requirement */}
+      
+      {/* Coding navigation arrows in header section */}
+      {activeTab === 'coding' && (
+        <>
+          <span
+            className="nav-arrow coding-header-prev"
+            onClick={() => handleCodingNavigation('prev')}
+            style={{ 
+              position: 'absolute',
+              top: '90px',
+              right: '80px',
+              cursor: currentCodingIndex === 0 ? 'not-allowed' : 'pointer',
+              opacity: currentCodingIndex === 0 ? 0.5 : 1,
+              fontSize: '20px',
+              fontWeight: 'bold',
+              color: '#9768E1',
+              zIndex: 1000
+            }}
+          >
+            &lt;
+          </span>
+
+          <span
+            className="nav-arrow coding-header-next"
+            onClick={() => handleCodingNavigation('next')}
+            style={{ 
+              position: 'absolute',
+              top: '90px',
+              right: '40px',
+              cursor: currentCodingIndex === codingChallenges.length - 1 ? 'not-allowed' : 'pointer',
+              opacity: currentCodingIndex === codingChallenges.length - 1 ? 0.5 : 1,
+              fontSize: '20px',
+              fontWeight: 'bold',
+              color: '#9768E1',
+              zIndex: 1000
+            }}
+          >
+            &gt;
+          </span>
+        </>
+      )}
+      
+      {/* Submit button in footer */}
+      <div className="footer-submit">
+        {activeTab === 'mcq' && (
+          <>
+            <button
+              className="nav-btn mcq-prev"
+              onClick={() => handleMCQNavigation('prev')}
+              disabled={currentMCQIndex === 0}
+              style={{ marginRight: '10px' }}
+            >
+              Previous
+            </button>
+            <button
+              className="nav-btn mcq-save-next"
+              onClick={() => handleMCQNavigation('next')}
+              style={{ marginRight: '10px' }}
+            >
+              Save & Next
+            </button>
+          </>
+        )}
+        <button
+          className="submit-btn footer"
+          onClick={handleSubmit}
+          disabled={isSubmitting || submitted}
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit'}
+        </button>
+      </div>
     </div>
   );
 };

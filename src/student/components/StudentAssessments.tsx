@@ -139,6 +139,15 @@ const StudentAssessments: React.FC = () => {
     setCurrentPage(1); // Reset to first page when filters change
   }, [allAssessments, activeTab, searchTerm]);
 
+  // Debug: Log assessment data to check scheduling
+  useEffect(() => {
+    if (filteredAssessments.length > 0) {
+      console.log('First assessment data:', filteredAssessments[0]);
+      console.log('First assessment scheduling:', filteredAssessments[0].scheduling);
+      console.log('First assessment end date:', filteredAssessments[0].scheduling?.endDate);
+    }
+  }, [filteredAssessments]);
+
   // Pagination logic
   const totalItems = filteredAssessments.length;
   const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
@@ -243,7 +252,7 @@ const StudentAssessments: React.FC = () => {
                 
                 <div className="assessment-dates">
                   <p><strong>Starts:</strong> {formatDate(assessment.scheduling.startDate)}</p>
-                  <p><strong>Ends:</strong> {formatDate(assessment.scheduling.endDate)}</p>
+                  <p><strong>Ends:</strong> {formatDate(assessment.scheduling.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())}</p>
                 </div>
               </div>
               

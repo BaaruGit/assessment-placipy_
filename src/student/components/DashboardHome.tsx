@@ -247,8 +247,8 @@ const DashboardHome: React.FC = () => {
 
     fetchData();
     
-    // Refresh data every 30 seconds for real-time updates
-    const interval = setInterval(fetchData, 30000);
+    // Refresh data every 1 minute for real-time updates
+    const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, [addNotification, user]);
 
@@ -297,9 +297,9 @@ const DashboardHome: React.FC = () => {
 
       
 
-      <div className="stats-grid">
+      <div className="std_stats-grid">
         {stats.map((stat, index) => (
-          <div className="stat-card" key={index}>
+          <div className="std_stat-card" key={index}>
             <h3>{stat.title}</h3>
             <p className="stat-value">{stat.value}</p>
             {stat.change && <p className="stat-change">{stat.change}</p>}
@@ -320,16 +320,6 @@ const DashboardHome: React.FC = () => {
                   <span className={`status-badge ${assessment.status || 'pending'}`}>
                     {(assessment.status || 'Pending').charAt(0).toUpperCase() + (assessment.status || 'Pending').slice(1)}
                   </span>
-                </div>
-                <div className="progress-container">
-                  <span>Score: {assessment.score || 0} / {assessment.maxScore || 0} ({assessment.percentage || 0}%)</span>
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
-                      style={{ width: `${assessment.percentage || 0}%` }}
-                    ></div>
-                  </div>
-                  <span>{assessment.percentage || 0}%</span>
                 </div>
                 {assessment.submittedAt && (
                   <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '8px' }}>
@@ -389,7 +379,7 @@ const DashboardHome: React.FC = () => {
                     color: '#6B7280',
                     fontWeight: 500
                   }}>
-                    {value}
+                    %{value}
                   </span>
                 ))}
               </div>
@@ -440,7 +430,7 @@ const DashboardHome: React.FC = () => {
                       {clamped > 0 && (
                         <div style={{
                           position: 'absolute',
-                          top: '-25px',
+                          top: '-45px',
                           left: '50%',
                           transform: 'translateX(-50%)',
                           fontSize: '12px',

@@ -1,33 +1,8 @@
 /* Assessment taking now uses dashboard-content class from Dashboard.css */
 /* Additional styles for assessment taking in dashboard-content */
 
-/* Hamburger menu styles for assessment header */
-.hamburger-menu {
-  display: none !important;
-  flex-direction: column;
-  justify-content: space-between;
-  width: 26px;
-  height: 20px;
-  background: none !important;
-  border: none !important;
-  cursor: pointer;
-  z-index: 1001;
-  transition: all 0.3s ease;   
-}
 
-.hamburger-menu span {
-  width: 100%;
-  height: 3px;
-  background-color: #9768E1;
-  border-radius: 0;
-  transition: all 0.3s linear;
-  position: relative;
-  transform-origin: center;
-  border: none;
-  box-shadow: none;
-  margin: 0;
-  padding: 0;
-}
+
 
 .assessment-header {
   display: flex;
@@ -41,7 +16,7 @@
   gap: 12px;
   position: relative;
   z-index: 10;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin-left: -20%;
 }
 
@@ -50,12 +25,14 @@
   align-items: center;
   gap: 16px;
 }
+
 .dashboard-content {
   position: relative;
   min-height: 100vh;
   background-color: #ffffff;
   font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  padding-bottom: 100px; /* Add padding to prevent overlap with fixed navigation */
+  padding-bottom: 100px;
+  /* Add padding to prevent overlap with fixed navigation */
   display: flex;
   flex-direction: column;
   line-height: 1.6;
@@ -119,7 +96,8 @@
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: #cfa3ee; /* light purple */
+  background: #cfa3ee;
+  /* light purple */
   color: #fff;
   border: none;
   display: flex;
@@ -128,13 +106,13 @@
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .question-circle:hover {
   transform: translateY(-3px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* answered questions keep the brand purple, selected/current question turns blue and slightly rounded rectangle */
@@ -144,22 +122,26 @@
 
 .question-circle.current,
 .question-circle.selected {
-  background: #1e90ff; /* blue */
-  border-radius: 0; /* match selected look in screenshot */
+  background: #1e90ff;
+  /* blue */
+  border-radius: 0;
+  /* match selected look in screenshot */
   color: #fff;
   box-shadow: 0 4px 8px rgba(30, 144, 255, 0.3);
 }
 
 /* Make the right-side panel background a subtle light-grey like the reference */
 .navigation-panel {
-  background-color: #efefef; /* light grey */
+  background-color: #efefef;
+  /* light grey */
 }
 
 /* Ensure submit button in the right sidebar spans full width and matches green from reference */
 .submit-test-btn {
   width: calc(100% - 32px);
   margin: 18px 16px;
-  background-color: #2ecc71 !important; /* vivid green */
+  background-color: #2ecc71 !important;
+  /* vivid green */
   color: #fff !important;
   border: none !important;
   box-shadow: 0 4px 6px rgba(46, 204, 113, 0.3) !important;
@@ -170,7 +152,8 @@
 }
 
 .submit-test-btn:hover {
-  background-color: #27ae60 !important; /* darker green */
+  background-color: #27ae60 !important;
+  /* darker green */
   transform: none;
   box-shadow: 0 6px 12px rgba(46, 204, 113, 0.4) !important;
 }
@@ -185,33 +168,29 @@
 
 /* Assessment header styles matching dashboard */
 .assessment-header {
-  background: #f0e6ff;
-  padding: 20px 30px;
-  border-bottom: 1px solid #e9ecef;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: #f8f9fa;
+
+
+
   transition: padding-left 0.3s ease;
   z-index: 900;
   border-radius: 12px;
-  margin-top: 16px;  
+  margin-top: 1px;
   margin-right: 26px;
   margin-bottom: 12px;
   position: relative;
-  min-height: 70px; /* Ensure space for hamburger menu */
+  min-height: 70px;
+  /* Ensure space for hamburger menu */
   display: flex;
   align-items: center;
   margin-left: 0;
-  padding-left: 20px; /* Reduced space since hamburger is in header */
+  padding-left: 20px;
+  /* Reduced space since hamburger is in header */
 }
 
-.student-dashboard.sidebar-open .assessment-header {
-  padding-left: 280px; /* Accommodate sidebar when open */
-}
 
-@media (max-width: 768px) {
-  .student-dashboard.sidebar-open .assessment-header {
-    padding-left: 0px; /* Reset padding on mobile */
-  }
-}
+
+
 
 
 .timer-section {
@@ -222,7 +201,60 @@
   border-radius: 0;
   color: #2c3e50;
   border: none;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fullscreen-btn {
+  background: linear-gradient(135deg, #9768E1 0%, #7B5FCF 100%);
+  border: none;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: white;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(151, 104, 225, 0.3);
+}
+
+
+
+
+.fullscreen-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.assessment-times {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.assessment-time {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #5a6c7d;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 4px 12px;
+  border-radius: 12px;
+  white-space: nowrap;
 }
 
 .timer.warning {
@@ -233,9 +265,17 @@
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 .section-btn.disabled {
@@ -255,38 +295,15 @@
   box-shadow: none;
 }
 
-.fullscreen-btn {
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #4a5568, #2d3748);
-  color: white;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  margin-left: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
-  text-align: center;
-}
-
-.fullscreen-btn:hover {
-  background: linear-gradient(135deg, #2d3748, #1a202c);
-  transform: none;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-
-.fullscreen-btn:active {
-  transform: translateY(0);
-}
 
 /* Section buttons container positioned below header */
 .header-section-buttons {
   display: flex;
   gap: 10px;
   padding: 15px 20px;
-  background: white;
+  background: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
+  margin-top:-50px;
 }
 
 .section-btn {
@@ -298,7 +315,7 @@
   cursor: pointer;
   font-weight: 500;
   margin-right: 10px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .section-btn:hover {
@@ -320,7 +337,8 @@
   align-items: center;
   z-index: 9999;
   position: relative;
-  overflow: visible; /* Ensure children are not clipped */
+  overflow: visible;
+  /* Ensure children are not clipped */
   flex-wrap: wrap;
 }
 
@@ -339,7 +357,8 @@
   min-width: 140px;
   text-align: center;
   position: relative;
-  z-index: 1001; /* Ensure it's above other elements */
+  z-index: 1001;
+  /* Ensure it's above other elements */
   letter-spacing: 0.5px;
 }
 
@@ -423,9 +442,17 @@
 }
 
 @keyframes pulseSubmit {
-  0% { box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3); }
-  50% { box-shadow: 0 2px 12px rgba(76, 175, 80, 0.6); }
-  100% { box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3); }
+  0% {
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 2px 12px rgba(76, 175, 80, 0.6);
+  }
+
+  100% {
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+  }
 }
 
 /* Tab navigation removed - using header buttons instead */
@@ -464,18 +491,16 @@
 
 
 .tab-content {
-  flex: 1; margin-left: 20px;
-  background: transparent;
+  flex: 1;
+  margin-left: -20%;
   padding: 0;
-  overflow-y: auto;
-  min-height: 0;
+  min-height: 100vh;
+  /* Make full height */
   display: flex;
   flex-direction: column;
-  overflow: visible; /* Allow content to overflow if needed */
-  margin-left: -20%;
-
-
+  overflow: visible;
 }
+
 
 /* MCQ Section */
 .mcq-section {
@@ -502,12 +527,7 @@
   box-shadow: none;
 }
 
-.progress-indicator {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.9rem;
-}
+
 
 .progress-bar {
   flex-grow: 1;
@@ -536,32 +556,223 @@
 
 .main-content {
   display: flex;
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   gap: 20px;
   padding: 20px;
   overflow: hidden;
 }
 
 .question-container {
-  flex: 1; margin-left: 20px;
-  max-width: 800px; /* Limit width for better readability */
-  margin: 0; /* Align to left */
+  flex: 1;
+  margin-left: 20px;
+  max-width: 800px;
+  /* Limit width for better readability */
+  margin: 0;
+  /* Align to left */
   display: flex;
   flex-direction: column;
 }
 
+/* Collapsible Sidebar Wrapper */
+.sidebar-wrapper {
+  position: relative;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  height: auto;
+  min-height: 100%;
+  align-self: stretch;
+  z-index: 90;
+  flex-shrink: 0;
+  overflow-x: hidden;
+  /* Hide content when closed */
+}
+
+.sidebar-wrapper.closed {
+  width: 0;
+}
+
+.sidebar-wrapper.open {
+  width: 230px;
+  /* Reduced width */
+}
+
 .right-sidebar {
-  width: 250px;
-  background: #f8f9fa;
-  border-left: 1px solid #e9ecef;
-  padding: 20px;
+  width: 230px;
+  /* Match wrapper width */
+  background: #E8EAF6;
+  border-left: 1px solid #d1d5db;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   position: sticky;
   top: 0;
-  height: fit-content;
-  max-height: calc(100vh - 150px);
+  height: 100vh;
+  max-height: none;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-wrapper.closed .right-sidebar {
+  transform: translateX(100%);
+  box-shadow: none;
+}
+
+.sidebar-wrapper.open .right-sidebar {
+  transform: translateX(0);
+}
+
+/* Sidebar Header Styles */
+.sidebar-header-content {
+  background-color: #E8EAF6;
+  text-align: center;
+  padding-bottom: 0;
+}
+
+.sidebar-assessment-title {
+  padding: 15px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  /* Slightly smaller font */
+  color: #2c3e50;
+  border-bottom: 1px solid #ddd;
+  background-color: #EBEFF1;
+  line-height: 1.4;
+}
+
+.sidebar-section-info {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.section-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.section-name {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+/* Toggle Button - Dark Square */
+.sidebar-toggle-btn {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 0;
+  width: 40px;
+  height: 40px;
+  background-color: #34495E;
+  border: 1px solid #d1d5db;
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: -2px 0 6px rgba(0, 0, 0, 0.1);
+  color: white;
+  z-index: 110;
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s;
+  padding: 0;
+}
+
+/* Move button when sidebar is open */
+.sidebar-wrapper.open .sidebar-toggle-btn {
+  right: 230px;
+  /* Match new sidebar width */
+  border-radius: 4px 0 0 4px;
+}
+
+.sidebar-toggle-btn:hover {
+  background-color: #2c3e50;
+}
+
+.sidebar-toggle-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Question Grid using flex wrap for better centering in tight space */
+.questions-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  /* Tighter gap */
+  padding: 20px 10px;
+  /* Less side padding */
+  justify-content: center;
+  flex: 1;
+  align-content: start;
+}
+
+.question-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #BA68C8;
+  /* Purple */
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.question-circle:hover {
+  transform: scale(1.05);
+  background: #AB47BC;
+}
+
+.question-circle.answered {
+  background: #BA68C8;
+  /* Keep purple for answered for now, or change if needed */
+}
+
+/* Current question is a blue square */
+.question-circle.current {
+  background: #2196F3;
+  /* Blue */
+  border-radius: 6px;
+  /* Slightly rounded square */
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
+  font-weight: 700;
+}
+
+/* Submit Button */
+.submit-test-btn {
+  width: calc(100% - 40px);
+  margin: 20px;
+  background-color: #2ECC71 !important;
+  /* Vivid Green */
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4px 6px rgba(46, 204, 113, 0.3) !important;
+  border-radius: 4px;
+  font-weight: 600;
+  padding: 12px;
+  font-size: 1rem;
+  margin-top: auto;
+  /* Push to bottom */
+  transition: background-color 0.2s;
+}
+
+.submit-test-btn:hover {
+  background-color: #27ae60 !important;
 }
 
 .question-text {
@@ -755,7 +966,7 @@ input:checked + .slider:before {
 
 .options-container {
   display: block;
-  margin-bottom: 35px;
+  margin-bottom: 10px;
 }
 
 .options-container.small {
@@ -770,7 +981,8 @@ input:checked + .slider:before {
   border-radius: 0;
   background-color: transparent;
   cursor: pointer;
-  text-align: left; margin-left: 0;
+  text-align: left;
+  margin-left: 0;
   transition: all 0.3s ease;
   font-size: 1.05rem;
   color: black;
@@ -791,12 +1003,20 @@ input:checked + .slider:before {
 
 .option-btn:hover {
   border: none;
-  background-color: #f0f0f0;
+  background-color: transparent;
   transform: none;
   box-shadow: none;
 }
 
 /* Removed hover effects */
+
+.option-btn.selected:hover {
+  background-color: transparent;
+  border: none;
+  transform: none;
+  box-shadow: none;
+  cursor: default;
+}
 
 .option-item {
   display: flex;
@@ -833,15 +1053,29 @@ input:checked + .slider:before {
 }
 
 .radio-button.selected {
-  border-color: transparent;
+  border-color: #999;
   background-color: #fff;
-  box-shadow: 0 0 0 3px rgba(151, 104, 225, 0.3);
+  box-shadow: none;
 }
 
 .option-item.selected {
   background-color: transparent;
-  border-color: transparent;
-  box-shadow: 0 4px 8px rgba(151, 104, 225, 0.2);
+  border-color: #999;
+  box-shadow: none;
+}
+
+.option-item:active {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.option-item:focus {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .radio-button-inner {
@@ -853,7 +1087,8 @@ input:checked + .slider:before {
 
 .option-text {
   flex-grow: 1;
-  text-align: left; margin-left: 0;
+  text-align: left;
+  margin-left: 0;
   font-size: 1rem;
   color: #2c3e50;
   font-weight: 500;
@@ -922,7 +1157,8 @@ input:checked + .slider:before {
   position: relative;
   border: none;
   box-shadow: none;
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   overflow: hidden;
   z-index: 1;
   border: none;
@@ -939,10 +1175,13 @@ input:checked + .slider:before {
   gap: 20px;
   flex: 1 1 auto;
   height: auto;
-  min-height: 2000px; /* Increase to accommodate editor (1400px) + output (400px) + spacing */
+  min-height: 2000px;
+  /* Increase to accommodate editor (1400px) + output (400px) + spacing */
   padding: 20px;
-  box-sizing: border-box; /* Include padding in height calculation */
-  overflow: visible; /* Allow content to overflow if needed */
+  box-sizing: border-box;
+  /* Include padding in height calculation */
+  overflow: visible;
+  /* Allow content to overflow if needed */
 }
 
 /* Problem section - Left column */
@@ -957,7 +1196,7 @@ input:checked + .slider:before {
   border-radius: 0;
   box-sizing: border-box;
   min-height: 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .problem-description {
@@ -1013,19 +1252,23 @@ input:checked + .slider:before {
   height: 100%;
   box-sizing: border-box;
   min-height: 0;
-  overflow: visible; /* Ensure content is visible */
+  overflow: visible;
+  /* Ensure content is visible */
   position: relative;
   z-index: 100;
   padding: 8px;
 }
 
 .editor-section {
-  flex: 0 0 auto; /* Don't grow, don't shrink, auto basis */
+  flex: 0 0 auto;
+  /* Don't grow, don't shrink, auto basis */
   display: flex;
   flex-direction: column;
   border: none;
-  overflow: visible; /* Allow content to be visible */
-  min-height: 400px; /* Equal to output section size */
+  overflow: visible;
+  /* Allow content to be visible */
+  min-height: 400px;
+  /* Equal to output section size */
 }
 
 /* Ensure proper scrolling for the entire editor section */
@@ -1039,10 +1282,13 @@ input:checked + .slider:before {
   border-radius: 8px 8px 0 0;
   z-index: 1000;
   position: relative;
-  flex-shrink: 0; /* Prevent header from shrinking */
-  min-height: 60px; /* Ensure minimum height for header */
-  overflow: visible; /* Ensure children are not clipped */
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  flex-shrink: 0;
+  /* Prevent header from shrinking */
+  min-height: 60px;
+  /* Ensure minimum height for header */
+  overflow: visible;
+  /* Ensure children are not clipped */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 
@@ -1071,7 +1317,7 @@ input:checked + .slider:before {
 }
 
 .language-selector:focus {
-  box-shadow: 0 0 0 3px rgba(151, 104, 225, 0.3);
+  box-shadow: none;
 }
 
 .language-selector option {
@@ -1099,11 +1345,16 @@ input:checked + .slider:before {
   border-radius: 6px;
   font-weight: 600;
   box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
-  z-index: 1000; /* Ensure button is visible above other elements */
-  position: relative; /* Needed for z-index to work */
-  display: inline-block; /* Ensure button is always displayed */
-  visibility: visible; /* Ensure button is visible */
-  opacity: 1 !important; /* Override any opacity settings */
+  z-index: 1000;
+  /* Ensure button is visible above other elements */
+  position: relative;
+  /* Needed for z-index to work */
+  display: inline-block;
+  /* Ensure button is always displayed */
+  visibility: visible;
+  /* Ensure button is visible */
+  opacity: 1 !important;
+  /* Override any opacity settings */
   transition: all 0.3s ease;
   min-width: 120px;
 }
@@ -1153,7 +1404,8 @@ input:checked + .slider:before {
 
 /* Adjust layout proportions */
 .problem-section {
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   padding: 20px;
   background-color: transparent;
   overflow-y: auto;
@@ -1165,14 +1417,16 @@ input:checked + .slider:before {
 }
 
 .right-column {
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   display: flex;
   flex-direction: column;
   max-width: 70%;
   height: 100%;
   box-sizing: border-box;
   min-height: 0;
-  overflow: visible; /* Ensure content is visible */
+  overflow: visible;
+  /* Ensure content is visible */
   position: relative;
   z-index: 100;
 }
@@ -1200,7 +1454,8 @@ input:checked + .slider:before {
   padding: 0 20px;
 }
 
-.nav-btn, .submit-btn.small {
+.nav-btn,
+.submit-btn.small {
   padding: 10px 16px;
   border: none;
   border-radius: 6px;
@@ -1211,10 +1466,18 @@ input:checked + .slider:before {
   font-size: 0.9rem;
   min-width: 120px;
   text-align: center;
-  margin-left: 60%;
+  margin-left: 0;
 }
 
-.nav-btn:disabled, .submit-btn.small:disabled {
+/* Specific styling for navigation buttons in header-section-buttons */
+.header-section-buttons .nav-btn,
+.header-section-buttons .submit-btn.small {
+  margin-left: 0;
+  margin-right: 10px;
+}
+
+.nav-btn:disabled,
+.submit-btn.small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
@@ -1228,7 +1491,8 @@ input:checked + .slider:before {
   box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
   margin: 0 15px;
   min-width: 100px;
-  animation: pulseSubmit 2s infinite; /* Add pulsing effect */
+  animation: pulseSubmit 2s infinite;
+  /* Add pulsing effect */
 }
 
 .navigation-buttons .submit-btn.small:hover:not(:disabled) {
@@ -1300,88 +1564,90 @@ input:checked + .slider:before {
 @media (max-width: 768px) {
   .dashboard-content {
     padding: 10px !important;
-    padding-bottom: 80px; /* Adjust padding for mobile */
+    padding-bottom: 80px;
+    /* Adjust padding for mobile */
     padding-left: 30px !important;
   }
-  
-  
-  
+
+
+
   .options-container {
     grid-template-columns: 1fr;
   }
-  
+
   .coding-content {
     flex-direction: column;
   }
-  
-  .problem-section, .right-column {
+
+  .problem-section,
+  .right-column {
     width: 100%;
     max-width: 100%;
   }
-  
+
   .problem-section {
     max-width: 100%;
   }
-  
+
   .right-column {
     max-width: 100%;
     gap: 15px;
   }
-  
+
   .coding-content {
     flex-direction: column;
   }
-  
+
   .question-content {
     flex-direction: column;
   }
-  
+
   .output-section {
     margin: 0;
     max-width: 100%;
     width: 100%;
   }
-  
- 
-  
+
+
+
   /* Mobile styles for language selector */
   .language-selector {
     padding: 6px 12px;
     font-size: 0.9rem;
   }
-  
+
   /* Mobile styles for language alert */
   .language-alert-modal {
     width: 95%;
     padding: 20px;
   }
-  
+
   .language-alert-modal h3 {
     font-size: 1.3rem;
   }
-  
+
   .language-options {
     gap: 10px;
   }
-  
+
   .language-option-btn {
     padding: 10px 15px;
     min-width: 100px;
     font-size: 0.9rem;
   }
-  
+
   /* Mobile styles for navigation container */
   .navigation-container {
     padding: 12px 0;
   }
-  
+
   /* Mobile styles for navigation buttons */
   .navigation-buttons {
     padding: 0 15px;
   }
-  
- 
-  
+
+
+
   /* Mobile styles for Next Challenge button in right corner */
   .nav-btn.next.right-corner {
     position: fixed;
@@ -1420,8 +1686,15 @@ input:checked + .slider:before {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Backdrop overlay for centered alert */
@@ -1445,21 +1718,23 @@ input:checked + .slider:before {
 
 /* Centered simple alert for language selection */
 .simple-language-alert {
+  font-size: 1.6rem;
+  padding: 25px;
   position: fixed;
-  top: 50%;
+  top: 70%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: white;
+  background-color: rgba(226, 226, 226, 0.896);
   color: #333;
   padding: 30px;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   z-index: 9999;
-  font-size: 1rem;
+  font-size: 1.4rem;
   font-weight: 500;
   text-align: center;
   width: 350px;
-  height: 350px;
+  height: 100px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1507,6 +1782,7 @@ input:checked + .slider:before {
     opacity: 0;
     transform: translate(-50%, -60%);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, -50%);
@@ -1569,7 +1845,8 @@ input:checked + .slider:before {
 }
 
 .problem-section {
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   padding: 20px;
   background-color: transparent;
   overflow-y: visible;
@@ -1621,22 +1898,27 @@ input:checked + .slider:before {
 }
 
 .right-column {
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
   max-width: 70%;
   height: auto;
-  min-height: 0; /* Allow column to shrink */
+  min-height: 0;
+  /* Allow column to shrink */
 }
 
 .editor-section {
-  flex: 0 0 auto; /* Don't grow, don't shrink, auto basis */
+  flex: 0 0 auto;
+  /* Don't grow, don't shrink, auto basis */
   display: flex;
   flex-direction: column;
   border: none;
-  overflow: visible; /* Allow content to overflow if needed */
-  min-height: auto; /* Allow section to size naturally */
+  overflow: visible;
+  /* Allow content to overflow if needed */
+  min-height: auto;
+  /* Allow section to size naturally */
 }
 
 
@@ -1654,18 +1936,23 @@ input:checked + .slider:before {
 
 /* Separate output section */
 .output-section {
-  flex: 0 0 auto; /* Don't grow, don't shrink, auto basis */
+  flex: 0 0 auto;
+  /* Don't grow, don't shrink, auto basis */
   display: flex;
   flex-direction: column;
   border: 1px solid #e0e0e0;
   border-radius: 0;
-  overflow: visible; /* Allow content to overflow if needed */
+  overflow: visible;
+  /* Allow content to overflow if needed */
   background-color: #ffffff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   min-height: 400px;
-  max-height: none; /* Remove height restrictions */
-  margin-top: 20px; /* Add space between editor and output */
-  position: relative; /* Ensure proper positioning */
+  max-height: none;
+  /* Remove height restrictions */
+  margin-top: 20px;
+  /* Add space between editor and output */
+  position: relative;
+  /* Ensure proper positioning */
   transition: all 0.3s ease;
 }
 
@@ -1677,16 +1964,19 @@ input:checked + .slider:before {
   color: #495057;
   font-size: 1.1rem;
   border-radius: 8px 8px 0 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .result-content {
   flex-grow: 1;
   padding: 20px;
-  overflow-y: auto; /* Allow scrolling when needed */
+  overflow-y: auto;
+  /* Allow scrolling when needed */
   background-color: #ffffff;
-  max-height: 400px; /* Set max height with scrolling */
-  overflow: auto; /* Allow scrolling when needed */
+  max-height: 400px;
+  /* Set max height with scrolling */
+  overflow: auto;
+  /* Allow scrolling when needed */
   border-radius: 0 0 8px 8px;
   border: none;
   border-top: none;
@@ -1698,7 +1988,8 @@ input:checked + .slider:before {
   background-color: transparent;
   border-radius: 0;
   border: none;
-  min-height: 400px; /* Same size as test cases section */
+  min-height: 400px;
+  /* Same size as test cases section */
 }
 
 .output-section.test-cases-section .result-header {
@@ -1745,7 +2036,7 @@ input:checked + .slider:before {
   border: none;
   border-radius: 0;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   margin-bottom: 15px;
 }
 
@@ -1817,7 +2108,7 @@ input:checked + .slider:before {
   font-size: 0.9rem;
   margin: 0;
   overflow-x: auto;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .section-btn.disabled {
@@ -1837,30 +2128,9 @@ input:checked + .slider:before {
   box-shadow: none;
 }
 
-.fullscreen-btn {
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #4a5568, #2d3748);
-  color: white;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  margin-left: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  min-width: 120px;
-  text-align: center;
-}
 
-.fullscreen-btn:hover {
-  background: linear-gradient(135deg, #2d3748, #1a202c);
-  transform: none;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
 
-.fullscreen-btn:active {
-  transform: translateY(0);
-}
+
 
 .section-btn {
   padding: 10px 16px;
@@ -1872,13 +2142,13 @@ input:checked + .slider:before {
   font-weight: 500;
   transition: all 0.3s ease;
   margin-right: 10px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .section-btn:hover {
   background-color: transparent;
-    transform: translateY(-1px);
-    box-shadow: none;
+  transform: translateY(-1px);
+  box-shadow: none;
 }
 
 /* Header controls */
@@ -1888,7 +2158,8 @@ input:checked + .slider:before {
   align-items: center;
   z-index: 9999;
   position: relative;
-  overflow: visible; /* Ensure children are not clipped */
+  overflow: visible;
+  /* Ensure children are not clipped */
   flex-wrap: wrap;
 }
 
@@ -1916,7 +2187,8 @@ input:checked + .slider:before {
   min-width: 120px;
   text-align: center;
   position: relative;
-  z-index: 1001; /* Ensure it's above other elements */
+  z-index: 1001;
+  /* Ensure it's above other elements */
 }
 
 .submit-btn.small:hover:not(:disabled) {
@@ -1938,9 +2210,17 @@ input:checked + .slider:before {
 }
 
 @keyframes pulseSubmit {
-  0% { box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3); }
-  50% { box-shadow: 0 2px 12px rgba(76, 175, 80, 0.6); }
-  100% { box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3); }
+  0% {
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 2px 12px rgba(76, 175, 80, 0.6);
+  }
+
+  100% {
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+  }
 }
 
 /* Tab navigation removed - using header buttons instead */
@@ -1985,7 +2265,8 @@ input:checked + .slider:before {
 }
 
 .question-panel {
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   display: flex;
   flex-direction: column;
   background: white;
@@ -2034,7 +2315,8 @@ input:checked + .slider:before {
 }
 
 .navigation-panel {
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   display: flex;
   flex-direction: column;
   background: white;
@@ -2215,11 +2497,6 @@ input:checked + .slider:before {
   background-color: transparent;
 }
 
-.fullscreen-btn {
-  color: #6c757d;
-  border-color: #6c757d;
-}
-
 .submit-btn {
   color: white;
   border-color: #007bff;
@@ -2284,7 +2561,7 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.9rem;
+  font-size: 1.5rem;
 }
 
 .progress-bar {
@@ -2314,16 +2591,20 @@ input:checked + .slider:before {
 
 .main-content {
   display: flex;
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   gap: 20px;
   padding: 20px;
   overflow: hidden;
 }
 
 .question-container {
-  flex: 1; margin-left: 20px;
-  max-width: 800px; /* Limit width for better readability */
-  margin: 0; /* Align to left */
+  flex: 1;
+  margin-left: 20px;
+  max-width: 800px;
+  /* Limit width for better readability */
+  margin: 0;
+  /* Align to left */
   display: flex;
   flex-direction: column;
 }
@@ -2338,7 +2619,7 @@ input:checked + .slider:before {
   overflow-y: auto;
   position: sticky;
   top: 0;
-  height: fit-content;
+  height: 100;
   max-height: calc(100vh - 150px);
 }
 
@@ -2478,7 +2759,8 @@ input:checked + .slider:before {
   border-radius: 0;
   background-color: transparent;
   cursor: pointer;
-  text-align: left; margin-left: 0;
+  text-align: left;
+  margin-left: 0;
   transition: all 0.3s ease;
   font-size: 1.05rem;
   color: black;
@@ -2499,12 +2781,20 @@ input:checked + .slider:before {
 
 .option-btn:hover {
   border: none;
-  background-color: #f0f0f0;
+  background-color: transparent;
   transform: none;
   box-shadow: none;
 }
 
 /* Removed hover effects */
+
+.option-btn.selected:hover {
+  background-color: transparent;
+  border: none;
+  transform: none;
+  box-shadow: none;
+  cursor: default;
+}
 
 .option-item {
   display: flex;
@@ -2541,15 +2831,29 @@ input:checked + .slider:before {
 }
 
 .radio-button.selected {
-  border-color: transparent;
+  border-color: #999;
   background-color: #fff;
-  box-shadow: 0 0 0 3px rgba(151, 104, 225, 0.3);
+  box-shadow: none;
 }
 
 .option-item.selected {
   background-color: transparent;
-  border-color: transparent;
-  box-shadow: 0 4px 8px rgba(151, 104, 225, 0.2);
+  border-color: #999;
+  box-shadow: none;
+}
+
+.option-item:active {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.option-item:focus {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .radio-button-inner {
@@ -2561,7 +2865,8 @@ input:checked + .slider:before {
 
 .option-text {
   flex-grow: 1;
-  text-align: left; margin-left: 0;
+  text-align: left;
+  margin-left: 0;
   font-size: 1rem;
   color: #2c3e50;
   font-weight: 500;
@@ -2630,7 +2935,8 @@ input:checked + .slider:before {
   position: relative;
   border: none;
   box-shadow: none;
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   overflow: hidden;
   z-index: 1;
   border: none;
@@ -2647,10 +2953,13 @@ input:checked + .slider:before {
   gap: 20px;
   flex: 1 1 auto;
   height: auto;
-  min-height: 2000px; /* Increase to accommodate editor (1400px) + output (400px) + spacing */
+  min-height: 2000px;
+  /* Increase to accommodate editor (1400px) + output (400px) + spacing */
   padding: 20px;
-  box-sizing: border-box; /* Include padding in height calculation */
-  overflow: visible; /* Allow content to overflow if needed */
+  box-sizing: border-box;
+  /* Include padding in height calculation */
+  overflow: visible;
+  /* Allow content to overflow if needed */
 }
 
 /* Problem section - Left column */
@@ -2665,7 +2974,7 @@ input:checked + .slider:before {
   border-radius: 0;
   box-sizing: border-box;
   min-height: 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .problem-description {
@@ -2711,30 +3020,7 @@ input:checked + .slider:before {
   font-size: 0.9rem;
 }
 
-/* Right column - Code editor */
-.right-column {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 68%;
-  height: 100%;
-  box-sizing: border-box;
-  min-height: 0;
-  overflow: visible; /* Ensure content is visible */
-  position: relative;
-  z-index: 100;
-  padding: 8px;
-}
-
-.editor-section {
-  flex: 0 0 auto; /* Don't grow, don't shrink, auto basis */
-  display: flex;
-  flex-direction: column;
-  border: none;
-  overflow: visible; /* Allow content to be visible */
-  min-height: 400px; /* Equal to output section size */
-}
+/* Duplicates removed - See lines 3667+ */
 
 /* Ensure proper scrolling for the entire editor section */
 .editor-header {
@@ -2747,10 +3033,13 @@ input:checked + .slider:before {
   border-radius: 8px 8px 0 0;
   z-index: 1000;
   position: relative;
-  flex-shrink: 0; /* Prevent header from shrinking */
-  min-height: 60px; /* Ensure minimum height for header */
-  overflow: visible; /* Ensure children are not clipped */
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  flex-shrink: 0;
+  /* Prevent header from shrinking */
+  min-height: 60px;
+  /* Ensure minimum height for header */
+  overflow: visible;
+  /* Ensure children are not clipped */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 
@@ -2779,7 +3068,7 @@ input:checked + .slider:before {
 }
 
 .language-selector:focus {
-  box-shadow: 0 0 0 3px rgba(151, 104, 225, 0.3);
+  box-shadow: none;
 }
 
 .language-selector option {
@@ -2807,11 +3096,16 @@ input:checked + .slider:before {
   border-radius: 6px;
   font-weight: 600;
   box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
-  z-index: 1000; /* Ensure button is visible above other elements */
-  position: relative; /* Needed for z-index to work */
-  display: inline-block; /* Ensure button is always displayed */
-  visibility: visible; /* Ensure button is visible */
-  opacity: 1 !important; /* Override any opacity settings */
+  z-index: 1000;
+  /* Ensure button is visible above other elements */
+  position: relative;
+  /* Needed for z-index to work */
+  display: inline-block;
+  /* Ensure button is always displayed */
+  visibility: visible;
+  /* Ensure button is visible */
+  opacity: 1 !important;
+  /* Override any opacity settings */
   transition: all 0.3s ease;
   min-width: 120px;
 }
@@ -2860,30 +3154,7 @@ input:checked + .slider:before {
 
 
 /* Adjust layout proportions */
-.problem-section {
-  flex: 1; margin-left: 20px;
-  padding: 20px;
-  background-color: transparent;
-  overflow-y: auto;
-  max-width: 30%;
-  height: 100%;
-  border: none;
-  box-sizing: border-box;
-  min-height: 0;
-}
-
-.right-column {
-  flex: 1; margin-left: 20px;
-  display: flex;
-  flex-direction: column;
-  max-width: 70%;
-  height: 100%;
-  box-sizing: border-box;
-  min-height: 0;
-  overflow: visible; /* Ensure content is visible */
-  position: relative;
-  z-index: 100;
-}
+/* Duplicates removed - See lines 3613+ */
 
 /* Updated navigation buttons styling */
 .navigation-container {
@@ -2909,7 +3180,8 @@ input:checked + .slider:before {
 }
 
 
-.nav-btn:disabled, .submit-btn.small:disabled {
+.nav-btn:disabled,
+.submit-btn.small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
@@ -2923,7 +3195,8 @@ input:checked + .slider:before {
   box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
   margin: 0 15px;
   min-width: 100px;
-  animation: pulseSubmit 2s infinite; /* Add pulsing effect */
+  animation: pulseSubmit 2s infinite;
+  /* Add pulsing effect */
 }
 
 .navigation-buttons .submit-btn.small:hover:not(:disabled) {
@@ -2995,86 +3268,88 @@ input:checked + .slider:before {
 @media (max-width: 768px) {
   .dashboard-content {
     padding: 10px !important;
-    padding-bottom: 80px; /* Adjust padding for mobile */
+    padding-bottom: 80px;
+    /* Adjust padding for mobile */
     padding-left: 30px !important;
   }
-  
-  
-  
+
+
+
   .options-container {
     grid-template-columns: 1fr;
   }
-  
+
   .coding-content {
     flex-direction: column;
   }
-  
-  .problem-section, .right-column {
+
+  .problem-section,
+  .right-column {
     width: 100%;
     max-width: 100%;
   }
-  
+
   .problem-section {
     max-width: 100%;
   }
-  
+
   .right-column {
     max-width: 100%;
     gap: 15px;
   }
-  
+
   .coding-content {
     flex-direction: column;
   }
-  
+
   .question-content {
     flex-direction: column;
   }
-  
+
   .output-section {
     margin: 0;
     max-width: 100%;
     width: 100%;
   }
-  
- 
+
+
   /* Mobile styles for language selector */
   .language-selector {
     padding: 6px 12px;
     font-size: 0.9rem;
   }
-  
+
   /* Mobile styles for language alert */
   .language-alert-modal {
     width: 95%;
     padding: 20px;
   }
-  
+
   .language-alert-modal h3 {
     font-size: 1.3rem;
   }
-  
+
   .language-options {
     gap: 10px;
   }
-  
+
   .language-option-btn {
     padding: 10px 15px;
     min-width: 100px;
     font-size: 0.9rem;
   }
-  
+
   /* Mobile styles for navigation container */
   .navigation-container {
     padding: 12px 0;
   }
-  
+
   /* Mobile styles for navigation buttons */
   .navigation-buttons {
     padding: 0 15px;
   }
-  
-  
+
+
   /* Mobile styles for Next Challenge button in right corner */
   .nav-btn.next.right-corner {
     position: fixed;
@@ -3113,8 +3388,15 @@ input:checked + .slider:before {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Backdrop overlay for centered alert */
@@ -3152,7 +3434,7 @@ input:checked + .slider:before {
   font-weight: 500;
   text-align: center;
   width: 350px;
-  height: 350px;
+  height: 200px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -3200,6 +3482,7 @@ input:checked + .slider:before {
     opacity: 0;
     transform: translate(-50%, -60%);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, -50%);
@@ -3262,7 +3545,8 @@ input:checked + .slider:before {
 }
 
 .problem-section {
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   padding: 20px;
   background-color: transparent;
   overflow-y: visible;
@@ -3315,22 +3599,27 @@ input:checked + .slider:before {
 }
 
 .right-column {
-  flex: 1; margin-left: 20px;
+  flex: 1;
+  margin-left: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
   max-width: 70%;
   height: auto;
-  min-height: 0; /* Allow column to shrink */
+  min-height: 0;
+  /* Allow column to shrink */
 }
 
 .editor-section {
-  flex: 0 0 auto; /* Don't grow, don't shrink, auto basis */
+  flex: 0 0 auto;
+  /* Don't grow, don't shrink, auto basis */
   display: flex;
   flex-direction: column;
   border: none;
-  overflow: visible; /* Allow content to overflow if needed */
-  min-height: auto; /* Allow section to size naturally */
+  overflow: visible;
+  /* Allow content to overflow if needed */
+  min-height: auto;
+  /* Allow section to size naturally */
 }
 
 .code-editor {
@@ -3344,13 +3633,15 @@ input:checked + .slider:before {
   color: #f8f8f2;
   outline: none;
   line-height: 1.5;
-  min-height: 790px; /* Restore original height for better coding experience */
+  min-height: 453px;
+  /* Restore original height for better coding experience */
   height: auto;
   overflow: auto;
   white-space: pre;
   tab-size: 4;
   box-sizing: border-box;
-  display: block; /* Ensure it's displayed as block element */
+  display: block;
+  /* Ensure it's displayed as block element */
 }
 
 /* Ensure proper scrolling for the entire editor section */
@@ -3367,18 +3658,23 @@ input:checked + .slider:before {
 
 /* Separate output section */
 .output-section {
-  flex: 0 0 auto; /* Don't grow, don't shrink, auto basis */
+  flex: 0 0 auto;
+  /* Don't grow, don't shrink, auto basis */
   display: flex;
   flex-direction: column;
   border: 1px solid #e0e0e0;
   border-radius: 0;
-  overflow: visible; /* Allow content to overflow if needed */
+  overflow: visible;
+  /* Allow content to overflow if needed */
   background-color: #ffffff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   min-height: 400px;
-  max-height: none; /* Remove height restrictions */
-  margin-top: 20px; /* Add space between editor and output */
-  position: relative; /* Ensure proper positioning */
+  max-height: none;
+  /* Remove height restrictions */
+  margin-top: 20px;
+  /* Add space between editor and output */
+  position: relative;
+  /* Ensure proper positioning */
   transition: all 0.3s ease;
 }
 
@@ -3390,16 +3686,19 @@ input:checked + .slider:before {
   color: #495057;
   font-size: 1.1rem;
   border-radius: 8px 8px 0 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .result-content {
   flex-grow: 1;
   padding: 20px;
-  overflow-y: auto; /* Allow scrolling when needed */
+  overflow-y: auto;
+  /* Allow scrolling when needed */
   background-color: #ffffff;
-  max-height: 400px; /* Set max height with scrolling */
-  overflow: auto; /* Allow scrolling when needed */
+  max-height: 400px;
+  /* Set max height with scrolling */
+  overflow: auto;
+  /* Allow scrolling when needed */
   border-radius: 0 0 8px 8px;
   border: none;
   border-top: none;
@@ -3411,7 +3710,8 @@ input:checked + .slider:before {
   background-color: transparent;
   border-radius: 0;
   border: none;
-  min-height: 400px; /* Same size as test cases section */
+  min-height: 400px;
+  /* Same size as test cases section */
 }
 
 .output-section.test-cases-section .result-header {
@@ -3458,7 +3758,7 @@ input:checked + .slider:before {
   border: none;
   border-radius: 0;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   margin-bottom: 15px;
 }
 
@@ -3530,8 +3830,9 @@ input:checked + .slider:before {
   font-size: 0.9rem;
   margin: 0;
   overflow-x: auto;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
 }
+
 /* Watermark styles */
 .watermark-static {
   position: fixed;
@@ -3547,6 +3848,7 @@ input:checked + .slider:before {
   align-items: center;
   justify-content: center;
 }
+
 /* Clear Response Button Styles */
 .clear-response-btn {
   padding: 10px 16px;
@@ -3598,8 +3900,8 @@ input:checked + .slider:before {
 /* Enhanced Fullscreen Button Styles */
 .fullscreen-btn {
   padding: 10px 16px;
-  background: linear-gradient(135deg, #4a5568, #2d3748);
-  color: white;
+  background: #fff;
+  color: #2c3e50;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -3616,25 +3918,16 @@ input:checked + .slider:before {
   gap: 8px;
 }
 
-.fullscreen-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
-}
+
 
 .fullscreen-btn:hover::before {
   left: 100%;
 }
 
 .fullscreen-btn:hover {
-  background: linear-gradient(135deg, #2d3748, #1a202c);
+  background: #d9ccf2;
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 12px rgb(246, 246, 246);
 }
 
 .fullscreen-btn:active {
@@ -3643,12 +3936,12 @@ input:checked + .slider:before {
 
 .fullscreen-btn.active {
   background: linear-gradient(135deg, #9768E1, #7d52c9);
-  box-shadow: 0 4px 12px rgba(151, 104, 225, 0.4);
+  box-shadow: 0 4px 12px rgba(251, 248, 255, 0.4);
 }
 
 .fullscreen-btn.active:hover {
   background: linear-gradient(135deg, #7d52c9, #6a45b5);
-  box-shadow: 0 6px 16px rgba(151, 104, 225, 0.5);
+  box-shadow: 0 6px 16px rgb(244, 244, 245);
 }
 
 /* Fullscreen Button Icons */
@@ -3662,198 +3955,113 @@ input:checked + .slider:before {
   font-size: 1.1rem;
 }
 
-/* Bottom Navigation Container for MCQ */
-.bottom-navigation {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 15px;
-  padding: 15px 20px;
-  background-color: #ffffff;
-  border-top: 1px solid #e0e0e0;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-}
-
-.bottom-navigation .right-buttons {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-/* Fullscreen Mode Adjustments */
-.dashboard-content.fullscreen .bottom-navigation {
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-}
-
-.dashboard-content.fullscreen .assessment-header {
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-}
-
-/* Responsive Design for Buttons */
-@media (max-width: 768px) {
-  .clear-response-btn,
-  .fullscreen-btn {
-    padding: 8px 12px;
-    font-size: 0.85rem;
-    min-width: 100px;
-  }
-  
-  .bottom-navigation {
-    padding: 10px 15px;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  
-  .bottom-navigation .right-buttons {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-}
-
-@media (max-width: 480px) {
-  .clear-response-btn,
-  .fullscreen-btn {
-    padding: 6px 10px;
-    font-size: 0.8rem;
-    min-width: 80px;
-  }
-  
-  .bottom-navigation {
-    padding: 8px 10px;
-  }
-}
-
-
-
-/* Bottom Navigation - Straight Line Layout */
-.bottom-navigation {
+/* Tab Navigation Buttons - positioned inside tab-content */
+.tab-navigation-buttons {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 15px;
-  padding: 15px 20px;
-  background-color: #ffffff;
-  border-top: 1px solid #e0e0e0;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
+  padding: 20px;
+  background: #f8f9fa00;
+  border-top: 1px solid #e9ecef;
+  margin-top: 20px;
+  border-radius: 0 0 8px 8px;
 }
 
-.bottom-navigation button {
-  margin: 0;
-  min-width: 120px;
+.tab-navigation-buttons .clear-response-btn {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3);
+  transition: all 0.3s ease;
+  margin-left:-900px;
+  top:-140px;
 }
 
-/* Responsive Design for Bottom Navigation */
+.tab-navigation-buttons .clear-response-btn:hover {
+  background: linear-gradient(135deg, #ee5a52, #dc5148);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 107, 107, 0.4);
+}
+
+.tab-navigation-buttons .nav-btn.save-next {
+  visibility: visible;
+}
+
+.tab-navigation-buttons .nav-btn.save-next:hover {
+  background: linear-gradient(135deg, #7d52c9, #6a45b5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(151, 104, 225, 0.4);
+}
+
+.tab-navigation-buttons .submit-btn.bottom {
+  background: linear-gradient(135deg, #4CAF50, #2E7D32);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+  transition: all 0.3s ease;
+}
+
+.tab-navigation-buttons .submit-btn.bottom:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049, #3d8b40);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
+}
+
+.tab-navigation-buttons button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Responsive Design for Tab Navigation Buttons */
 @media (max-width: 768px) {
-  .bottom-navigation {
+  .tab-navigation-buttons {
     flex-wrap: wrap;
     gap: 10px;
-    padding: 10px 15px;
+    padding: 15px;
   }
-  
-  .bottom-navigation button {
+
+  .tab-navigation-buttons button {
     min-width: 100px;
     font-size: 0.9rem;
+    padding: 10px 15px;
   }
 }
 
 @media (max-width: 480px) {
-  .bottom-navigation {
+  .tab-navigation-buttons {
     gap: 8px;
-    padding: 8px 10px;
+    padding: 10px;
   }
-  
-  .bottom-navigation button {
+
+  .tab-navigation-buttons button {
     min-width: 80px;
     font-size: 0.8rem;
     padding: 8px 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .bottom-navigation {
-    gap: 5px;
-    padding: 8px 10px;
-    height: 45px;
-  }
-  
-  .bottom-navigation button {
-    padding: 6px 12px;
-    height: 30px;
-    font-size: 0.8rem;
-    min-width: 70px;
-  }
-}
-
-.bottom-navigation .clear-response-btn {
-  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-  color: white;
-  box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3);
-}
-
-.bottom-navigation .nav-btn.save-next {
-  background: linear-gradient(135deg, #9768E1, #7d52c9);
-  color: white;
-  box-shadow: 0 2px 6px rgba(151, 104, 225, 0.3);
-}
-
-.bottom-navigation .submit-btn.bottom {
-  background: linear-gradient(135deg, #4CAF50, #2E7D32);
-  color: white;
-  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .bottom-navigation {
-    gap: 8px;
-    padding: 10px 15px;
-    height: 50px;
-  }
-  
-  .bottom-navigation button {
-    padding: 8px 15px;
-    height: 35px;
-    font-size: 0.85rem;
-    min-width: 90px;
-  }
-}
-
-@media (max-width: 480px) {
-  .bottom-navigation {
-    gap: 5px;
-    padding: 8px 10px;
-    height: 45px;
-  }
-  
-  .bottom-navigation button {
-    padding: 6px 12px;
-    height: 30px;
-    font-size: 0.8rem;
-    min-width: 70px;
   }
 }
 
 /* Comprehensive Mobile Styles for Assessment Taking */
 @media (max-width: 768px) {
+
   /* Main container adjustments */
   .dashboard-content {
     padding: 0;
     min-height: 100vh;
-    padding-bottom: 80px; /* Reduced from 100px */
+    padding-bottom: 80px;
+    /* Reduced from 100px */
   }
-  
+
   /* Header adjustments */
   .assessment-header {
     padding: 12px 16px;
@@ -3865,37 +4073,48 @@ input:checked + .slider:before {
     background-color: rgba(255, 255, 255, 0.98);
     z-index: 1000;
   }
-  
+
   .header-left {
     gap: 12px;
   }
-  
+
   .header-controls {
     gap: 10px;
     flex-wrap: wrap;
   }
-  
+
   /* Timer section */
   .timer-section {
     font-size: 1rem;
     padding: 8px 12px;
     min-width: 100px;
   }
-  
+
+  .assessment-times {
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+
+  .assessment-time {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+  }
+
   /* Section buttons */
   .header-section-buttons {
     padding: 12px 16px;
     gap: 8px;
     flex-wrap: wrap;
+    top: -20px;
   }
-  
+
   .section-btn {
     padding: 8px 12px;
     font-size: 0.9rem;
     margin-right: 8px;
     min-width: 80px;
   }
-  
+
   /* Fullscreen button */
   .fullscreen-btn {
     padding: 8px 12px;
@@ -3903,32 +4122,32 @@ input:checked + .slider:before {
     min-width: 100px;
     margin-left: 0;
   }
-  
+
   /* Submit button adjustments */
   .submit-btn {
     padding: 10px 20px;
     font-size: 0.95rem;
     min-width: 120px;
   }
-  
+
   .submit-btn:disabled {
     margin-left: 0;
   }
-  
+
   /* Main content layout */
   .main-content {
     flex-direction: column;
     gap: 15px;
     padding: 15px;
   }
-  
+
   /* Question container */
   .question-container {
     margin-left: 0;
     max-width: 100%;
     width: 100%;
   }
-  
+
   /* Right sidebar becomes bottom panel on mobile */
   .right-sidebar {
     width: 100%;
@@ -3936,17 +4155,17 @@ input:checked + .slider:before {
     bottom: 0;
     left: 0;
     right: 0;
-    height: auto;
+    height: 100;
     max-height: 40vh;
     border-left: none;
     border-top: 1px solid #e9ecef;
     padding: 15px;
     background: white;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
     z-index: 1000;
     overflow-y: auto;
   }
-  
+
   /* Questions grid for mobile */
   .questions-grid {
     grid-template-columns: repeat(5, 1fr);
@@ -3954,13 +4173,13 @@ input:checked + .slider:before {
     padding: 12px 8px;
     max-height: 200px;
   }
-  
+
   .question-circle {
     width: 40px;
     height: 40px;
     font-size: 0.85rem;
   }
-  
+
   /* Submit test button in sidebar */
   .submit-test-btn {
     width: calc(100% - 24px);
@@ -3968,71 +4187,67 @@ input:checked + .slider:before {
     padding: 10px 16px;
     font-size: 1rem;
   }
-  
+
   /* Question content */
   .question-content {
     padding: 15px;
   }
-  
+
   .question-text {
     font-size: 1.1rem;
     margin-bottom: 20px;
   }
-  
+
   .question-text.small {
     font-size: 0.95rem;
     margin-bottom: 12px;
     padding: 8px;
   }
-  
+
   /* Options container */
   .options-container {
     margin-bottom: 25px;
   }
-  
+
   .options-container.small {
     margin-bottom: 15px;
   }
-  
+
   .option-btn {
     padding: 16px;
     font-size: 1rem;
   }
-  
+
   .option-btn.small {
     padding: 10px 12px;
     font-size: 0.9rem;
   }
-  
+
   .option-item {
     padding: 12px;
     gap: 10px;
   }
-  
+
   .option-text {
     font-size: 0.95rem;
   }
-  
+
   .radio-button {
     width: 18px;
     height: 18px;
   }
-  
+
   .radio-button-inner {
     width: 10px;
     height: 10px;
   }
-  
-  /* Progress indicator */
-  .progress-indicator {
-    font-size: 0.85rem;
-    gap: 8px;
-  }
-  
+
+
+
   .progress-bar {
     height: 5px;
   }
-  
+
   /* Coding section adjustments */
   .coding-content {
     flex-direction: column;
@@ -4040,265 +4255,456 @@ input:checked + .slider:before {
     padding: 15px;
     min-height: auto;
   }
-  
+
   .problem-section {
     max-width: 100%;
     padding: 16px;
     height: auto;
   }
-  
+
   .right-column {
     max-width: 100%;
     height: auto;
   }
-  
+
   .problem-description {
     font-size: 1rem;
     margin-bottom: 20px;
   }
-  
+
   .example-item {
     margin-bottom: 15px;
     padding: 12px;
   }
-  
+
   .example-content {
     font-size: 0.9rem;
     padding: 6px;
   }
-  
+
   /* Editor and output sections */
-  .editor-section, .output-section {
+  .editor-section,
+  .output-section {
     padding: 15px;
   }
-  
-  .editor-header, .output-header {
+
+  .editor-header,
+  .output-header {
     padding: 12px 15px;
     font-size: 1.1rem;
   }
-  
+
   /* Language selector */
   .language-selector {
     padding: 10px 15px;
   }
-  
+
   .language-dropdown {
     padding: 8px 12px;
     font-size: 0.95rem;
   }
-  
+
   /* Action buttons */
   .action-buttons {
     gap: 10px;
     padding: 15px;
   }
-  
-  .run-btn, .submit-code-btn {
+
+  .run-btn,
+  .submit-code-btn {
     padding: 10px 20px;
     font-size: 0.95rem;
     min-width: 100px;
   }
-  
+
   /* Test cases */
   .test-cases-section {
     padding: 15px;
   }
-  
+
   .test-case-item {
     padding: 12px;
     margin-bottom: 12px;
   }
-  
-  .test-case-input, .test-case-output {
+
+  .test-case-input,
+  .test-case-output {
     font-size: 0.9rem;
     padding: 8px;
   }
-  
+
   /* Navigation buttons - fixed at bottom */
   .nav-btn.prev.left-corner,
   .nav-btn.next.save-next,
   .submit-btn.small.right-corner {
     position: fixed;
-    bottom: 60px; /* Above the question grid */
+    bottom: 60px;
+    /* Above the question grid */
     z-index: 1001;
     padding: 12px 20px;
     font-size: 1rem;
     min-width: 100px;
   }
-  
+
   .nav-btn.prev.left-corner {
     left: 15px;
   }
-  
+
   .nav-btn.next.save-next {
     left: 50%;
     transform: translateX(-50%);
   }
-  
+
   .submit-btn.small.right-corner {
     right: 15px;
   }
-  
+
   /* Watermark adjustments */
   .watermark-text {
     font-size: 8rem;
   }
-  
-  /* Hamburger menu */
-  .hamburger-menu {
-    width: 24px;
-    height: 18px;
-  }
-  
-  .hamburger-menu span {
-    height: 2.5px;
+
+
+
+  /* Extra small devices (phones, 480px and down) */
+  @media (max-width: 480px) {
+    .assessment-header {
+      padding: 10px 12px;
+      gap: 6px;
+    }
+
+    .header-left {
+      gap: 8px;
+    }
+
+    .timer-section {
+      font-size: 0.9rem;
+      padding: 6px 10px;
+      min-width: 80px;
+    }
+
+    .section-btn {
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      margin-right: 6px;
+      min-width: 70px;
+    }
+
+    .fullscreen-btn {
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      min-width: 80px;
+    }
+
+    .submit-btn {
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      min-width: 100px;
+    }
+
+    .main-content {
+      padding: 12px;
+      gap: 12px;
+    }
+
+    .question-content {
+      padding: 12px;
+    }
+
+    .question-text {
+      font-size: 1rem;
+      margin-bottom: 15px;
+    }
+
+    .option-btn {
+      padding: 14px;
+      font-size: 0.95rem;
+    }
+
+    .option-item {
+      padding: 10px;
+      gap: 8px;
+    }
+
+    .option-text {
+      font-size: 0.9rem;
+    }
+
+    .questions-grid {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding: 10px 6px;
+      max-height: 180px;
+    }
+
+    .question-circle {
+      width: 35px;
+      height: 35px;
+      font-size: 0.8rem;
+    }
+
+    .submit-test-btn {
+      width: calc(100% - 20px);
+      margin: 10px 10px 6px 10px;
+      padding: 8px 14px;
+      font-size: 0.95rem;
+    }
+
+    /* Coding section */
+    .coding-content {
+      padding: 12px;
+      gap: 12px;
+    }
+
+    .problem-section {
+      padding: 12px;
+    }
+
+    .problem-description {
+      font-size: 0.95rem;
+      margin-bottom: 15px;
+    }
+
+    .example-item {
+      margin-bottom: 12px;
+      padding: 10px;
+    }
+
+    .example-content {
+      font-size: 0.85rem;
+    }
+
+    /* Action buttons */
+    .action-buttons {
+      padding: 12px;
+      gap: 8px;
+    }
+
+    .run-btn,
+    .submit-code-btn {
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      min-width: 90px;
+    }
+
+    /* Navigation buttons */
+    .nav-btn.prev.left-corner,
+    .nav-btn.next.save-next,
+    .submit-btn.small.right-corner {
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      min-width: 90px;
+      bottom: 50px;
+    }
+
+    .nav-btn.prev.left-corner {
+      left: 10px;
+    }
+
+    .submit-btn.small.right-corner {
+      right: 10px;
+    }
+
+    .watermark-text {
+      font-size: 6rem;
+    }
   }
 }
 
-/* Extra small devices (phones, 480px and down) */
-@media (max-width: 480px) {
-  .assessment-header {
-    padding: 10px 12px;
-    gap: 6px;
+/* Position Previous button in right corner */
+.nav-btn.prev.right-corner {
+  position: fixed;
+  bottom: 20px;
+  right: 80px;
+  z-index: 100;
+  margin: 0;
+}
+
+/* Footer submit button */
+.footer-submit {
+  position: relative;
+  z-index: 1000;
+  display: flex;
+  gap: -80px;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  top: auto;
+}
+
+/* Override fixed positioning for Save & Next button when in footer */
+.footer-submit .nav-btn.save-next {
+  position: static !important;
+  transform: none !important;
+  margin-right: 10px;
+  visibility: visible !important;
+  display: block !important;
+}
+
+
+
+.footer-submit .nav-btn.mcq-prev:hover:not(:disabled) {
+  background: linear-gradient(to right, #e9ecef, #dde0e3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.footer-submit .nav-btn.mcq-prev:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.footer-submit .nav-btn.mcq-save-next {
+  position: static !important;
+  transform: none !important;
+  margin-right: 10px;
+  visibility: visible !important;
+  display: block !important;
+  background: linear-gradient(to right, #9768E1, #7d52c9);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  top:-140px;
+}
+
+.footer-submit .nav-btn.mcq-save-next:hover:not(:disabled) {
+  background: linear-gradient(to right, #7d52c9, #6a45b5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(151, 104, 225, 0.4);
+}
+
+.footer-submit .nav-btn.mcq-save-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Coding Navigation Arrows - Separate Styles */
+.nav-arrow.coding-header-prev {
+  position: absolute;
+  top: 90px;
+  right: 80px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #9768E1;
+  z-index: 1000;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(151, 104, 225, 0.1);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-arrow.coding-header-prev:hover:not(:disabled) {
+  background: rgba(151, 104, 225, 0.2);
+  transform: scale(1.1);
+}
+
+.nav-arrow.coding-header-prev:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.nav-arrow.coding-header-next {
+  position: absolute;
+  top: 90px;
+  right: 40px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #9768E1;
+  z-index: 1000;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(151, 104, 225, 0.1);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-arrow.coding-header-next:hover:not(:disabled) {
+  background: rgba(151, 104, 225, 0.2);
+  transform: scale(1.1);
+}
+
+.nav-arrow.coding-header-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Also override submit button positioning to be inline */
+.footer-submit .submit-btn.footer {
+  transform: none !important;
+  right: auto !important;
+  bottom: auto !important;
+}
+
+.submit-btn.footer {
+  position: relative;
+  margin: 20px 0;
+  right: auto;
+  bottom: auto;
+  z-index: 1001;
+  padding: 12px 24px;
+  background: #27ae60;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgb(248, 248, 248);
+  font-size: 1rem;
+  min-width: 10px;
+  text-align: center;
+  letter-spacing: 0.5px;
+  margin-left:1093px;
+  top:-100px;
+}
+
+.submit-btn.footer:hover:not(:disabled) {
+  background: linear-gradient(135deg, #fcfbfb, #a93226);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px fff(231, 76, 60, 0.5);
+}
+
+.submit-btn.footer:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  background: #95a5a6;
+}
+
+/* Make submit button pulse to attract attention when visible */
+.submit-btn.footer:not(:disabled) {
+  animation: pulseFooterSubmit 2s infinite;
+}
+
+@keyframes pulseFooterSubmit {
+  0% {
+    box-shadow: 0 2px 6px fff(250, 248, 248, 0.3);
   }
-  
-  .header-left {
-    gap: 8px;
+
+  50% {
+    box-shadow: 0 2px 12px fff(231, 76, 60, 0.6);
   }
-  
-  .timer-section {
-    font-size: 0.9rem;
-    padding: 6px 10px;
-    min-width: 80px;
-  }
-  
-  .section-btn {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-    margin-right: 6px;
-    min-width: 70px;
-  }
-  
-  .fullscreen-btn {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-    min-width: 80px;
-  }
-  
-  .submit-btn {
-    padding: 8px 16px;
-    font-size: 0.9rem;
-    min-width: 100px;
-  }
-  
-  .main-content {
-    padding: 12px;
-    gap: 12px;
-  }
-  
-  .question-content {
-    padding: 12px;
-  }
-  
-  .question-text {
-    font-size: 1rem;
-    margin-bottom: 15px;
-  }
-  
-  .option-btn {
-    padding: 14px;
-    font-size: 0.95rem;
-  }
-  
-  .option-item {
-    padding: 10px;
-    gap: 8px;
-  }
-  
-  .option-text {
-    font-size: 0.9rem;
-  }
-  
-  .questions-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    padding: 10px 6px;
-    max-height: 180px;
-  }
-  
-  .question-circle {
-    width: 35px;
-    height: 35px;
-    font-size: 0.8rem;
-  }
-  
-  .right-sidebar {
-    padding: 12px;
-    max-height: 35vh;
-  }
-  
-  .submit-test-btn {
-    width: calc(100% - 20px);
-    margin: 10px 10px 6px 10px;
-    padding: 8px 14px;
-    font-size: 0.95rem;
-  }
-  
-  /* Coding section */
-  .coding-content {
-    padding: 12px;
-    gap: 12px;
-  }
-  
-  .problem-section {
-    padding: 12px;
-  }
-  
-  .problem-description {
-    font-size: 0.95rem;
-    margin-bottom: 15px;
-  }
-  
-  .example-item {
-    margin-bottom: 12px;
-    padding: 10px;
-  }
-  
-  .example-content {
-    font-size: 0.85rem;
-  }
-  
-  /* Action buttons */
-  .action-buttons {
-    padding: 12px;
-    gap: 8px;
-  }
-  
-  .run-btn, .submit-code-btn {
-    padding: 8px 16px;
-    font-size: 0.9rem;
-    min-width: 90px;
-  }
-  
-  /* Navigation buttons */
-  .nav-btn.prev.left-corner,
-  .nav-btn.next.save-next,
-  .submit-btn.small.right-corner {
-    padding: 10px 16px;
-    font-size: 0.9rem;
-    min-width: 90px;
-    bottom: 50px;
-  }
-  
-  .nav-btn.prev.left-corner {
-    left: 10px;
-  }
-  
-  .submit-btn.small.right-corner {
-    right: 10px;
-  }
-  
-  .watermark-text {
-    font-size: 6rem;
+
+  100% {
+    box-shadow: 0 2px 6px fff(231, 76, 60, 0.3);
   }
 }

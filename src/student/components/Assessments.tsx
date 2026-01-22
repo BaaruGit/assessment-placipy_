@@ -774,6 +774,31 @@ const Assessments: React.FC = () => {
                   </div>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Start Time</p>
+                    <p style={{ margin: 0, fontWeight: 500, fontSize: '14px' }}>
+                      {assessment.scheduling.startDate ? new Date(assessment.scheduling.startDate).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Not specified'}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>End Time</p>
+                    <p style={{ margin: 0, fontWeight: 500, fontSize: '14px' }}>
+                      {assessment.scheduling.endDate ? new Date(assessment.scheduling.endDate).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Not specified'}
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Department</p>
                   <p style={{ margin: 0, fontWeight: 500, fontSize: '14px' }}>

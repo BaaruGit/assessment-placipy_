@@ -177,12 +177,13 @@ const StudentDashboard: React.FC = () => {
         <nav className={`dashboard-sidebar ${sidebarOpen ? 'open' : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-header-content">
-              <button className="hamburger-menu inside" onClick={toggleSidebar}>
+              <button className="std_hamburger-menu inside" onClick={toggleSidebar}>
                 <span></span>
                 <span></span>
                 <span></span>
               </button>
               <h2 className="sidebar-title">Student Portal</h2>
+
             </div>
           </div>
           <ul className="sidebar-menu">
@@ -216,7 +217,7 @@ const StudentDashboard: React.FC = () => {
             <div className="dashboard-header-content">
               <div className="dashboard-header-left">
                 {!sidebarOpen && (
-                  <button className="hamburger-menu" onClick={toggleSidebar}>
+                  <button className="std_hamburger-menu" onClick={toggleSidebar}>
                     <span></span>
                     <span></span>
                     <span></span>
