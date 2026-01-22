@@ -89,7 +89,8 @@ const StudentAssessments: React.FC = () => {
         }));
         
         setAllAssessments(transformedAssessments);
-        setFilteredAssessments(transformedAssessments);
+        // Don't set filteredAssessments here - let the filter effect handle it
+        // setFilteredAssessments(transformedAssessments);
       } catch (err: any) {
         console.error('Error fetching data:', err);
         setError(err.message || 'Failed to fetch assessments');
@@ -103,6 +104,11 @@ const StudentAssessments: React.FC = () => {
 
   // Filter assessments based on tab and search term
   useEffect(() => {
+    // Don't filter if still loading or no assessments
+    if (loading || allAssessments.length === 0) {
+      return;
+    }
+
     const now = new Date();
     let filtered = allAssessments;
 
@@ -130,14 +136,26 @@ const StudentAssessments: React.FC = () => {
         break;
       case 'completed':
         filtered = filtered.filter(assessment => 
-          new Date(assessment.scheduling.endDate) < now || assessment.status === 'COMPLETED'
+          (new Date(assessment.scheduling.endDate) < now || 
+           assessment.status === 'COMPLETED' || 
+           assessment.status === 'ENDED') &&
+          !isAssessmentOlderThan5Days(assessment)
         );
         break;
     }
 
     setFilteredAssessments(filtered);
     setCurrentPage(1); // Reset to first page when filters change
-  }, [allAssessments, activeTab, searchTerm]);
+  }, [allAssessments, activeTab, searchTerm, loading]); // Add loading to ensure filter runs when loading completes
+
+  // Debug: Log assessment data to check scheduling
+  useEffect(() => {
+    if (filteredAssessments.length > 0) {
+      console.log('First assessment data:', filteredAssessments[0]);
+      console.log('First assessment scheduling:', filteredAssessments[0].scheduling);
+      console.log('First assessment end date:', filteredAssessments[0].scheduling?.endDate);
+    }
+  }, [filteredAssessments]);
 
   // Pagination logic
   const totalItems = filteredAssessments.length;
@@ -158,6 +176,14 @@ const StudentAssessments: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Helper function to check if assessment is older than 5 days
+  const isAssessmentOlderThan5Days = (assessment: Assessment) => {
+    const now = new Date();
+    const endDate = new Date(assessment.scheduling.endDate);
+    const daysDiff = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff > 5;
   };
 
   if (loading) {
@@ -243,7 +269,7 @@ const StudentAssessments: React.FC = () => {
                 
                 <div className="assessment-dates">
                   <p><strong>Starts:</strong> {formatDate(assessment.scheduling.startDate)}</p>
-                  <p><strong>Ends:</strong> {formatDate(assessment.scheduling.endDate)}</p>
+                  <p><strong>Ends:</strong> {formatDate(assessment.scheduling.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())}</p>
                 </div>
               </div>
               

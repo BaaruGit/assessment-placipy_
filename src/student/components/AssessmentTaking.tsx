@@ -80,6 +80,13 @@ interface AssessmentData {
 
 const AssessmentTaking: React.FC = () => {
   console.log('=== AssessmentTaking Component Rendered ===');
+
+  // Helper function to convert UTC date to Asia/Kolkata time
+  const convertToIndiaTime = (date: Date): Date => {
+    // India Standard Time is UTC+5:30
+    return new Date(date.getTime() + (date.getTimezoneOffset() * 60000) + (5.5 * 3600000));
+  };
+
   // Get assessmentId from URL params
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const navigate = useNavigate();
@@ -111,19 +118,65 @@ const AssessmentTaking: React.FC = () => {
   // State for tracking focus loss (replaces tab switch count)
   const [focusLossCount, setFocusLossCount] = useState<number>(0);
   // State for focus loss warnings
-  // Removed focus loss warning state variables as per requirement  const [focusLossWarningMessage, setFocusLossWarningMessage] = useState<string>('');
-  
+  const [showWarningModal, setShowWarningModal] = useState<boolean>(false);
+  const [warningMessage, setWarningMessage] = useState<string>('');
+
   // Updated handleTabChange function (no longer tracks tab switches)
   const handleTabChange = (newTab: 'mcq' | 'coding') => {
     // Simply change the active tab without counting as a focus loss
     setActiveTab(newTab);
   };
 
+  // Fullscreen toggle function
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      // Enter fullscreen mode
+      const element = document.documentElement;
+      if (element.requestFullscreen) {
+        element.requestFullscreen();
+      } else if ((element as any).webkitRequestFullscreen) {
+        (element as any).webkitRequestFullscreen();
+      } else if ((element as any).msRequestFullscreen) {
+        (element as any).msRequestFullscreen();
+      }
+      setIsFullscreen(true);
+    } else {
+      // Exit fullscreen mode
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      } else if ((document as any).msExitFullscreen) {
+        (document as any).msExitFullscreen();
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
 
 
   // State for timer
   const [timeLeft, setTimeLeft] = useState<number>(0); // Start with 0, will be set by assessment config
-  
+
 
   // State for MCQ section
   const [currentMCQIndex, setCurrentMCQIndex] = useState<number>(0);
@@ -148,27 +201,28 @@ const AssessmentTaking: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   // State for showing language selection alert
   const [showLanguageAlert, setShowLanguageAlert] = useState<boolean>(false);
- // State for showing submit button after 20 minutes (keeping for compatibility)
-const [showSubmitButton, setShowSubmitButton] = useState<boolean>(false);
+  // State for showing submit button after 20 minutes (keeping for compatibility)
+  const [showSubmitButton, setShowSubmitButton] = useState<boolean>(false);
 
-// State to track if 25% of assessment time has passed to enable submit button
-const [isSubmitEnabled, setIsSubmitEnabled] = useState<boolean>(false);
-  
+  // State for fullscreen mode
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // State for sidebar toggle
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+
+  // Submit button is now always enabled
+
   // Debug log for showSubmitButton state changes
   useEffect(() => {
     console.log('showSubmitButton state changed:', showSubmitButton);
   }, [showSubmitButton]);
 
-  // Debug log for isSubmitEnabled state changes
-useEffect(() => {
-  console.log('isSubmitEnabled state changed:', isSubmitEnabled);
-}, [isSubmitEnabled]);
-  
+
   // Debug log for timeLeft state changes
   useEffect(() => {
     console.log('timeLeft state changed:', timeLeft);
   }, [timeLeft]);
-  
+
   // Debug log for focusLossCount state changes
   useEffect(() => {
     console.log('focusLossCount state changed:', focusLossCount);
@@ -190,10 +244,11 @@ useEffect(() => {
   const codeEditorRef = useRef<HTMLTextAreaElement>(null);
   const autoRunTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasFetchedData = useRef(false); // To prevent multiple API calls
-  const isLeavingRef = useRef(false); // To track if user is leaving the page
+  const isLeavingRef = useRef<boolean>(false); // To track if user is leaving the page
   const hasFocusedRef = useRef<boolean>(false); // To track if user has focused on the page
   const isSubmittingRef = useRef<boolean>(false); // To track if we're submitting
   const focusListenersAttachedRef = useRef<boolean>(false); // To track if focus listeners are attached
+  const focusLossTimeoutRef = useRef<NodeJS.Timeout | null>(null); // To debounce focus loss events
 
   // Add new state for time validation
   const [isAssessmentStarted, setIsAssessmentStarted] = useState<boolean>(false);
@@ -217,153 +272,6 @@ useEffect(() => {
     return { mcqQuestions, codingChallenges };
   }, [assessmentData]);
 
-  // Handle focus loss event - removed warning flow
-  const handleFocusLoss = useCallback(() => {
-    console.log('=== Focus Loss Event Detected ===');
-    console.log('Current focusLossCount:', focusLossCount);
-    console.log('isSubmittingRef.current:', isSubmittingRef.current);
-    console.log('hasFocusedRef.current:', hasFocusedRef.current);
-    
-    // Don't count focus loss if we're already submitting
-    if (isSubmittingRef.current) {
-      console.log('Skipping focus loss - already submitting');
-      return;
-    }
-    
-    // Don't count focus loss if we haven't entered the assessment yet
-    if (!hasFocusedRef.current) {
-      console.log('Skipping focus loss - not focused yet');
-      return;
-    }
-
-    // Simply increment the focus loss count without showing warnings
-    const newCount = focusLossCount + 1;
-    console.log('New focus loss count:', newCount);
-    setFocusLossCount(newCount);
-    
-    console.log('=== End Focus Loss Event ===');
-  }, [focusLossCount]);
-
-  // Strict focus loss detection effect
-  useEffect(() => {
-    console.log('=== Focus Loss Detection Effect Mounted ===');
-    if (!assessmentData || submitted) {
-      console.log('Skipping focus loss detection - no assessment data or already submitted');
-      return;
-    }
-
-    // Prevent multiple attachments of event listeners
-    if (focusListenersAttachedRef.current) {
-      console.log('Focus listeners already attached, skipping');
-      return;
-    }
-
-    // Set initial focus state when user first interacts with the page
-    const setInitialFocus = () => {
-      console.log('=== Initial Focus Event ===');
-      if (!hasFocusedRef.current) {
-        console.log('Setting initial focus state to true');
-        hasFocusedRef.current = true;
-        // Remove these event listeners after initial focus is set
-        document.removeEventListener('mousedown', setInitialFocus);
-        document.removeEventListener('keydown', setInitialFocus);
-        document.removeEventListener('touchstart', setInitialFocus);
-      } else {
-        console.log('Initial focus already set');
-      }
-      console.log('=== End Initial Focus Event ===');
-    };
-
-    const handleVisibilityChange = () => {
-      console.log('=== Visibility Change ===');
-      console.log('Document visibility state:', document.visibilityState);
-      console.log('Has focused ref:', hasFocusedRef.current);
-      if (document.visibilityState === 'hidden' && hasFocusedRef.current) {
-        console.log('Tab switch detected - document hidden');
-        handleFocusLoss();
-      } else if (document.visibilityState === 'visible') {
-        console.log('Tab switch detected - document visible');
-      }
-      console.log('=== End Visibility Change ===');
-    };
-
-    const handleBlur = () => {
-      console.log('=== Blur Event ===');
-      console.log('Window blur detected, hasFocusedRef:', hasFocusedRef.current);
-      // Only count as focus loss if the page had focus previously
-      if (hasFocusedRef.current) {
-        console.log('Focus loss detected via blur');
-        handleFocusLoss();
-      }
-      console.log('=== End Blur Event ===');
-    };
-
-    const handleFocus = () => {
-      console.log('=== Focus Event ===');
-      console.log('Window focus detected, hasFocusedRef before:', hasFocusedRef.current);
-      // Set focus state when window gains focus
-      if (!hasFocusedRef.current) {
-        console.log('Setting focus state to true in handleFocus');
-        hasFocusedRef.current = true;
-      }
-      console.log('=== End Focus Event ===');
-    };
-
-    const handleBeforeUnload = () => {
-      console.log('=== Before Unload Event ===');
-      // Mark that we're submitting to prevent focus loss counting
-      isSubmittingRef.current = true;
-      console.log('=== End Before Unload Event ===');
-    };
-
-    // Initialize focus state to false - we'll set it to true when user first interacts
-    console.log('=== Initializing Focus State ===');
-    console.log('Initial document.visibilityState:', document.visibilityState);
-    // Note: hasFocusedRef.current is initialized as false and will be set to true when user interacts
-    console.log('hasFocusedRef.current initialized as:', hasFocusedRef.current);
-    
-    // But if the document is already visible, we can set focus state to true
-    if (document.visibilityState === 'visible') {
-      console.log('Document is visible, setting hasFocusedRef.current to true');
-      hasFocusedRef.current = true;
-    }
-    console.log('Final hasFocusedRef.current:', hasFocusedRef.current);
-    console.log('=== End Initializing Focus State ===');
-
-    // Add event listeners for initial focus detection
-    console.log('Adding initial focus event listeners');
-    document.addEventListener('mousedown', setInitialFocus);
-    document.addEventListener('keydown', setInitialFocus);
-    document.addEventListener('touchstart', setInitialFocus);
-    
-    // Add other event listeners
-    console.log('Adding focus tracking event listeners');
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    // Mark listeners as attached
-    focusListenersAttachedRef.current = true;
-
-    return () => {
-      console.log('=== Focus Loss Detection Effect Unmounting ===');
-      // Clean up event listeners
-      console.log('Cleaning up focus tracking event listeners');
-      document.removeEventListener('mousedown', setInitialFocus);
-      document.removeEventListener('keydown', setInitialFocus);
-      document.removeEventListener('touchstart', setInitialFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Mark listeners as detached
-      focusListenersAttachedRef.current = false;
-      console.log('Finished cleaning up event listeners');
-      console.log('=== Focus Loss Detection Effect Unmounted ===');
-    };
-  }, [assessmentData, submitted, handleFocusLoss]);
-
   // Handle submit
   const handleSubmit = useCallback(async () => {
     // Prevent double submission
@@ -371,11 +279,11 @@ useEffect(() => {
       console.log('Preventing double submission - already submitting or submitted');
       return;
     }
-    
+
     // Mark that we're submitting to prevent counting as leaving
     isLeavingRef.current = true;
     isSubmittingRef.current = true;
-    
+
     // Ensure we have valid assessment data
     if (!assessmentData || !assessmentId) {
       console.log('Cannot submit - no assessment data or ID');
@@ -430,7 +338,7 @@ useEffect(() => {
       }
 
       // Calculate MCQ answers in exact format
-      const mcqAnswersArray: Array<{ questionId: string; selected: string[]; isCorrect: boolean }> = [];      
+      const mcqAnswersArray: Array<{ questionId: string; selected: string[]; isCorrect: boolean }> = [];
       let mcqScore = 0;
       let mcqMaxScore = 0;
       let mcqCorrect = 0;
@@ -476,7 +384,7 @@ useEffect(() => {
       });
 
       // Calculate coding answers (simplified - assume all coding questions are attempted if code exists)
-      const codingAnswersArray: Array<{ questionId: string; selected: string[]; isCorrect: boolean }> = [];      
+      const codingAnswersArray: Array<{ questionId: string; selected: string[]; isCorrect: boolean }> = [];
       let codingScore = 0;
       let codingMaxScore = 0;
       let codingCorrect = 0;
@@ -558,7 +466,6 @@ useEffect(() => {
         return;
       }
 
-
       setSubmitted(true);
 
       console.log('Submitting assessment result...', resultData);
@@ -581,8 +488,6 @@ useEffect(() => {
         }
       });
 
-      // setIsAssessmentCompleted(true); // Commented out as setIsAssessmentCompleted is not defined
-
       // Clear persisted timer for this assessment now that it is completed
       try {
         if (assessmentData?.assessmentId) {
@@ -598,7 +503,7 @@ useEffect(() => {
       }
     } catch (error: unknown) {
       console.error('Error saving assessment result:', error);
-      
+
       setIsSubmitting(false);
       setSubmitted(false);
 
@@ -632,6 +537,298 @@ useEffect(() => {
     }
   }, [assessmentData, assessmentId, code, codingChallenges, isSubmitting, mcqAnswers, mcqQuestions, navigate, selectedLanguage, submitted, successfulExecutions, timeLeft, user]);
 
+  // Handle focus loss event with warning system
+  const handleFocusLoss = useCallback(() => {
+    console.log('=== Focus Loss Event Detected ===');
+    console.log('Current focusLossCount:', focusLossCount);
+    console.log('isSubmittingRef.current:', isSubmittingRef.current);
+    console.log('hasFocusedRef.current:', hasFocusedRef.current);
+
+    // Don't count focus loss if we're already submitting
+    if (isSubmittingRef.current) {
+      console.log('Skipping focus loss - already submitting');
+      return;
+    }
+
+    // Don't count focus loss if we haven't entered the assessment yet
+    if (!hasFocusedRef.current) {
+      console.log('Skipping focus loss - not focused yet');
+      return;
+    }
+
+    // Clear any existing timeout to prevent duplicate counting
+    if (focusLossTimeoutRef.current) {
+      clearTimeout(focusLossTimeoutRef.current);
+    }
+
+    // Use a timeout to debounce and ensure only one focus loss is counted per tab switch
+    focusLossTimeoutRef.current = setTimeout(() => {
+      // Increment the focus loss count
+      const newCount = focusLossCount + 1;
+      console.log('New focus loss count:', newCount);
+      setFocusLossCount(newCount);
+
+      // Show warning for first 4 times, auto-submit on 5th time
+      if (newCount <= 4) {
+        const remainingWarnings = 5 - newCount;
+        const message = `Warning! You have switched tabs ${newCount} time(s). ${remainingWarnings} more warning(s) remaining before auto-submission. Please stay on the assessment tab.`;
+        setWarningMessage(message);
+        setShowWarningModal(true);
+      } else if (newCount === 5) {
+        // Auto-submit on 5th focus loss
+        const message = 'You have switched tabs 5 times. Your assessment will be auto-submitted now.';
+        setWarningMessage(message);
+        setShowWarningModal(true);
+        
+        // Auto-submit after showing the message
+        setTimeout(() => {
+          handleSubmit();
+        }, 2000);
+      }
+
+      console.log('=== End Focus Loss Event ===');
+    }, 100); // 100ms debounce to prevent duplicate counting
+  }, [focusLossCount, handleSubmit]);
+
+  // Strict focus loss detection effect
+  useEffect(() => {
+    console.log('=== Focus Loss Detection Effect Mounted ===');
+    if (!assessmentData || submitted) {
+      console.log('Skipping focus loss detection - no assessment data or already submitted');
+      return;
+    }
+
+    // Prevent multiple attachments of event listeners
+    if (focusListenersAttachedRef.current) {
+      console.log('Focus listeners already attached, skipping');
+      return;
+    }
+
+    // Set initial focus state when user first interacts with the page
+    const setInitialFocus = () => {
+      console.log('=== Initial Focus Event ===');
+      if (!hasFocusedRef.current) {
+        console.log('Setting initial focus state to true');
+        hasFocusedRef.current = true;
+        // Remove these event listeners after initial focus is set
+        document.removeEventListener('mousedown', setInitialFocus);
+        document.removeEventListener('keydown', setInitialFocus);
+        document.removeEventListener('touchstart', setInitialFocus);
+      } else {
+        console.log('Initial focus already set');
+      }
+      console.log('=== End Initial Focus Event ===');
+    };
+
+    // Disable copy, and paste functionality (but allow right-click)
+    const handleCopy = (e: ClipboardEvent) => {
+      console.log('Copy prevented');
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return false;
+    };
+
+    const handlePaste = (e: ClipboardEvent) => {
+      console.log('Paste prevented');
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return false;
+    };
+
+    const handleCut = (e: ClipboardEvent) => {
+      console.log('Cut prevented');
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return false;
+    };
+
+    const handleSelectStart = (e: Event) => {
+      console.log('Select start prevented');
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    const handleDragStart = (e: DragEvent) => {
+      console.log('Drag start prevented');
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    // Disable keyboard shortcuts for copy, paste, cut, select all
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent Ctrl+A (select all)
+      if (e.ctrlKey && e.key === 'a') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Prevent Ctrl+C (copy)
+      if (e.ctrlKey && e.key === 'c') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Prevent Ctrl+V (paste)
+      if (e.ctrlKey && e.key === 'v') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Prevent Ctrl+X (cut)
+      if (e.ctrlKey && e.key === 'x') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Prevent Ctrl+U (view source)
+      if (e.ctrlKey && e.key === 'u') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Prevent F12 (developer tools)
+      if (e.key === 'F12') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Prevent Ctrl+Shift+I (developer tools)
+      if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Prevent Ctrl+Shift+J (developer tools)
+      if (e.ctrlKey && e.shiftKey && e.key === 'J') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Prevent Ctrl+Shift+C (developer tools)
+      if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      console.log('=== Visibility Change ===');
+      console.log('Document visibility state:', document.visibilityState);
+      console.log('Has focused ref:', hasFocusedRef.current);
+      if (document.visibilityState === 'hidden' && hasFocusedRef.current) {
+        console.log('Tab switch detected - document hidden');
+        handleFocusLoss();
+      } else if (document.visibilityState === 'visible') {
+        console.log('Tab switch detected - document visible');
+      }
+      console.log('=== End Visibility Change ===');
+    };
+
+    const handleBlur = () => {
+      console.log('=== Blur Event ===');
+      console.log('Window blur detected, hasFocusedRef:', hasFocusedRef.current);
+      // Only count as focus loss if the page had focus previously
+      if (hasFocusedRef.current) {
+        console.log('Focus loss detected via blur');
+        handleFocusLoss();
+      }
+      console.log('=== End Blur Event ===');
+    };
+
+    const handleFocus = () => {
+      console.log('=== Focus Event ===');
+      console.log('Window focus detected, hasFocusedRef before:', hasFocusedRef.current);
+      // Set focus state when window gains focus
+      if (!hasFocusedRef.current) {
+        console.log('Setting focus state to true in handleFocus');
+        hasFocusedRef.current = true;
+      }
+      console.log('=== End Focus Event ===');
+    };
+
+    const handleBeforeUnload = () => {
+      console.log('=== Before Unload Event ===');
+      // Mark that we're submitting to prevent focus loss counting
+      isSubmittingRef.current = true;
+      console.log('=== End Before Unload Event ===');
+    };
+
+    // Initialize focus state to false - we'll set it to true when user first interacts
+    console.log('=== Initializing Focus State ===');
+    console.log('Initial document.visibilityState:', document.visibilityState);
+    // Note: hasFocusedRef.current is initialized as false and will be set to true when user interacts
+    console.log('hasFocusedRef.current initialized as:', hasFocusedRef.current);
+
+    // But if the document is already visible, we can set focus state to true
+    if (document.visibilityState === 'visible') {
+      console.log('Document is visible, setting hasFocusedRef.current to true');
+      hasFocusedRef.current = true;
+    }
+    console.log('Final hasFocusedRef.current:', hasFocusedRef.current);
+    console.log('=== End Initializing Focus State ===');
+
+    // Add event listeners for initial focus detection
+    console.log('Adding initial focus event listeners');
+    document.addEventListener('mousedown', setInitialFocus);
+    document.addEventListener('keydown', setInitialFocus);
+    document.addEventListener('touchstart', setInitialFocus);
+
+    // Add copy/paste prevention event listeners (but allow right-click)
+    console.log('Adding copy/paste prevention event listeners');
+    document.addEventListener('copy', handleCopy);
+    document.addEventListener('paste', handlePaste);
+    document.addEventListener('cut', handleCut);
+    document.addEventListener('selectstart', handleSelectStart);
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Add other event listeners
+    console.log('Adding focus tracking event listeners');
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Mark listeners as attached
+    focusListenersAttachedRef.current = true;
+
+    return () => {
+      console.log('=== Focus Loss Detection Effect Unmounting ===');
+      // Clean up event listeners
+      console.log('Cleaning up focus tracking event listeners');
+      document.removeEventListener('mousedown', setInitialFocus);
+      document.removeEventListener('keydown', setInitialFocus);
+      document.removeEventListener('touchstart', setInitialFocus);
+      document.removeEventListener('copy', handleCopy);
+      document.removeEventListener('paste', handlePaste);
+      document.removeEventListener('cut', handleCut);
+      document.removeEventListener('selectstart', handleSelectStart);
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Clean up focus loss timeout
+      if (focusLossTimeoutRef.current) {
+        clearTimeout(focusLossTimeoutRef.current);
+      }
+      
+      // Mark listeners as detached
+      focusListenersAttachedRef.current = false;
+      console.log('Finished cleaning up event listeners');
+      console.log('=== Focus Loss Detection Effect Unmounted ===');
+    };
+  }, [assessmentData, submitted, handleFocusLoss]);
+
+  
   // Get current challenge safely
   const currentChallenge = codingChallenges[currentCodingIndex];
 
@@ -784,7 +981,7 @@ console.log("In a browser environment, this would render as HTML");
       if (currentChallenge.testCases && currentChallenge.testCases.length > 0) {
         // Run all test cases
         await runTestCases(currentCode);
-        
+
         // After running test cases, also run with example input if requested
         if (inputType !== 'test') {
           let input = '';
@@ -1077,7 +1274,7 @@ console.log("In a browser environment, this would render as HTML");
 
           // Handle nested assessment data structure from the service
           const assessmentSource = response.data.assessment || response.data;
-          
+
           // Set assessment data - ensure proper structure
           const assessmentDataFormatted = {
             ...response.data,
@@ -1098,7 +1295,7 @@ console.log("In a browser environment, this would render as HTML");
             },
             questions: assessmentSource.questions || response.data.questions || []
           };
-          
+
           // Log timezone information for debugging
           const startDate = new Date(assessmentDataFormatted.scheduling?.startDate);
           const endDate = new Date(assessmentDataFormatted.scheduling?.endDate);
@@ -1111,21 +1308,21 @@ console.log("In a browser environment, this would render as HTML");
             startDateIndia: convertToIndiaTime(startDate).toLocaleString('en-US'),
             endDateIndia: convertToIndiaTime(endDate).toLocaleString('en-US')
           });
-          
+
           console.log('Raw response data:', response.data);
           console.log('Formatted assessment data:', assessmentDataFormatted);
           console.log('Configuration duration:', assessmentDataFormatted.configuration?.duration);
           console.log('Calculated duration seconds:', (assessmentDataFormatted.configuration?.duration || 60) * 60);
-          
+
           setAssessmentData(assessmentDataFormatted);
-          
+
           // Set initial time from assessment configuration
           if (assessmentDataFormatted.configuration?.duration !== undefined && assessmentDataFormatted.configuration?.duration !== null) {
             const durationMinutes = assessmentDataFormatted.configuration.duration;
             const durationSeconds = durationMinutes * 60;
             console.log('Setting timeLeft from configuration duration:', durationMinutes, 'minutes =', durationSeconds, 'seconds');
             setTimeLeft(durationSeconds); // Convert minutes to seconds
-            
+
             // Also set the assessment as started if there's no scheduling (for backward compatibility)
             if (!assessmentDataFormatted.scheduling || !assessmentDataFormatted.scheduling.startDate) {
               setIsAssessmentStarted(true);
@@ -1134,13 +1331,13 @@ console.log("In a browser environment, this would render as HTML");
           } else {
             console.log('Setting default timeLeft: 3600 seconds (60 minutes)');
             setTimeLeft(3600); // Default to 60 minutes
-            
+
             // Also set the assessment as started if there's no scheduling (for backward compatibility)
             if (!assessmentDataFormatted.scheduling || !assessmentDataFormatted.scheduling.startDate) {
               setIsAssessmentStarted(true);
               console.log('Assessment started automatically with default time');
             }
-          }          
+          }
           setLoading(false);
         } else {
           throw new Error(response.message || 'Failed to fetch assessment data');
@@ -1193,7 +1390,7 @@ console.log("In a browser environment, this would render as HTML");
       setCode(prevCode => {
         const newCode = { ...prevCode };
         let hasChanges = false;
-        
+
         codingChallenges.forEach(challenge => {
           if (challenge.questionId && !newCode[challenge.questionId]) {
             newCode[challenge.questionId] = {};
@@ -1204,15 +1401,15 @@ console.log("In a browser environment, this would render as HTML");
             hasChanges = true;
           }
         });
-        
+
         // Only update state if there are new challenges to initialize
         return hasChanges ? newCode : prevCode; // Return new state if changes, otherwise previous
       });
-      
+
       setTestCaseResults(prevResults => {
         const newResults = { ...prevResults };
         let updated = false;
-        
+
         codingChallenges.forEach(challenge => {
           if (challenge.questionId && !newResults[challenge.questionId]) {
             // Initialize empty test case results
@@ -1220,7 +1417,7 @@ console.log("In a browser environment, this would render as HTML");
             updated = true;
           }
         });
-        
+
         return updated ? newResults : prevResults;
       });
     }
@@ -1256,7 +1453,7 @@ console.log("In a browser environment, this would render as HTML");
       timeLeft,
       serverTime: serverTime?.toISOString()
     });
-    
+
     // Only start timer if we have assessment data, assessment has started and hasn't ended
     if (!assessmentData || !isAssessmentStarted || isAssessmentEnded || submitted) {
       console.log('Not starting timer - no assessment data, not started, already ended, or already submitted');
@@ -1280,13 +1477,13 @@ console.log("In a browser environment, this would render as HTML");
     }
 
     console.log('Starting timer interval with timeLeft:', timeLeft);
-    
+
     // Clear any existing timer
     if (timerRef.current) {
       console.log('Clearing existing timer interval');
       clearInterval(timerRef.current);
     }
-    
+
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         // Handle invalid time values
@@ -1298,7 +1495,7 @@ console.log("In a browser environment, this would render as HTML");
           }
           return 0;
         }
-        
+
         // Persist timer state to localStorage
         if (assessmentData?.assessmentId) {
           try {
@@ -1312,7 +1509,7 @@ console.log("In a browser environment, this would render as HTML");
             console.error('Error persisting timer to localStorage:', e);
           }
         }
-        
+
         if (prev <= 1) {
           console.log('Timer reached zero');
           if (timerRef.current) {
@@ -1377,84 +1574,50 @@ console.log("In a browser environment, this would render as HTML");
     }
   }, [timeLeft]);
 
-// Add useEffect to show submit button after a percentage of the assessment time (for compatibility)
-useEffect(() => {
-  if (!assessmentData || loading) return;
-  
-  // Get assessment duration in seconds
-  const assessmentDuration = (assessmentData.configuration?.duration || 60) * 60;
-  
-  // Calculate when to show submit button based on assessment duration
-  // For shorter assessments, show button sooner (higher percentage)
-  // For longer assessments, show button later (lower percentage)
-  let showButtonAfterPercentage;
-  if (assessmentDuration <= 5 * 60) {  // 5 minutes or less
-    showButtonAfterPercentage = 0.66; // Show after 66% (e.g., 2 min for 3 min test)
-  } else if (assessmentDuration <= 30 * 60) {  // 30 minutes or less
-    showButtonAfterPercentage = 0.5; // Show after 50%
-  } else {  // Longer assessments
-    showButtonAfterPercentage = 0.33; // Show after 33% (e.g., 20 min for 60 min test)
-  }
-  
-  const showButtonAfterSeconds = Math.floor(assessmentDuration * showButtonAfterPercentage);
-  
-  console.log('Setting up submit button timer:', { 
-    assessmentDuration, 
-    showButtonAfterPercentage, 
-    showButtonAfterSeconds 
-  });
-  
-  // Show submit button after calculated time
-  const timer = setTimeout(() => {
-    console.log('Showing submit button after', showButtonAfterSeconds, 'seconds');
-    setShowSubmitButton(true);
-  }, showButtonAfterSeconds * 1000);
-  
-  // Don't clear the timer on component re-render - only clear when component unmounts
-  return () => {
-    console.log('Clearing submit button timer');
-    clearTimeout(timer);
-  };
-}, [assessmentData, loading]);
+  // Add useEffect to show submit button after a percentage of the assessment time (for compatibility)
+  useEffect(() => {
+    if (!assessmentData || loading) return;
 
-// Add useEffect to enable submit button after 25% of the assessment time
-useEffect(() => {
-  if (!assessmentData || loading) return;
-  
-  console.log('Setting up submit button enable timer based on 25% of assessment duration');
-  
-  // Get assessment duration in minutes
-  const assessmentDurationInMinutes = assessmentData.configuration?.duration || 60;
-  
-  // Calculate 25% of the assessment duration
-  const enableAfterPercentage = 0.25; // 25%
-  const enableAfterMinutes = assessmentDurationInMinutes * enableAfterPercentage;
-  const enableAfterMs = enableAfterMinutes * 60 * 1000; // Convert to milliseconds
-  
-  console.log('Submit button enable settings:', { 
-    assessmentDurationInMinutes, 
-    enableAfterPercentage, 
-    enableAfterMinutes,
-    enableAfterMs 
-  });
-  
-  // Enable submit button after calculated time (25% of assessment duration)
-  const timer = setTimeout(() => {
-    console.log('Enabling submit button after', enableAfterMinutes, 'minutes (25% of assessment)');
-    setIsSubmitEnabled(true);
-  }, enableAfterMs);
-  
-  // Clear the timer when component unmounts or assessment data changes
-  return () => {
-    console.log('Clearing submit button enable timer');
-    clearTimeout(timer);
-  };
-}, [assessmentData, loading]); // Include both dependencies
+    // Get assessment duration in seconds
+    const assessmentDuration = (assessmentData.configuration?.duration || 60) * 60;
+
+    // Calculate when to show submit button based on assessment duration
+    // For shorter assessments, show button sooner (higher percentage)
+    // For longer assessments, show button later (lower percentage)
+    let showButtonAfterPercentage;
+    if (assessmentDuration <= 5 * 60) {  // 5 minutes or less
+      showButtonAfterPercentage = 0.66; // Show after 66% (e.g., 2 min for 3 min test)
+    } else if (assessmentDuration <= 30 * 60) {  // 30 minutes or less
+      showButtonAfterPercentage = 0.5; // Show after 50%
+    } else {  // Longer assessments
+      showButtonAfterPercentage = 0.33; // Show after 33% (e.g., 20 min for 60 min test)
+    }
+
+    const showButtonAfterSeconds = Math.floor(assessmentDuration * showButtonAfterPercentage);
+
+    console.log('Setting up submit button timer:', {
+      assessmentDuration,
+      showButtonAfterPercentage,
+      showButtonAfterSeconds
+    });
+
+    // Show submit button after calculated time
+    const timer = setTimeout(() => {
+      console.log('Showing submit button after', showButtonAfterSeconds, 'seconds');
+      setShowSubmitButton(true);
+    }, showButtonAfterSeconds * 1000);
+
+    // Don't clear the timer on component re-render - only clear when component unmounts
+    return () => {
+      console.log('Clearing submit button timer');
+      clearTimeout(timer);
+    };
+  }, [assessmentData, loading]);
 
   // Add useEffect to handle assessment timing logic
   useEffect(() => {
     if (!assessmentData || loading) return;
-    
+
     // Check for persisted timer state
     let persistedTimeLeft = null;
     let persistedTimestamp = null;
@@ -1477,14 +1640,14 @@ useEffect(() => {
       } catch (e) {
         console.error('Error loading persisted timer state:', e);
       }
-    }    
-    const now = serverTime || new Date();    
+    }
+    const now = serverTime || new Date();
     // Handle scheduling if present
     if (assessmentData.scheduling) {
       // Parse dates - they're already in ISO format with timezone info
       const startDate = new Date(assessmentData.scheduling.startDate);
       const endDate = new Date(assessmentData.scheduling.endDate);
-      
+
       console.log('Assessment timing check:', {
         now: now.toISOString(),
         startDate: startDate.toISOString(),
@@ -1495,7 +1658,7 @@ useEffect(() => {
         hasStarted: now >= startDate,
         hasEnded: now >= endDate
       });
-      
+
       // If assessment hasn't started yet (with 1 second tolerance)
       if (now < new Date(startDate.getTime() - 1000)) {
         console.log('Assessment has not started yet');
@@ -1509,10 +1672,10 @@ useEffect(() => {
         setTimeLeft(0);
         return;
       }
-      
+
       // If assessment has ended
       if (now >= endDate) {
-        console.log('Assessment has ended');
+        console.log('Assessment has ended - showing ended state without auto-submit');
         if (!isAssessmentEnded) {
           setIsAssessmentEnded(true);
           setTimeLeft(0);
@@ -1520,24 +1683,18 @@ useEffect(() => {
             clearInterval(timerRef.current);
             timerRef.current = null;
           }
-          // Auto-submit if the assessment was started and not yet submitted, 
-          // or if the assessment has ended but was never marked as started (edge case)
-          if ((isAssessmentStarted && !submitted) || (!isAssessmentStarted && !submitted)) {
-            console.log('Auto-submitting assessment because time has ended');
-            handleSubmit();
-          } else {
-            console.log('Not auto-submitting - assessment already submitted');
-          }
+          // Do NOT auto-submit for ended assessments - they should only appear in completed tab
+          // Only auto-submit if timer runs out during an active assessment session
         }
         return;
       }
-      
+
       // Assessment should be active now (with 1 second tolerance)
       // Check if assessment has started and timer needs to be initialized
       if (!isAssessmentStarted && now >= new Date(startDate.getTime() - 1000)) {
         console.log('Starting assessment now');
         setIsAssessmentStarted(true);
-        
+
         // If we have a persisted timer state, use it adjusted for elapsed time
         if (persistedTimeLeft !== null && persistedTimestamp !== null) {
           // Calculate elapsed time since timer was persisted
@@ -1595,9 +1752,9 @@ useEffect(() => {
         }
       }
     }
-    
+
   }, [assessmentData, loading, isAssessmentStarted, isAssessmentEnded, serverTime, handleSubmit, submitted]);  // Dependencies kept for proper assessment timing
-  
+
   // Separate effect to handle timer initialization when assessment starts
   useEffect(() => {
     if (isAssessmentStarted && assessmentData && timeLeft === 0 && assessmentData.configuration?.duration && !submitted) {
@@ -1608,13 +1765,7 @@ useEffect(() => {
       setTimeLeft(durationSeconds);
     }
   }, [isAssessmentStarted, assessmentData, timeLeft, submitted]);
-  
-  // Helper function to convert UTC date to Asia/Kolkata time
-  const convertToIndiaTime = (date: Date): Date => {
-    // India Standard Time is UTC+5:30
-    return new Date(date.getTime() + (date.getTimezoneOffset() * 60000) + (5.5 * 3600000));
-  };
-  
+
   // Format time for display
   const formatTime = (seconds: number): string => {
     if (isNaN(seconds) || seconds < 0) {
@@ -1627,7 +1778,7 @@ useEffect(() => {
     console.log('Formatting time:', { seconds, mins, secs, formattedTime });
     return formattedTime;
   };
-  
+
   // Force re-render timer display every second to ensure it stays up to date
   const [, forceUpdate] = React.useState({});
   useEffect(() => {
@@ -1635,7 +1786,7 @@ useEffect(() => {
       // Force a re-render to update the timer display
       forceUpdate({});
     }, 1000);
-    
+
     return () => {
       clearInterval(timerDisplayInterval);
     };
@@ -1824,7 +1975,7 @@ useEffect(() => {
     // Parse dates - they're already in ISO format with timezone info
     const startDate = new Date(assessmentData.scheduling.startDate);
     const endDate = new Date(assessmentData.scheduling.endDate);
-    
+
     console.log('Timezone-aware date comparison:', {
       now: now.toISOString(),
       startDate: startDate.toISOString(),
@@ -1833,14 +1984,14 @@ useEffect(() => {
       startLocale: convertToIndiaTime(startDate).toLocaleString('en-US'),
       endLocale: convertToIndiaTime(endDate).toLocaleString('en-US')
     });
-    
+
     // If assessment hasn't started yet (with 1 second tolerance)
     if (now < new Date(startDate.getTime() - 1000)) {
       const timeUntilStart = Math.floor((startDate.getTime() - now.getTime()) / 1000);
       const hours = Math.floor(timeUntilStart / 3600);
       const minutes = Math.floor((timeUntilStart % 3600) / 60);
       const seconds = timeUntilStart % 60;
-      
+
       return (
         <div className="assessment-taking-container">
           <div className="info-container">
@@ -1851,21 +2002,13 @@ useEffect(() => {
         </div>
       );
     }
-    
+
     // If assessment has ended
     if (now >= endDate) {
-      // Auto-submit if the assessment was started and not yet submitted, 
-      // or if the assessment has ended but was never marked as started (edge case)
-      if ((isAssessmentStarted && !submitted) || (!isAssessmentStarted && !submitted)) {
-        console.log('Auto-submitting assessment in render section because time has ended');
-        handleSubmit();
-      } else {
-        console.log('Not auto-submitting in render section - assessment already submitted');
-      }
-      
+      console.log('Assessment has ended - showing ended state without auto-submit');
       return (
-        <div className="assessment-taking-container">
-          <div className="info-container">
+        <div className="st-assessment-taking-container">
+          <div className="st-info-container">
             <h2>Assessment Ended</h2>
             <p>This assessment ended on {convertToIndiaTime(endDate).toLocaleString('en-US')}.</p>
             <p>You can no longer take this assessment.</p>
@@ -1878,13 +2021,13 @@ useEffect(() => {
   // Render if no questions
   if (assessmentData && (!assessmentData.questions || assessmentData.questions.length === 0)) {
     return (
-      <div className="assessment-taking-container">
-        <div className="error-container">
+      <div className="st-assessment-taking-container">
+        <div className="st-error-container">
           <h2>No Questions Available</h2>
           <p>This assessment does not contain any questions yet.</p>
           <button
             onClick={() => window.location.reload()}
-            className="retry-button"
+            className="st-retry-button"
           >
             Retry
           </button>
@@ -1894,209 +2037,144 @@ useEffect(() => {
   }
 
   return (
-    <div className="assessment-taking">
-    
-      {/* Diagonal watermark background */}
-      <div className="diagonal-watermark"></div>
-      
-      {/* Header with logo, assessment title, timer, and buttons */}
-      <div className="assessment-header">
-        <div className="header-left">
-          <button className="hamburger-menu" onClick={() => {
-            // Dispatch an event to toggle sidebar in the parent component
-            window.dispatchEvent(new CustomEvent('toggleSidebar'));
-          }}>
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-          <div className="assessment-title">
-            {assessmentData ? formatAssessmentId(assessmentData.assessmentId) : 'Assessment'}
+    <div className="st-dashboard-content">
+      {/* Header */}
+      <div className="st-assessment-header">
+        <div className="st-header-left">
+          <div className="st-assessment-title">
+            {assessmentData ? assessmentData.title : 'Assessment'}
           </div>
         </div>
-        
-        <div className="header-center">
-          <div className="timer-section">
-            <span className={`timer ${timeLeft < 300 ? 'warning' : ''}`}>
-              Time Left: {formatTime(timeLeft)}
+
+        <div className="st-timer-section">
+          {timeLeft !== null && (
+            <span className={`st-timer ${timeLeft < 300 ? 'warning' : ''}`}>
+              {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
             </span>
-          </div>
+          )}
         </div>
-        
-      </div>
 
-      {/* Section buttons between header and tab container */}
-      <div className="header-section-buttons">
-        <button type="button" className={`section-btn ${activeTab === 'mcq' ? 'active' : ''}`} onClick={() => setActiveTab('mcq')}>Technical</button>
-        <button type="button" className={`section-btn ${activeTab === 'coding' ? 'active' : ''}`} onClick={() => setActiveTab('coding')}>Coding</button>
-      </div>
-
-      {/* Tab content */}
-      <div className="tab-content">
-        {activeTab === 'mcq' ? (
-          <div className="mcq-section">
-            <div className="mcq-header">
-              <div className="progress-indicator">
-                <span>Question {currentMCQIndex + 1} of {mcqQuestions.length}</span>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${((currentMCQIndex + 1) / mcqQuestions.length) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="main-content">
-              <div className="question-container">
-                <div className="question-content">
-                  <div className="question-text">
-                    {mcqQuestions[currentMCQIndex]?.question || ''}
-                  </div>
-
-                  <div className="options-container">
-                    {(mcqQuestions[currentMCQIndex]?.options ?? []).map((option: MCQOption | string, index: number) => {
-                      const questionId = mcqQuestions[currentMCQIndex]?.questionId;
-                      const isSelected = questionId ? mcqAnswers[questionId] === index : false;
-
-                      let optionClass = "option-item";
-                      if (isSelected) {
-                        optionClass += " selected";
-                      }
-
-                      const optionText = typeof option === 'string' ? option : (option?.text ?? '');
-
-                      return (
-                        <div
-                          key={typeof option === 'string' ? index : (option?.id ?? index)}
-                          className={optionClass}
-                          onClick={() => {
-                            if (!submitted && questionId) {
-                              handleMCQAnswerSelect(index);
-                            }
-                          }}
-                        >
-                          <div className={`radio-button ${isSelected ? 'selected' : ''}`}>
-                            {isSelected && <div className="radio-button-inner"></div>}
-                          </div>
-                          <span className="option-text">{optionText}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-              
-            </div>
-
-            <div className="bottom-navigation">
-              <button
-                className="clear-response-btn"
-                onClick={() => {
-                  // Clear the current response
-                  const questionId = mcqQuestions[currentMCQIndex]?.questionId;
-                  if (questionId) {
-                    setMcqAnswers(prev => {
-                      const newAnswers = {...prev};
-                      delete newAnswers[questionId];
-                      return newAnswers;
-                    });
-                  }
-                }}
-              >
-                Clear Response
-              </button>
-              
-              <button
-                className="nav-btn save-next"
-                onClick={() => handleMCQNavigation('next')}
-              >
-                Save & Next
-              </button>
-              
-              <button
-                className="submit-btn bottom"
-                onClick={handleSubmit}
-                disabled={isSubmitting || submitted || !isSubmitEnabled}
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Test'}
-              </button>
-            </div>
-
-
-          </div>
-        ) : (
-          <div className="coding-section">
-            <div className="coding-header">
-              <h2 className="challenge-title">{codingChallenges[currentCodingIndex]?.question || 'Coding Challenge'}</h2>
-            </div>
-
-            {/* Language selection alert */}
-            {showLanguageAlert && (
-              <>
-                <div 
-                  className="simple-alert-backdrop show" 
-                  onClick={() => setShowLanguageAlert(false)}
-                ></div>
-                <div className="simple-language-alert">
-                  <button 
-                    className="alert-close-btn" 
-                    onClick={() => setShowLanguageAlert(false)}
-                    aria-label="Close alert"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                  <div className="alert-message">
-                    Please select an option first before typing in the code editor.
-                  </div>
-                </div>
-              </>
+        <div className="st-header-controls">
+          <button
+            className="st-fullscreen-btn"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" /></svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>
             )}
+          </button>
+        </div>
+      </div>
 
-            <div className="coding-content">
-              {/* Left column - Problem description */}
-              <div className="problem-section">
-                <div className="problem-description">
-                  {codingChallenges[currentCodingIndex]?.question || 'No description available'}
+      {/* Section Tabs */}
+      <div className="st-header-section-buttons">
+        <button
+          className={`st-section-btn ${activeTab === 'mcq' ? 'active' : ''}`}
+          onClick={() => setActiveTab('mcq')}
+        >
+          Technical ({mcqQuestions.length})
+        </button>
+        <button
+          className={`st-section-btn ${activeTab === 'coding' ? 'active' : ''}`}
+          onClick={() => setActiveTab('coding')}
+        >
+          Coding ({codingChallenges.length})
+        </button>
+      </div>
+
+      {/* Main Content (Split View with Sidebar) */}
+      <div className="st-main-content">
+
+        {/* MCQ Section Content */}
+        {activeTab === 'mcq' && (
+          <div className="st-question-container">
+            <div className="st-question-content">
+              <div className="st-question-text">
+                <span style={{ color: '#6B7280', fontSize: '0.9rem', display: 'block', marginBottom: '8px' }}>
+                  Question {currentMCQIndex + 1} of {mcqQuestions.length}
+                </span>
+                {mcqQuestions[currentMCQIndex]?.question}
+              </div>
+
+              <div className="st-options-container">
+                {mcqQuestions[currentMCQIndex]?.options.map((option: MCQOption | string, index: number) => {
+                  const questionId = mcqQuestions[currentMCQIndex]?.questionId;
+                  const isSelected = questionId ? mcqAnswers[questionId] === index : false;
+
+                  return (
+                    <div
+                      key={index}
+                      className={`st-option-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => !submitted && questionId && handleMCQAnswerSelect(index)}
+                    >
+                      <div className="st-radio-button">
+                        {isSelected && <div className="st-radio-button-inner" />}
+                      </div>
+                      <span className="st-option-text">
+                        {typeof option === 'string' ? option : option.text}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Coding Section Content */}
+        {activeTab === 'coding' && (
+          <div className="st-coding-section">
+            {/* Left: Problem & Test Cases */}
+            <div className="st-problem-section">
+              <div className="st-coding-header">
+                <h2 className="st-challenge-title">
+                  {codingChallenges[currentCodingIndex]?.question || 'Coding Problem'}
+                </h2>
+              </div>
+
+                   <div className="st-coding-content-scrollable">
+                <div className="st-problem-description">
+                  {codingChallenges[currentCodingIndex]?.question}
                 </div>
 
-                {codingChallenges[currentCodingIndex]?.examples && codingChallenges[currentCodingIndex]?.examples?.length > 0 && (
-                  <div className="examples">
-                    <h3>Examples:</h3>
-                    {codingChallenges[currentCodingIndex]?.examples?.map((example, index) => (
-                      <div key={index} className="example-item">
-                        <div className="example-label">Example {index + 1}:</div>
-                        <div className="example-content">
-                          <strong>Input:</strong> {example.input}
-                          <br />
-                          <strong>Output:</strong> {example.output}
-                        </div>
-                      </div>
-                    ))}
+                    {codingChallenges[currentCodingIndex]?.examples && codingChallenges[currentCodingIndex].examples.length > 0 && (
+                  <div className="st-examples">
+                    <span className="st-example-label">Examples</span>
+                    {codingChallenges[currentCodingIndex].examples!.map((ex, idx) => (
+                      <div key={idx} className="st-example-item">
+                        <div style={{ marginBottom: '4px' }}><strong>Input:</strong> {ex.input}</div>
+                        <div><strong>Output:</strong> {ex.output}</div>
+                      </div>              ))}
                   </div>
                 )}
 
                 {/* Test Cases Section */}
                 {codingChallenges[currentCodingIndex]?.testCases && codingChallenges[currentCodingIndex]?.testCases.length > 0 && (
-                  <div className="test-cases-section">
-                    <h3>Test Cases:</h3>
-                    <div className="test-cases-container">
+                  <div className="st-test-cases-section">
+                    <span className="st-test-case-header">Test Cases</span>
+                    <div className="st-test-cases-container">
                       {codingChallenges[currentCodingIndex]?.testCases.map((testCase, index) => (
-                        <div key={index} className="test-case-item">
-                          <div className="test-case-header">
-                            <span className="test-case-number">Test Case {index + 1}</span>
+                        <div key={index} className="st-test-case-item">
+                          <div className="st-test-case-header">
+                            <span className="st-test-case-number">Test Case {index + 1}</span>
                           </div>
-                          <div className="test-case-content">
-                            <div className="test-case-input">
+                          <div className="st-test-case-content">
+                            {testCase.description && (
+                              <div className="st-test-case-description">
+                                <strong>Description:</strong>
+                                <pre className="st-test-case-preformatted">{testCase.description}</pre>
+                              </div>
+                            )}
+                            <div className="st-test-case-input">
                               <strong>Input:</strong>
-                              <pre className="test-case-preformatted">{testCase.input}</pre>
+                              <pre className="st-test-case-preformatted">{testCase.input}</pre>
                             </div>
-                            <div className="test-case-output">
+                            <div className="st-test-case-output">
                               <strong>Expected Output:</strong>
-                              <pre className="test-case-preformatted">{testCase.expectedOutput}</pre>
+                              <pre className="st-test-case-preformatted">{testCase.expectedOutput}</pre>
                             </div>
                           </div>
                         </div>
@@ -2104,210 +2182,312 @@ useEffect(() => {
                     </div>
                   </div>
                 )}
-
-                {/* Execution output section - moved to be below test cases */}
-                {(executionResult[codingChallenges[currentCodingIndex]?.questionId] || testCaseResults[codingChallenges[currentCodingIndex]?.questionId]) && (
-                  <div className="output-section test-cases-section">
-                    <div className="result-header">Execution Results</div>
-                    <div className="result-content">
-                      {/* Test Case Results - Show first */}
-                      {testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && (
-                        <div className="test-case-results">
-                          <h3>Test Case Results:</h3>
-                          <div className="test-summary">
-                            {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].filter(r => r.passed).length} / {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].length} test cases passed
-                          </div>
-                          {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].map((result, index) => (
-                            <div 
-                              key={index} 
-                              className={`test-case-result ${result.passed ? "test-case-passed" : "test-case-failed"}`}
-                            >
-                              <div className="test-case-header">
-                                <span className="test-case-number">
-                                  Test Case {index + 1}: {result.passed ? '✓ PASSED' : '✗ FAILED'}
-                                </span>
-                              </div>
-                              <div className="test-case-details">
-                                <div className="test-case-input">
-                                  <strong>Input:</strong>
-                                  <pre>{result.input}</pre>
-                                </div>
-                                <div className="test-case-expected">
-                                  <strong>Expected Output:</strong>
-                                  <pre>{result.expectedOutput}</pre>
-                                </div>
-                                <div className="test-case-actual">
-                                  <strong>Actual Output:</strong>
-                                  <pre>{result.actualOutput}</pre>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Compilation Errors */}
-                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output && (
-                        <div className="error-output">
-                          <strong>❌ Compilation Error:</strong>
-                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output}</pre>
-                        </div>
-                      )}
-                      
-                      {/* Runtime Errors */}
-                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr && (
-                        <div className="error-output">
-                          <strong>❌ Runtime Error:</strong>
-                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr}</pre>
-                        </div>
-                      )}
-                      
-                      {/* Example Output (when running with example input) */}
-                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput && (
-                        <div className="result-output">
-                          <strong>📤 Output:</strong>
-                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput}</pre>
-                        </div>
-                      )}
-                      
-                      {/* Standard Output (when no test cases) */}
-                      {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout && 
-                       !testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && 
-                       !executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput && (
-                        <div className="result-output">
-                          <strong>📤 Output:</strong>
-                          <pre>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout}</pre>
-                        </div>
-                      )}
-                      
-                      {/* Success Message */}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Right column - Code editor only */}
-              <div className="right-column">
-                <div className="editor-section">
-                  <div className="editor-header">
-                    <div>Code Editor</div>
-                    <select 
-                      className="language-selector"
-                      value={selectedLanguage}
-                      onChange={(e) => setSelectedLanguage(e.target.value)}
-                      disabled={isLoading}
-                    >
-                      {languages.map(lang => (
-                        <option key={lang.id} value={lang.id}>
-                          {lang.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button 
-                      className="control-btn run-btn"
-                      onClick={() => runCode('custom')}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Running...' : 'Run Code'}
-                    </button>
-                  </div>
-                  <textarea
-                    ref={codeEditorRef}
-                    className="code-editor"
-                    value={code[codingChallenges[currentCodingIndex]?.questionId]?.[selectedLanguage] || ''}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleCodeChange(e.target.value)}
-                    onPaste={() => {
-                      // Handle paste event to ensure proper scrolling
-                      setTimeout(() => {
-                        if (codeEditorRef.current) {
-                          codeEditorRef.current.scrollTop = codeEditorRef.current.scrollHeight;
-                        }
-                      }, 10);
-                    }}
-                    onKeyDown={(e) => {
-                      // Handle tab key for better code editing experience
-                      if (e.key === 'Tab') {
-                        e.preventDefault();
-                        const { selectionStart, selectionEnd } = e.target as HTMLTextAreaElement;
-                        const newValue =
-                          code[codingChallenges[currentCodingIndex]?.questionId]?.[selectedLanguage].substring(0, selectionStart) +
-                          '    ' +
-                          code[codingChallenges[currentCodingIndex]?.questionId]?.[selectedLanguage].substring(selectionEnd);
-
-                        handleCodeChange(newValue);
-
-                        // Move cursor to after the inserted spaces
-                        setTimeout(() => {
-                          if (codeEditorRef.current) {
-                            codeEditorRef.current.selectionStart = selectionStart + 4;
-                            codeEditorRef.current.selectionEnd = selectionStart + 4;
-                          }
-                        }, 10);
-                      }
-                    }}
-                    placeholder={selectedLanguage === 'java'
-                      ? `Write your Java code here...
-Example:
-public class Main {
-    public static void main(String[] args) {
-        // Your code here
-    }
-}`
-                      : selectedLanguage === 'python'
-                        ? `Write your Python code here...
-Example:
-print("Hello, World!")`
-                        : selectedLanguage === 'cpp'
-                          ? `Write your C++ code here...
-Example:
-#include <iostream>
-using namespace std;
-
-int main() {
-    cout << "Hello, World!" << endl;
-    return 0;
-}`
-                          : `Write your ${languages.find(l => l.id === selectedLanguage)?.name} code here...`}
-                  />
-
-                </div>
               </div>
             </div>
 
-            {/* Navigation buttons container - like a header */}
-            <div className="navigation-container">
-              <div className="navigation-buttons">
-                <button
-                  className="nav-btn prev"
-                  onClick={() => handleCodingNavigation('prev')}
-                  disabled={currentCodingIndex === 0}
-                >
-                  Previous Challenge
-                </button>
+            {/* Right: Editor & Output */}
+            <div className="st-right-column">
+              <div className="st-editor-section">
+                <div className="st-editor-header">
+                  <div style={{ color: '#9CA3AF', fontSize: '0.85rem' }}>main.{selectedLanguage === 'python' ? 'py' : selectedLanguage === 'java' ? 'java' : selectedLanguage === 'cpp' ? 'cpp' : 'js'}</div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <select
+                      className="st-language-selector"
+                      value={selectedLanguage}
+                      onChange={(e) => setSelectedLanguage(e.target.value)}
+                    >
+                      {languages.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                    <button className="st-run-btn" style={{ padding: '4px 12px', minWidth: 'auto', fontSize: '0.85rem' }} onClick={() => runCode('custom')} disabled={isLoading}>
+                      {isLoading ? 'Running...' : 'Run'}
+                    </button>
+                    <button className="st-run-btn" style={{ padding: '4px 12px', minWidth: 'auto', fontSize: '0.85rem', background: '#10B981' }} onClick={() => runCode('test')} disabled={isLoading}>
+                      Submit Code
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  ref={codeEditorRef}
+                  className="st-code-editor"
+                  value={code[codingChallenges[currentCodingIndex]?.questionId]?.[selectedLanguage] || ''}
+                  onChange={(e) => handleCodeChange(e.target.value)}
+                  spellCheck={false}
+                />
+                
+                {/* Language Selection Alert */}
+                {showLanguageAlert && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    background: '#EF4444',
+                    color: 'white',
+                    padding: '12px 16px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    zIndex: 1000,
+                    animation: 'slideIn 0.3s ease-out'
+                  }}>
+                    ⚠️ Please select a programming language before editing the code
+                  </div>
+                )}
+              </div>
 
-                                {/* Small submit button that is always visible but only enabled after 25% of assessment time */}
-                <button
-                  className="submit-btn small"
-                  onClick={handleSubmit}
-                  disabled={!isSubmitEnabled || isSubmitting || submitted}
-                >
-                  Submit
-                </button>
+              {/* Execution Output */}
+              <div className="st-output-section">
+                <div className="st-result-header">Console / Output</div>
+                <div className="st-result-content">
+                  {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output && (
+                    <div style={{ color: '#EF4444', marginBottom: '10px' }}>
+                      <strong>Compilation Error:</strong>
+                      <pre style={{ background: 'transparent', padding: 0, color: '#FCA5A5' }}>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output}</pre>
+                    </div>
+                  )}
+                  {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr && (
+                    <div style={{ color: '#EF4444', marginBottom: '10px' }}>
+                      <strong>Runtime Error:</strong>
+                      <pre style={{ background: 'transparent', padding: 0, color: '#FCA5A5' }}>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr}</pre>
+                    </div>
+                  )}
 
-                <button
-                  className="nav-btn next"
-                  onClick={() => handleCodingNavigation('next')}
-                  disabled={currentCodingIndex === codingChallenges.length - 1}
-                >
-                  Next Challenge
-                </button>
+                  {testCaseResults[codingChallenges[currentCodingIndex]?.questionId] && (
+                    <div>
+                      <div style={{ marginBottom: '8px', color: '#10B981' }}>
+                        {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].filter(t => t.passed).length} / {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].length} Tests Passed
+                      </div>
+                      {testCaseResults[codingChallenges[currentCodingIndex]?.questionId].map((res, i) => (
+                        <div key={i} style={{ marginBottom: '8px', padding: '8px', background: '#252526', borderRadius: '4px', borderLeft: res.passed ? '3px solid #10B981' : '3px solid #EF4444' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#E5E7EB' }}>Test {i + 1}</span>
+                            <span style={{ color: res.passed ? '#10B981' : '#EF4444' }}>{res.passed ? 'PASS' : 'FAIL'}</span>
+                          </div>
+                          <div style={{ marginTop: '4px', fontSize: '0.8rem', color: '#9CA3AF' }}>
+                            <div><strong>Input:</strong> {res.input}</div>
+                            <div><strong>Expected:</strong> {res.expectedOutput}</div>
+                            <div><strong>Actual:</strong> {res.actualOutput}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput && (
+                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #333' }}>
+                      <strong style={{ display: 'block', marginBottom: '8px', color: '#E5E7EB' }}>Output:</strong>
+                      <pre style={{ background: 'transparent', padding: 0 }}>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput}</pre>
+                    </div>
+                  )}
+
+                  {executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout &&
+                    !testCaseResults[codingChallenges[currentCodingIndex]?.questionId] &&
+                    !executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput && (
+                      <pre style={{ background: 'transparent', padding: 0 }}>{executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout}</pre>
+                    )}
+
+                  {!executionResult[codingChallenges[currentCodingIndex]?.questionId]?.compile_output &&
+                    !executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stderr &&
+                    !testCaseResults[codingChallenges[currentCodingIndex]?.questionId] &&
+                    !executionResult[codingChallenges[currentCodingIndex]?.questionId]?.exampleOutput &&
+                    !executionResult[codingChallenges[currentCodingIndex]?.questionId]?.stdout && (
+                      <div style={{ color: '#6B7280', fontStyle: 'italic' }}>Run code to see output...</div>
+                    )}
+                </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Question Palette Sidebar */}
+        <div className={`st-sidebar-wrapper ${!isSidebarOpen ? 'closed' : ''}`} style={{ position: 'relative' }}>
+          <button
+            className="st-sidebar-toggle-btn"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          >
+            {isSidebarOpen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            )}
+          </button>
+
+          <div className="st-sidebar-header-content">
+            <div className="st-sidebar-assessment-title">Question Palette</div>
+            <div className="st-sidebar-section-info">
+              {activeTab === 'mcq' ? 'Technical Section' : 'Coding Section'}
+            </div>
+          </div>
+          <div className="st-questions-grid">
+            {activeTab === 'mcq' ? (
+              mcqQuestions.map((q, idx) => {
+                const isAnswered = mcqAnswers[q.questionId] !== undefined;
+                const isCurrent = currentMCQIndex === idx;
+                return (
+                  <div
+                    key={q.questionId}
+                    className={`st-question-circle ${isAnswered ? 'answered' : ''} ${isCurrent ? 'current' : ''}`}
+                    onClick={() => setCurrentMCQIndex(idx)}
+                  >
+                    {idx + 1}
+                  </div>
+                );
+              })
+            ) : (
+              codingChallenges.map((q, idx) => {
+                const hasCode = (code[q.questionId]?.[selectedLanguage] || '').length > 0;
+                const isCurrent = currentCodingIndex === idx;
+                return (
+                  <div
+                    key={q.questionId}
+                    className={`st-question-circle ${hasCode ? 'answered' : ''} ${isCurrent ? 'current' : ''}`}
+                    onClick={() => setCurrentCodingIndex(idx)}
+                  >
+                    {idx + 1}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Focus Loss Warning Modal - removed as per requirement */}
+      {/* Footer Navigation */}
+      <div className="st-navigation-container">
+        <div className="st-navigation-buttons">
+          {activeTab === 'mcq' ? (
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                className="st-nav-btn prev"
+                onClick={() => setCurrentMCQIndex(prev => Math.max(0, prev - 1))}
+                disabled={currentMCQIndex === 0}
+              >
+                Previous
+              </button>
+              <button
+                className="st-clear-response-btn"
+                onClick={() => {
+                  const qId = mcqQuestions[currentMCQIndex]?.questionId;
+                  if (qId) {
+                    const newAns = { ...mcqAnswers };
+                    delete newAns[qId];
+                    setMcqAnswers(newAns);
+                  }
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <button
+              className="st-nav-btn prev"
+              onClick={() => setCurrentCodingIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentCodingIndex === 0}
+            >
+              Previous
+            </button>
+          )}
+
+          {activeTab === 'mcq' ? (
+            <button
+              className="st-nav-btn next"
+              onClick={() => setCurrentMCQIndex(prev => Math.min(mcqQuestions.length - 1, prev + 1))}
+              disabled={currentMCQIndex === mcqQuestions.length - 1}
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              className="st-nav-btn next"
+              onClick={() => setCurrentCodingIndex(prev => Math.min(codingChallenges.length - 1, prev + 1))}
+              disabled={currentCodingIndex === codingChallenges.length - 1}
+            >
+              Next
+            </button>
+          )}
+
+          <button
+            className="st-submit-btn small"
+            onClick={handleSubmit}
+            disabled={isSubmitting || submitted}
+          >
+            {isSubmitting ? 'Submitting...' : 'Finish Test'}
+          </button>
+        </div>
+      </div>
+
+       {/* Warning Modal for Tab Switching */}
+      {showWarningModal && (
+      <div style={{
+          position: 'fixed',
+         top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+           borderRadius: '8px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              marginBottom: '16px',
+            color: '#F59E0B'
+            }}>
+              ⚠️
+            </div>
+            <h3 style={{
+              margin: '0 0 16px 0',
+              color: '#1F2937',
+              fontSize: '18px',
+              fontWeight: '600'
+            }}>
+              Tab Switching Detected
+            </h3>
+            <p style={{
+              margin: '0 0 24px 0',
+              color: '#6B7280',
+              fontSize: '14px',
+              lineHeight: '1.5'
+            }}>
+              {warningMessage}
+            </p>
+            <button
+              onClick={() => setShowWarningModal(false)}
+              style={{
+                backgroundColor: '#3B82F6',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => {
+              //  e.currentTarget.style.backgroundColor = '#2563EB';
+              }}
+              onMouseOut={(e) => {
+              //  e.currentTarget.style.backgroundColor = '#3B82F6';
+              }}
+            >
+              I Understand
+            </button>
+        </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -177,12 +177,13 @@ const StudentDashboard: React.FC = () => {
         <nav className={`dashboard-sidebar ${sidebarOpen ? 'open' : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-header-content">
-              <button className="hamburger-menu inside" onClick={toggleSidebar}>
+              <button className="std_hamburger-menu inside" onClick={toggleSidebar}>
                 <span></span>
                 <span></span>
                 <span></span>
               </button>
               <h2 className="sidebar-title">Student Portal</h2>
+
             </div>
           </div>
           <ul className="sidebar-menu">
@@ -216,7 +217,7 @@ const StudentDashboard: React.FC = () => {
             <div className="dashboard-header-content">
               <div className="dashboard-header-left">
                 {!sidebarOpen && (
-                  <button className="hamburger-menu" onClick={toggleSidebar}>
+                  <button className="std_hamburger-menu" onClick={toggleSidebar}>
                     <span></span>
                     <span></span>
                     <span></span>
@@ -227,7 +228,7 @@ const StudentDashboard: React.FC = () => {
                 </h1>
               </div>
               <div className="user-info">
-                <NotificationBell />
+                {!isAssessmentActive && <NotificationBell />}
                 <Link to="/student/profile" className="profile-btn" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
                   <div className="user-avatar-first-letter">
                     {user?.name ? user.name.charAt(0).toUpperCase() : 'S'}
@@ -257,7 +258,7 @@ const StudentDashboard: React.FC = () => {
         </div>
       </main>
 
-      {activePopup && (
+      {!isAssessmentActive && activePopup && (
         <NotificationPopup
           notification={activePopup}
           onClose={() => setActivePopup(null)}

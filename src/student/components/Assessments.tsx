@@ -66,6 +66,14 @@ const Assessments: React.FC = () => {
   
   const PAGE_SIZE = 8; // Define page size for pagination
 
+  // Helper function to check if assessment is older than 5 days
+  const isAssessmentOlderThan5Days = (assessment: Assessment) => {
+    const now = new Date();
+    const endDate = new Date(assessment.scheduling.endDate);
+    const daysDiff = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff > 5;
+  };
+
   // Fetch real assessments from the backend and check for attempts
   useEffect(() => {
     const fetchAssessments = async () => {
@@ -153,28 +161,39 @@ const Assessments: React.FC = () => {
   // Filter assessments based on active filter
   const filteredAssessments = activeFilter === 'all'
     ? allAssessments.filter(assessment => {
-        // Only include non-completed assessments in "all" filter
+        // Only include non-completed and non-ended assessments in "all" filter
         const isAttempted = attemptedAssessments.has(assessment.assessmentId);
-        return !isAttempted;
+        
+        // Check if assessment has ended based on date
+        const now = new Date();
+        const endDate = new Date(assessment.scheduling.endDate);
+        const hasEnded = now > endDate;
+        
+        return !isAttempted && !hasEnded;
       })
     : activeFilter === 'completed'
     ? allAssessments.filter(assessment => {
         const isAttempted = attemptedAssessments.has(assessment.assessmentId);
         if (!isAttempted) return false; // Only include completed assessments
         
-        // Check if they were completed within the last 10 days
+        // Check if they were completed within last 5 days (auto-delete after 5 days)
         const completionDate = attemptedAssessments.get(assessment.assessmentId)!;
         const daysSinceCompletion = (Date.now() - completionDate.getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceCompletion <= 10; // Only include completed assessments within last 10 days
+        return daysSinceCompletion <= 5; // Only include completed assessments within last 5 days
       })
     : allAssessments.filter(assessment => {
         const matchesCategory = assessment.category.map(cat => cat.toLowerCase()).includes(activeFilter);
         const isAttempted = attemptedAssessments.has(assessment.assessmentId);
         
+        // Check if assessment has ended based on date
+        const now = new Date();
+        const endDate = new Date(assessment.scheduling.endDate);
+        const hasEnded = now > endDate;
+        
         if (!matchesCategory) return false; // Must match category
         
-        // For subject filters, exclude completed assessments
-        if (isAttempted) return false;
+        // For subject filters, exclude completed and ended assessments
+        if (isAttempted || hasEnded) return false;
         
         return matchesCategory;
       });
@@ -770,6 +789,31 @@ const Assessments: React.FC = () => {
                     <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Duration</p>
                     <p style={{ margin: 0, fontWeight: 500 }}>
                       {assessment.configuration.duration || 60} mins
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>Start Time</p>
+                    <p style={{ margin: 0, fontWeight: 500, fontSize: '14px' }}>
+                      {assessment.scheduling.startDate ? new Date(assessment.scheduling.startDate).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Not specified'}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ margin: '0 0 4px 0', color: '#6B7280', fontSize: '12px' }}>End Time</p>
+                    <p style={{ margin: 0, fontWeight: 500, fontSize: '14px' }}>
+                      {assessment.scheduling.endDate ? new Date(assessment.scheduling.endDate).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Not specified'}
                     </p>
                   </div>
                 </div>

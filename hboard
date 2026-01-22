@@ -1,0 +1,236 @@
+[33m2202d11[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Delete mcq-answer-checking-guide.md
+[33m6284e11[m Delete temp_css_content.txt
+[33m7641c10[m Delete modified_css_content.txt
+[33m7b3910a[m Student Assessment Resolve Conflits
+[33m1f058e2[m Merge pull request #63 from Kavinhbn/main_2
+[33m351d817[m changes
+[33m68497c4[m merged
+[33m0888540[m Merge pull request #62 from BaaruGit/main
+[33mf768afb[m Issue in CSS
+[33m5a80da6[m  UI changes
+[33m10c3a8b[m Resolve merge conflict
+[33mcc223d5[m UI and Analytics
+[33m0d27504[m Merge pull request #61 from NaganandhiniNagendran/main
+[33mbb4db0b[m UI
+[33m4c78b81[m resolve conflits
+[33m1536800[m Merge pull request #60 from Gopinath2404/main
+[33m39b033b[m next update
+[33m09f8181[m removed env
+[33m66c5c8c[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33m63e51bf[m Merge pull request #59 from NaganandhiniNagendran/main
+[33m9befebd[m delete temp file
+[33m3012042[m Delete backend/scripts/check-assessments.js
+[33mbd9f534[m remove default
+[33m9f97886[m Remove backup and temporary files
+[33m93a759f[m department filter module
+[33m7f74bd6[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33m9dccc1f[m env
+[33mb38d2f3[m  UI stuffs
+[33m39a544d[m Merge pull request #56 from MonalprathapS/MonalprathapS-patch-2
+[33m1b62755[m Merge pull request #57 from MonalprathapS/MonalprathapS-patch-1
+[33m1e63104[m Update .env
+[33m360f34b[m revert .env
+[33m8d374e9[m revert auth.service.ts
+[33mb6affa4[m Update auth.service.ts
+[33m758ed45[m reverted .env
+[33m452626f[m revert vite.config.ts
+[33ma2989cf[m revert app.ts
+[33m6291b61[m updated ui
+[33me0bff3d[m updated ui
+[33m4eb16de[m changes
+[33m7584aa6[m Kept upstream version for all conflicts
+[33mcef408b[m changes
+[33md9d8919[m Merge pull request #54 from BaaruGit/main
+[33meea5b6e[m env changes
+[33mba29706[m Fetching issue fixed
+[33m74db55b[m Merge pull request #52 from Kavinhbn/main
+[33me14916b[m fix -pck
+[33m7cc63a3[m lock
+[33ma993f9a[m Merge pull request #51 from Kavinhbn/main
+[33mee62ba4[m Merge branch 'main' into main
+[33m3cb68be[m redirection.
+[33maf97c96[m toml 2
+[33m25929e1[m toml
+[33mbcbfee0[m target-url
+[33m9b5bfe0[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33mf119474[m endpoint of notification
+[33mf569126[m - Replace hardcoded 'http://localhost:3000' with process.env.VITE_API_URL - Update proxy configuration in vite.config.ts accordingly - Maintain changeOrigin, secure, and ws settings unchanged - Add a separating blank line after imports for code clarity
+[33mad0585e[m Merge branch 'main' of https://github.com/Kavinhbn/assessment-placipy
+[33m2b67775[m hello
+[33m59e5fee[m Update VITE_URL to production environment
+[33m831a82e[m - Add CLIENT_URL variable to backend .env configuration - Update CORS middleware to use CLIENT_URL from environment variables - Add @e965/xlsx package dependency to backend package.json and package-lock.json
+[33m02528c3[m update Vite and TypeScript ESLint dependencies to latest versions
+[33mb1baddc[m - Added @rollup/rollup-linux-x64-gnu version 4.24.0 for Linux support - Added @rollup/rollup-win32-x64-msvc version 4.24.0 for Windows support
+[33me29a542[m Merge branch 'main' of https://github.com/Kavinhbn/assessment-placipy
+[33me797c43[m switch to cross-env for setting NODE_ENV in dev script
+[33mff7b062[m Update scoreDistributionData type in Reports.tsx
+[33mfa10256[m Disable unused locals and parameters checks
+[33m75e2f1f[m Remove unused ResultsService import
+[33me5e5491[m Remove unnecessary Rollup dependency
+[33m5e7119e[m Merge pull request #50 from Kavinhbn/main
+[33m0586519[m chore(deps): replace xlsx with @e965/xlsx and update related imports
+[33mb8cfd99[m Notification system refactor, removed old cron/service, added new hooks and utils
+[33mb59fea8[m Merge pull request #49 from NaganandhiniNagendran/main
+[33m5ac8948[m Merge branch 'Praskla-Technology:main' into main
+[33m61d58ef[m submit button
+[33m106f14d[m Merge pull request #48 from Dharan10/main
+[33m8ae4f94[m ret: removed the unwanted cvs's
+[33mdc4e08e[m feat: admin profile completed
+[33m39d9068[m Merge pull request #47 from NaganandhiniNagendran/main
+[33mfab2b0c[m remove the test file
+[33m69db07d[m notification
+[33m8b3a71c[m Merge branch 'Praskla-Technology:main' into main
+[33mce8fb61[m Merge pull request #45 from MonalprathapS/main
+[33m5ef9aba[m Merge branch 'main' of https://github.com/NaganandhiniNagendran/assessment-placipy
+[33m837a18d[m result and report
+[33mcb36b39[m bugs fixed
+[33mf40e925[m Merge branch 'Praskla-Technology:main' into main
+[33mcf8d9b6[m changes
+[33m03d3a65[m Merge pull request #44 from NaganandhiniNagendran/main
+[33m9181f29[m defalut password showup
+[33macfa236[m set timer and assessment schudle
+[33mdc821f2[m Merge pull request #42 from NaganandhiniNagendran/main
+[33m3706ce4[m assessment UI and filter in the assessment
+[33mdfd84a9[m Merge pull request #40 from Gopinath2404/main
+[33mf8fe1ed[m Merge branch 'Praskla-Technology:main' into main
+[33m1af0f7e[m Updated assessment, notification, timer reminder features
+[33m2bbfe30[m Updated assessment, notification, timer reminder features
+[33mb058c61[m Merge pull request #39 from MonalprathapS/main
+[33mfdb03f6[m updated students section
+[33m035e871[m Merge pull request #38 from BaaruGit/main
+[33m451346b[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33m9ab87be[m Student Analytics
+[33mbc96e0c[m Merge pull request #37 from BaaruGit/main
+[33m10183ae[m Domain Issue Resolved
+[33md1496ed[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33m7608c08[m Issue Resolving
+[33mdc4ec01[m Merge pull request #36 from Gopinath2404/main
+[33ma5589f0[m Merge branch 'main' from origin with local changes
+[33m393e0a3[m Updated report and result
+[33ma75ec4e[m Merge pull request #35 from NaganandhiniNagendran/main
+[33m22a3904[m remove the scan
+[33m93fba81[m remove default
+[33m544df87[m Merge branch 'Praskla-Technology:main' into main
+[33mb34606c[m student Assessment
+[33m2edf679[m student Assessment
+[33m305b79f[m Merge pull request #34 from Kavinhbn/main
+[33med44aac[m fix(auth): remove default 'us-east-1' fallback for Cognito region configuration
+[33m594b6f0[m Update styles for login button in Login.css
+[33m7bd7370[m Merge resolved
+[33m673f459[m Local changes
+[33m3054c3e[m Merge pull request #32 from MonalprathapS/main
+[33m22d6472[m  updated assessment management
+[33m63b7f97[m your message here
+[33m68c7fde[m Enhance assessment routes with new features and optimizations
+[33mc7fd6c4[m Refactor AssessmentService for PK/SK structure
+[33m1ce4ce8[m Merge pull request #31 from BaaruGit/main
+[33m9b72d34[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33m9f64d5a[m Assessment Creation
+[33md4c7538[m Merge pull request #30 from MonalprathapS/main
+[33mf88a433[m user creation based on pto domain
+[33m817a671[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33mc8f0b70[m Assessment Creation
+[33mf4d8f3a[m Merge pull request #29 from MonalprathapS/main
+[33m574fc03[m Merge branch 'Praskla-Technology:main' into main
+[33mbc2e5d5[m your message
+[33m98c84ac[m your message
+[33mf327fa3[m Resolved package-lock.json conflict
+[33mab47e44[m  Assessment Creation
+[33mdffe9bf[m Fix user data extraction from profile response
+[33md2475aa[m Merge pull request #28 from NaganandhiniNagendran/main
+[33m6a89546[m commend resolve
+[33mcf038b5[m commend resolve
+[33mc814458[m commend resolve
+[33mc53e0c8[m Merge branch 'main' of https://github.com/NaganandhiniNagendran/assessment-placipy
+[33me05add1[m resolved
+[33m1c75979[m commend resolve
+[33mc20cddc[m commend resolve
+[33m66650b3[m commend resolve
+[33me8b544f[m reslove the commends
+[33mb9aebe3[m student Module
+[33ma7f9bb9[m my changes before merging upstream
+[33m5ddbbe3[m Merge pull request #24 from MonalprathapS/main
+[33m4580755[m Update vite.config.ts
+[33m6ee2354[m Update cognito.ts ( removed id token)
+[33mcc3944c[m Merge branch 'main' into main
+[33mea88f30[m Merge pull request #23 from Dharan10/main
+[33m06e9538[m Merge pull request #22 from BaaruGit/main
+[33mbc53e51[m Refactor normalizeRole method to remove null checks
+[33m19db38a[m Merge branch 'Praskla-Technology:main' into main
+[33md2c8d95[m fix: Officer creation in dynamo+cognito grp is fixed
+[33m2cc5992[m user authentication
+[33mc43a516[m Student-Managemnt completion
+[33m2fafaa4[m student-management
+[33m8a9e6dd[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33m5e95082[m  Updated project
+[33m5eb5ead[m Student Management
+[33m051583f[m  Updated project
+[33mb7a3400[m Merge branch 'Praskla-Technology:main' into main
+[33m5d110d7[m Initial push / Updated project
+[33ma50fa40[m Initial push / Updated project
+[33mae7a17c[m Merge pull request #20 from Dharan10/main
+[33mab51596[m fix: Name conversion in db PTO to Placement training officer
+[33m357104d[m fix: in ui college name not showing fixed
+[33m56ad0ce[m Merge remote-tracking branch 'upstream/main'
+[33m359c84e[m Merge pull request #18 from Dharan10/main
+[33m89a36d7[m feat: functional comp added in report xport
+[33m92e54d3[m fix: Logic issue #19 fixed
+[33m095d722[m ret: removed 2 docs
+[33m74699bc[m feat: Added Backend logics
+[33meb7a602[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33m5547a45[m Merge pull request #17 from Dharan10/main
+[33m1f8a3f3[m feat: Added a feat to remove college
+[33m3c57100[m fix: fixed logofile declaration err
+[33m3d10ece[m Merge branch 'main' of https://github.com/Praskla-Technology/assessment-placipy
+[33mc43d270[m PTS profile completed
+[33mdc2ec27[m Merge pull request #16 from Dharan10/main
+[33ma593bf1[m fix: add new officer modal form
+[33mb93d83a[m fix: add new officer modal(css)
+[33mff9ed7a[m Updated PTO dashboard and analytics UI
+[33m9d67a09[m Updated PTO dashboard and analytics UI
+[33m2af9af3[m Resolved merge conflicts
+[33m2b028d6[m My PTO changes
+[33m5aefe77[m Merge pull request #15 from Kavinhbn/main
+[33ma42b3ec[m respondtoauthchallenge
+[33m197f105[m Merge pull request #14 from Dharan10/main
+[33m77ec5fa[m fix: removed s3 usage
+[33m711357f[m feat: included admin profile section
+[33mc864a46[m Merge pull request #13 from NaganandhiniNagendran/main
+[33ma94a50c[m Merge pull request #12 from MonalprathapS/main
+[33m61bd323[m fix: ui fixes
+[33m56377a7[m modify the UI
+[33md827b66[m your update message
+[33mb919f74[m Resolved conflict keeping my PTO changes
+[33meb3aae5[m your message
+[33m597b88d[m Merge pull request #11 from Kavinhbn/main
+[33m58c8904[m Backend-changes
+[33m3cf14b5[m test-data-deletion
+[33mbe1a418[m merged-changes
+[33m81a1225[m Merge pull request #8 from MonalprathapS/main
+[33mdff189a[m Merge branch 'main' of https://github.com/MonalprathapS/assessment-placipy
+[33mfafd7d6[m Merge branch 'Praskla-Technology:main' into main
+[33m49b8f56[m your message
+[33mb415070[m Merge pull request #7 from Dharan10/main
+[33medcd0d1[m fix: changed bg from black to white
+[33m89b0668[m fix: roldown-vite used
+[33mee88b78[m Update App.tsx
+[33m5dd14d6[m Update App.tsx
+[33m775b49f[m your message
+[33m005fd3f[m redact: changed emoji to icons
+[33mcfcd959[m info: removed mock file
+[33ma30dbdf[m feat: updated pts module
+[33mb6cd16a[m Merge pull request #6 from Gopinath2404/main
+[33m54408e0[m Company_admin
+[33m7474986[m Merge pull request #5 from BaaruGit/main
+[33mb3ff746[m PTS dashboard-ui
+[33m57747d8[m Merge pull request #4 from Kavinhbn/main
+[33m23a5028[m import removed
+[33md4b6edb[m Merge pull request #3 from Kavinhbn/main
+[33m1f1f3a0[m Login-page-navigation
+[33m6a677b1[m Merge branch 'main' of https://github.com/Kavinhbn/assessment-placipy
+[33m9e3905a[m background-changes
+[33m91892b4[m Merge pull request #2 from NaganandhiniNagendran/main
+[33ma9f044d[m student dashboard
+[33m1159ea2[m Merge pull request #1 from Kavinhbn/main
+[33me9fd9f9[m class-name-change
+[33me3070d0[m  initial commit - login page ui

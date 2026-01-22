@@ -147,9 +147,17 @@ class Judge0Service {
     
     try {
       console.log('Creating submission:', submission);
-      const response = await this.apiClient.post('/submissions', submission, {
+      
+      // Encode source code and stdin as base64 to handle UTF-8 issues
+      const encodedSubmission = {
+        ...submission,
+        source_code: btoa(unescape(encodeURIComponent(submission.source_code))),
+        stdin: submission.stdin ? btoa(unescape(encodeURIComponent(submission.stdin))) : undefined
+      };
+      
+      const response = await this.apiClient.post('/submissions', encodedSubmission, {
         params: {
-          base64_encoded: 'false',
+          base64_encoded: 'true',
           fields: '*'
         }
       });
@@ -211,27 +219,59 @@ class Judge0Service {
       console.log('Getting submission:', token);
       const response = await this.apiClient.get(`/submissions/${token}`, {
         params: {
-          base64_encoded: 'false',
+          base64_encoded: 'true',
           fields: '*'
         }
       });
       
       console.log('Submission result:', response.data);
       console.log('Response headers:', response.headers);
-      return response.data;
+      
+      // Decode base64 response data
+      const result = response.data;
+      if (result.stdout) {
+        result.stdout = decodeURIComponent(escape(atob(result.stdout)));
+      }
+      if (result.stderr) {
+        result.stderr = decodeURIComponent(escape(atob(result.stderr)));
+      }
+      if (result.compile_output) {
+        result.compile_output = decodeURIComponent(escape(atob(result.compile_output)));
+      }
+      if (result.message) {
+        result.message = decodeURIComponent(escape(atob(result.message)));
+      }
+      
+      return result;
     } catch (error: any) {
       console.error('Error getting submission:', error.response?.data || error.message);
       if (error.response) {
         console.error('Response status:', error.response.status);
         console.error('Response headers:', error.response.headers);
+        
+        // Extract actual error details from response
+        const errorData = error.response.data;
+        let errorMessage = 'Failed to get submission result';
+        
+        if (errorData?.error) {
+          errorMessage = errorData.error;
+        } else if (errorData?.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        throw new Error(errorMessage);
       }
-      throw new Error('Failed to get submission result');
+      throw new Error(`Failed to get submission result: ${error.message}`);
     }
   }
 
   /**
    * Execute code and get result
-   * @param sourceCode Source code to execute
+   * @param sourceCode Code to execute
    * @param language Language name
    * @param stdin Input for the program
    * @returns Execution result
