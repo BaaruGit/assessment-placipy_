@@ -62,8 +62,8 @@ router.put('/profile/preferences', authMiddleware.authenticateToken, async (req,
         const SK = role === 'PTS' ? `PTS#${employeeId}` : `PTO#${employeeId}`;
 
         // Save preferences to DynamoDB
-        const AWS = require('aws-sdk');
-        const dynamodb = new AWS.DynamoDB.DocumentClient({
+        const DynamoDB = require('aws-sdk/clients/dynamodb');
+        const dynamodb = new DynamoDB.DocumentClient({
             region: process.env.AWS_REGION
         });
 
@@ -158,8 +158,8 @@ router.put('/profile/security', authMiddleware.authenticateToken, async (req, re
         const SK = role === 'PTS' ? `PTS#${employeeId}` : `PTO#${employeeId}`;
 
         // Update security settings in DynamoDB
-        const AWS = require('aws-sdk');
-        const dynamodb = new AWS.DynamoDB.DocumentClient({
+        const DynamoDB = require('aws-sdk/clients/dynamodb');
+        const dynamodb = new DynamoDB.DocumentClient({
             region: process.env.AWS_REGION
         });
 

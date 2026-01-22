@@ -1,8 +1,8 @@
 // @ts-nocheck
-const AWS = require('aws-sdk');
+const DynamoDB = require('aws-sdk/clients/dynamodb');
 
 // Configure AWS DynamoDB
-const dynamodb = new AWS.DynamoDB.DocumentClient({
+const dynamodb = new DynamoDB.DocumentClient({
     region: process.env.AWS_REGION
 });
 

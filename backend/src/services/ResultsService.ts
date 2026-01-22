@@ -1,7 +1,7 @@
 // @ts-nocheck
-const AWS = require('aws-sdk');
+const DynamoDB = require('aws-sdk/clients/dynamodb');
 
-const dynamodb = new AWS.DynamoDB.DocumentClient({
+const dynamodb = new DynamoDB.DocumentClient({
     region: process.env.AWS_REGION
 });
 
@@ -45,7 +45,7 @@ class ResultsService {
             console.log('=== Saving Assessment Result ===');
             console.log('Results table name:', this.resultsTableName);
             console.log('Result Data:', JSON.stringify(resultData, null, 2));
-            
+
             const {
                 assessmentId,
                 email,
@@ -118,12 +118,12 @@ class ResultsService {
             console.log('PK:', resultItem.PK);
             console.log('SK:', resultItem.SK);
             console.log('Params:', JSON.stringify(params, null, 2));
-            
+
             const putResult = await dynamodb.put(params).promise();
-            
+
             console.log('DynamoDB PUT operation completed successfully');
             console.log('Put result:', JSON.stringify(putResult, null, 2));
-            
+
             console.log('========================================');
             console.log('✅ RESULT SAVED SUCCESSFULLY!');
             console.log('Table:', this.resultsTableName);
@@ -136,7 +136,7 @@ class ResultsService {
             console.error('Error code:', error.code);
             console.error('Error name:', error.name);
             console.error('Table name being used:', this.resultsTableName);
-            
+
             // Provide more specific error messages
             if (error.code === 'ResourceNotFoundException') {
                 const errorMsg = `DynamoDB table "${this.resultsTableName}" does not exist. Please create the table with PK (String) and SK (String) as keys.`;
@@ -147,7 +147,7 @@ class ResultsService {
             } else if (error.code === 'ValidationException') {
                 throw new Error('Invalid data format. Please check the result data being saved.');
             }
-            
+
             throw new Error('Failed to save assessment result: ' + (error.message || error.toString()));
         }
     }
@@ -182,7 +182,7 @@ class ResultsService {
                     ':email': studentEmail
                 }
             };
-                
+
             console.log('Query params:', JSON.stringify(params, null, 2));
             const result = await dynamodb.query(params).promise();
             console.log('Query result:', JSON.stringify(result, null, 2));
@@ -225,9 +225,9 @@ class ResultsService {
 
             console.log('Get params:', JSON.stringify(params, null, 2));
             const result = await dynamodb.get(params).promise();
-            
+
             console.log('DynamoDB GET result:', JSON.stringify(result, null, 2));
-            
+
             if (!result.Item) {
                 throw new Error('Result not found');
             }
@@ -236,7 +236,7 @@ class ResultsService {
             // Check both the email field and the email in the SK
             const emailInSK = SK.split('#').pop(); // Extract email from SK: RESULT#ASSESSMENT#<id>#<email>
             const resultEmail = result.Item.email || emailInSK;
-            
+
             console.log('Authorization check:');
             console.log('  resultEmail:', resultEmail);
             console.log('  emailInSK:', emailInSK);
@@ -244,9 +244,9 @@ class ResultsService {
             console.log('  resultEmail.toLowerCase():', resultEmail.toLowerCase());
             console.log('  studentEmail.toLowerCase():', studentEmail.toLowerCase());
             console.log('  emailInSK.toLowerCase():', emailInSK.toLowerCase());
-            
+
             // Case-insensitive comparison
-            if (resultEmail.toLowerCase() !== studentEmail.toLowerCase() && 
+            if (resultEmail.toLowerCase() !== studentEmail.toLowerCase() &&
                 emailInSK.toLowerCase() !== studentEmail.toLowerCase()) {
                 console.error('Email mismatch:', {
                     resultEmail: resultEmail,
@@ -303,21 +303,21 @@ class ResultsService {
 
             // Get all results for this assessment
             const allResults = await this.getAssessmentResults(assessmentId);
-            
+
             // Sort by score (descending)
             const sortedResults = allResults.sort((a, b) => b.score - a.score);
-            
+
             // Find student's position
             const studentResult = sortedResults.find(result => result.studentId === studentId);
             const studentIndex = sortedResults.findIndex(result => result.studentId === studentId);
-            
+
             if (!studentResult) {
                 return { rank: null, totalStudents: sortedResults.length };
             }
-            
+
             // Calculate rank (1-based index)
             const rank = studentIndex + 1;
-            
+
             return {
                 rank,
                 totalStudents: sortedResults.length,
@@ -340,10 +340,10 @@ class ResultsService {
 
             // Get all results for this assessment
             const allResults = await this.getAssessmentResults(assessmentId);
-            
+
             // Group by department
             const departmentStats: any = {};
-            
+
             allResults.forEach(result => {
                 const dept = result.department || 'Unknown';
                 if (!departmentStats[dept]) {
@@ -355,26 +355,26 @@ class ResultsService {
                         lowestScore: result.maxScore || 0
                     };
                 }
-                
+
                 departmentStats[dept].students += 1;
                 departmentStats[dept].totalScore += result.score;
-                
+
                 if (result.score > departmentStats[dept].highestScore) {
                     departmentStats[dept].highestScore = result.score;
                 }
-                
+
                 if (result.score < departmentStats[dept].lowestScore) {
                     departmentStats[dept].lowestScore = result.score;
                 }
             });
-            
+
             // Calculate averages
             Object.keys(departmentStats).forEach(dept => {
                 const stats = departmentStats[dept];
                 stats.averageScore = stats.students > 0 ? Math.round((stats.totalScore / stats.students) * 100) / 100 : 0;
                 stats.completionRate = stats.students > 0 ? Math.round((stats.students / stats.students) * 10000) / 100 : 0; // This would need total students in department
             });
-            
+
             return departmentStats;
         } catch (error) {
             console.error('Error getting department stats:', error);
@@ -393,11 +393,11 @@ class ResultsService {
 
             // Get all results for this assessment
             const allResults = await this.getAssessmentResults(assessmentId);
-            
+
             // Sort by score (descending) and take top N
             const sortedResults = allResults.sort((a, b) => b.score - a.score);
             const topPerformers = sortedResults.slice(0, limit);
-            
+
             // Add rank to each performer
             return topPerformers.map((result, index) => ({
                 ...result,
@@ -408,7 +408,7 @@ class ResultsService {
             throw new Error('Failed to retrieve top performers: ' + error.message);
         }
     }
-    
+
     /**
      * Get student data by email
      */
@@ -419,7 +419,7 @@ class ResultsService {
                 console.log('Invalid email format:', email);
                 return null;
             }
-            
+
             console.log('=== Getting Student By Email ===');
             console.log('Student Email:', email);
 
@@ -438,7 +438,7 @@ class ResultsService {
 
             console.log('Get params:', JSON.stringify(params, null, 2));
             const result = await dynamodb.get(params).promise();
-            
+
             if (!result.Item) {
                 console.log('Student not found for email:', email);
                 return null;
@@ -452,7 +452,7 @@ class ResultsService {
             return null;
         }
     }
-    
+
     /**
      * Get comprehensive analytics data for PTS dashboard
      * Filtered by the domain of the requesting PTS user
@@ -461,26 +461,26 @@ class ResultsService {
         try {
             console.log('=== Getting PTS Overview Analytics ===');
             console.log('Requester email:', requesterEmail);
-            
+
             // Validate requester email
             if (!requesterEmail) {
                 throw new Error('Requester email is required for domain-based filtering');
             }
-            
+
             // Validate email format
             if (!requesterEmail.includes('@')) {
                 throw new Error('Invalid email format for requester: ' + requesterEmail);
             }
-            
+
             // Extract domain from requester's email
             const requesterDomain = this.getDomainFromEmail(requesterEmail);
             console.log('Requester domain:', requesterDomain);
-            
+
             // Validate table names
             if (!this.resultsTableName || !this.studentsTableName) {
                 throw new Error('Table names are not configured');
             }
-            
+
             // Step 1: Get students from Student Management (source of truth)
             const studentParams = {
                 TableName: this.studentsTableName,
@@ -490,16 +490,16 @@ class ResultsService {
                     ':skPrefix': 'STUDENT#'
                 }
             };
-            
+
             console.log('Querying students for domain:', `CLIENT#${requesterDomain}`);
             const studentResult = await dynamodb.query(studentParams).promise();
             const studentList = studentResult.Items || [];
             console.log('Found students in Student Management:', studentList.length);
-            
+
             // Create a set of valid student emails from Student Management
             const validStudentEmails = new Set(studentList.map(student => student.email?.toLowerCase()));
             console.log('Valid student emails:', Array.from(validStudentEmails));
-            
+
             // Step 2: Query results for this domain only
             const resultsParams = {
                 TableName: this.resultsTableName,
@@ -508,31 +508,31 @@ class ResultsService {
                     ':pk': `CLIENT#${requesterDomain}`
                 }
             };
-            
+
             console.log('Query params for results:', JSON.stringify(resultsParams, null, 2));
             const resultsResult = await dynamodb.query(resultsParams).promise();
             const allResults = resultsResult.Items || [];
             console.log('Found all results:', allResults.length);
-            
+
             // Step 3: Filter results to only include those from students in Student Management
             const filteredResults = allResults.filter(result => {
                 if (!result.email) {
                     console.log('Skipping result without email:', result);
                     return false;
                 }
-                
+
                 // Validate result email format
                 if (!result.email.includes('@')) {
                     console.log('Skipping result with invalid email format:', result.email);
                     return false;
                 }
-                
+
                 // Check if the student exists in Student Management
                 return validStudentEmails.has(result.email.toLowerCase());
             });
-            
+
             console.log('Filtered results count (only students from Student Management):', filteredResults.length);
-            
+
             // Enrich filtered results with student data (roll numbers, etc.)
             const enrichedResults = [];
             for (const result of filteredResults) {
@@ -544,12 +544,12 @@ class ResultsService {
                     department: studentData?.department || result.department || 'Unknown'
                 });
             }
-            
+
             console.log('Enriched results count:', enrichedResults.length);
-            
+
             // Group results by department
             const departmentStats: any = {};
-            
+
             enrichedResults.forEach((result: any) => {
                 const dept = result.department || 'Unknown';
                 if (!departmentStats[dept]) {
@@ -567,7 +567,7 @@ class ResultsService {
                 departmentStats[dept].totalScore += result.percentage || 0;
                 departmentStats[dept].scoreCount++;
             });
-            
+
             // Calculate average scores
             Object.values(departmentStats).forEach((dept: any) => {
                 if (dept.scoreCount > 0) {
@@ -577,7 +577,7 @@ class ResultsService {
                 dept.totalStudents = dept.assessmentsCompleted;
                 dept.activeStudents = dept.assessmentsCompleted;
             });
-            
+
             // Get recent assessments
             const recentAssessments = enrichedResults
                 .sort((a: any, b: any) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
@@ -591,7 +591,7 @@ class ResultsService {
                     lowestScore: result.percentage,
                     completionRate: 100
                 }));
-            
+
             // Calculate overall average score
             let totalScore = 0;
             let scoreCount = 0;
@@ -600,7 +600,7 @@ class ResultsService {
                 scoreCount++;
             });
             const overallAvgScore = scoreCount > 0 ? Math.round((totalScore / scoreCount) * 100) / 100 : 0;
-            
+
             // Aggregate results by student to avoid duplicates
             const studentResultsMap = new Map();
             for (const result of enrichedResults) {
@@ -633,13 +633,13 @@ class ResultsService {
                     });
                 }
             }
-            
+
             // Calculate average scores for each student and create top performers list
             const studentsWithAvg = Array.from(studentResultsMap.values()).map(student => ({
                 ...student,
                 averageScore: student.totalScore / student.assessmentsTaken
             }));
-            
+
             // Get top performers with roll numbers
             const topPerformers = studentsWithAvg
                 .sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0))

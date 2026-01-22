@@ -1,7 +1,7 @@
 // @ts-nocheck
-const AWS = require('aws-sdk');
+const DynamoDB = require('aws-sdk/clients/dynamodb');
 
-const dynamodb = new AWS.DynamoDB.DocumentClient({
+const dynamodb = new DynamoDB.DocumentClient({
     region: process.env.AWS_REGION
 });
 
@@ -37,7 +37,7 @@ class StudentAssessmentService {
      * Get assessment with questions by assessment ID
      * Fetches both assessment metadata and all related questions
      */
-    async getAssessmentWithQuestions(assessmentId: string, requesterEmail: string): Promise<{assessment: any, questions: any[]}> {
+    async getAssessmentWithQuestions(assessmentId: string, requesterEmail: string): Promise<{ assessment: any, questions: any[] }> {
         try {
             console.log(`=== getAssessmentWithQuestions called with ID: ${assessmentId} ===`);
 
@@ -58,14 +58,14 @@ class StudentAssessmentService {
             console.log('Calling getAssessmentById...');
             const assessment = await this.getAssessmentById(assessmentId, studentDepartment, requesterEmail);
             console.log('Assessment result:', assessment);
-            
+
             if (!assessment) {
                 throw new Error(`Assessment ${assessmentId} not found or not accessible to your department`);
             }
 
             // Check if randomization is enabled for this assessment
             const randomizeQuestions = assessment.configuration?.randomizeQuestions || false;
-            
+
             // Get all questions for this assessment
             console.log('Calling getAssessmentQuestions...');
             let questions = await this.getAssessmentQuestions(assessmentId, requesterEmail);
@@ -101,7 +101,7 @@ class StudentAssessmentService {
             if (!domain) {
                 throw new Error('Invalid requester email format');
             }
-            
+
             const queryParams: AWS.DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND SK = :sk',
@@ -127,7 +127,7 @@ class StudentAssessmentService {
             console.log('Querying assessment with params:', JSON.stringify(queryParams, null, 2));
             const result = await dynamodb.query(queryParams).promise();
             console.log('Assessment query result:', JSON.stringify(result, null, 2));
-            
+
             if (result.Items && result.Items.length > 0) {
                 const assessment = result.Items[0];
                 console.log('Found assessment:', JSON.stringify(assessment, null, 2));
@@ -172,7 +172,7 @@ class StudentAssessmentService {
             // PK = CLIENT#{domain}
             // SK = ASSESSMENT#ASSESS_CSE_001#MCQ_BATCH_1 or CODING_BATCH_1
             // And the questions are in the 'questions' array property
-            
+
             const queryParams = {
                 TableName: this.questionsTableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
@@ -187,7 +187,7 @@ class StudentAssessmentService {
             console.log('Questions query result:', JSON.stringify(queryResult, null, 2));
 
             let allQuestions: any[] = [];
-            
+
             if (queryResult.Items && queryResult.Items.length > 0) {
                 // Extract questions from all batch items (both MCQ and Coding)
                 for (const batchItem of queryResult.Items) {
@@ -198,21 +198,21 @@ class StudentAssessmentService {
                             if (question.entityType === 'coding') {
                                 // Handle cases where testCases might be missing or empty
                                 let formattedTestCases = [];
-                                
+
                                 if (question.testCases && Array.isArray(question.testCases) && question.testCases.length > 0) {
                                     // Transform test cases to the expected format for frontend
                                     formattedTestCases = question.testCases.map((tc: any) => {
                                         // Handle different possible formats
                                         const input = tc.inputs?.input ?? tc.input ?? '';
                                         const expectedOutput = tc.expectedOutput ?? '';
-                                        
+
                                         return {
                                             input,
                                             expectedOutput
                                         };
                                     });
                                 }
-                                
+
                                 return {
                                     ...question,
                                     testCases: formattedTestCases
@@ -220,14 +220,14 @@ class StudentAssessmentService {
                             }
                             return question;
                         });
-                        
+
                         allQuestions = allQuestions.concat(processedQuestions);
                     }
                 }
             }
 
             console.log('Total questions found:', allQuestions.length);
-            
+
             // Sort questions by questionNumber if available
             allQuestions.sort((a, b) => {
                 const numA = a.questionNumber || 0;

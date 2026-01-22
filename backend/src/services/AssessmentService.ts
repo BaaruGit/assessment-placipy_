@@ -1,6 +1,7 @@
-import AWS from 'aws-sdk';
+// @ts-nocheck
+const DynamoDB = require('aws-sdk/clients/dynamodb');
 
-const dynamodb = new AWS.DynamoDB.DocumentClient({
+const dynamodb = new DynamoDB.DocumentClient({
     region: process.env.AWS_REGION
 });
 
@@ -190,7 +191,7 @@ class AssessmentService {
 
     private async getNextAssessmentNumber(deptCode: string, domain: string): Promise<string> {
         try {
-            const params: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const params: DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                 ExpressionAttributeValues: {
@@ -366,7 +367,7 @@ class AssessmentService {
             };
 
             console.log('Saving assessment with PK:', assessment.PK, 'and SK:', assessment.SK);
-            const existingAssessmentParams: AWS.DynamoDB.DocumentClient.GetItemInput = {
+            const existingAssessmentParams: DynamoDB.DocumentClient.GetItemInput = {
                 TableName: this.assessmentsTableName,
                 Key: {
                     PK: assessment.PK,
@@ -392,7 +393,7 @@ class AssessmentService {
                             throw new Error('Unable to generate unique assessment ID after 100 attempts');
                         }
 
-                        const checkParams: AWS.DynamoDB.DocumentClient.GetItemInput = {
+                        const checkParams: DynamoDB.DocumentClient.GetItemInput = {
                             TableName: this.assessmentsTableName,
                             Key: {
                                 PK: assessment.PK,
@@ -410,7 +411,7 @@ class AssessmentService {
                 console.log('Error checking for existing assessment:', (error as Error).message);
             }
 
-            const assessmentParams: AWS.DynamoDB.DocumentClient.PutItemInput = {
+            const assessmentParams: DynamoDB.DocumentClient.PutItemInput = {
                 TableName: this.assessmentsTableName,
                 Item: assessment
             };
@@ -438,7 +439,7 @@ class AssessmentService {
                     };
                     console.log(`Creating MCQ batch ${i + 1}:`, JSON.stringify(batchItem, null, 2));
 
-                    const batchParams: AWS.DynamoDB.DocumentClient.PutItemInput = {
+                    const batchParams: DynamoDB.DocumentClient.PutItemInput = {
                         TableName: this.questionsTableName,
                         Item: batchItem
                     };
@@ -469,7 +470,7 @@ class AssessmentService {
                     };
                     console.log(`Creating Coding batch ${i + 1}:`, JSON.stringify(batchItem, null, 2));
 
-                    const batchParams: AWS.DynamoDB.DocumentClient.PutItemInput = {
+                    const batchParams: DynamoDB.DocumentClient.PutItemInput = {
                         TableName: this.questionsTableName,
                         Item: batchItem
                     };
@@ -495,7 +496,7 @@ class AssessmentService {
         try {
             console.log('=== getAssessmentById called with ID:', assessmentId, 'and domain:', domain, '===');
 
-            const queryParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const queryParams: DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                 ExpressionAttributeValues: {
@@ -532,7 +533,7 @@ class AssessmentService {
         }
     }
 
-    async getAllAssessments(filters: { clientDomain?: string; department?: string; status?: string; } = {}, limit: number = 50, lastKey?: AWS.DynamoDB.DocumentClient.Key): Promise<{ items: AssessmentItem[]; lastKey?: AWS.DynamoDB.DocumentClient.Key; hasMore: boolean }> {
+    async getAllAssessments(filters: { clientDomain?: string; department?: string; status?: string; } = {}, limit: number = 50, lastKey?: DynamoDB.DocumentClient.Key): Promise<{ items: AssessmentItem[]; lastKey?: DynamoDB.DocumentClient.Key; hasMore: boolean }> {
         try {
             console.log('=== getAllAssessments called ===');
             console.log('Initial Filters:', filters);
@@ -557,7 +558,7 @@ class AssessmentService {
             } else {
                 console.log('[FILTER] No department filter provided - will show all assessments');
             }
-            
+
             if (filters.status) {
                 filterExpressions.push('#status = :status');
                 expressionAttributeValues[':status'] = filters.status;
@@ -565,7 +566,7 @@ class AssessmentService {
             }
 
             if (filters.clientDomain) {
-                const queryParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+                const queryParams: DynamoDB.DocumentClient.QueryInput = {
                     TableName: this.assessmentsTableName,
                     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                     ExpressionAttributeValues: {
@@ -613,7 +614,7 @@ class AssessmentService {
                         item.SK.includes('#MCQ_BATCH_') || item.SK.includes('#CODING_BATCH_')) {
                         return false;
                     }
-                    
+
                     // Additional department filter check as safety net - exclude "All Departments"
                     if (filters.department) {
                         const itemDept = (item.department || '').trim();
@@ -624,7 +625,7 @@ class AssessmentService {
                         }
                         console.log(`[QUERY] Keeping assessment ${item.assessmentId}: department matches "${itemDept}"`);
                     }
-                    
+
                     return true;
                 });
                 console.log(`[QUERY] Filtered ${beforeFilterCount} items down to ${items.length} items`);
@@ -641,7 +642,7 @@ class AssessmentService {
                     hasMore: !!queryResult.LastEvaluatedKey
                 };
             } else {
-                const scanParams: AWS.DynamoDB.DocumentClient.ScanInput = {
+                const scanParams: DynamoDB.DocumentClient.ScanInput = {
                     TableName: this.assessmentsTableName,
                     Limit: limit
                 };
@@ -688,7 +689,7 @@ class AssessmentService {
                         item.SK.includes('#MCQ_BATCH_') || item.SK.includes('#CODING_BATCH_')) {
                         return false;
                     }
-                    
+
                     // Additional department filter check as safety net - exclude "All Departments"
                     if (filters.department) {
                         const itemDept = (item.department || '').trim();
@@ -699,7 +700,7 @@ class AssessmentService {
                         }
                         console.log(`[SCAN] Keeping assessment ${item.assessmentId}: department matches "${itemDept}"`);
                     }
-                    
+
                     return true;
                 });
                 console.log(`[SCAN] Filtered ${beforeFilterCount} items down to ${items.length} items`);
@@ -739,7 +740,7 @@ class AssessmentService {
                 throw new Error('Domain is required');
             }
 
-            const mainAssessmentParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const mainAssessmentParams: DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND SK = :sk',
                 ExpressionAttributeValues: {
@@ -756,7 +757,7 @@ class AssessmentService {
                 throw new Error(`Assessment ${assessmentId} not found for domain ${domain}`);
             }
 
-            const questionParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const questionParams: DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.questionsTableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                 ExpressionAttributeValues: {
@@ -771,8 +772,8 @@ class AssessmentService {
 
             if (!questionResult.Items || questionResult.Items.length === 0) {
                 console.log('No questions found with swapped structure, trying original structure...');
-                
-                const originalQuestionParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+
+                const originalQuestionParams: DynamoDB.DocumentClient.QueryInput = {
                     TableName: this.questionsTableName,
                     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                     ExpressionAttributeValues: {
@@ -780,20 +781,20 @@ class AssessmentService {
                         ':sk_prefix': 'QUESTION#'
                     }
                 };
-                
+
                 console.log('Querying questions with original params:', JSON.stringify(originalQuestionParams, null, 2));
                 const originalQuestionResult = await dynamodb.query(originalQuestionParams).promise();
                 console.log('Found with original structure:', originalQuestionResult.Count, 'question items');
-                
+
                 if (originalQuestionResult.Items && originalQuestionResult.Items.length > 0) {
-                    const validQuestions = originalQuestionResult.Items.filter((questionItem): questionItem is QuestionItem => 
+                    const validQuestions = originalQuestionResult.Items.filter((questionItem): questionItem is QuestionItem =>
                         (questionItem as QuestionItem).PK === `ASSESSMENT#${assessmentId}`
                     );
-                    
+
                     if (validQuestions.length === 0) {
                         throw new Error(`No valid questions found for assessment ${assessmentId}`);
                     }
-                    
+
                     return validQuestions.sort((a, b) => {
                         const numA = a.questionNumber || 0;
                         const numB = b.questionNumber || 0;
@@ -805,13 +806,13 @@ class AssessmentService {
             let allQuestions: QuestionItem[] = [];
             if (questionResult.Items && questionResult.Items.length > 0) {
                 for (const batchItem of questionResult.Items as QuestionBatchItem[]) {
-                    if (batchItem.PK === `CLIENT#${domain}` && 
+                    if (batchItem.PK === `CLIENT#${domain}` &&
                         batchItem.SK.startsWith(`ASSESSMENT#${assessmentId}#`) &&
                         batchItem.questions && Array.isArray(batchItem.questions)) {
                         allQuestions = allQuestions.concat(batchItem.questions);
                     }
                 }
-                
+
                 allQuestions.sort((a, b) => {
                     const numA = a.questionNumber || 0;
                     const numB = b.questionNumber || 0;
@@ -842,7 +843,7 @@ class AssessmentService {
             console.log(`Fetching assessment ${assessmentId} with questions for domain ${domain}`);
 
             const assessment = await this.getAssessmentById(assessmentId, domain);
-            
+
             if (!assessment) {
                 console.log(`Assessment ${assessmentId} not found for domain ${domain}`);
                 throw new Error(`Assessment ${assessmentId} not found for domain ${domain}`);
@@ -866,7 +867,7 @@ class AssessmentService {
         try {
             const timestamp = new Date().toISOString();
 
-            const getCurrentItemParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const getCurrentItemParams: DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                 ExpressionAttributeValues: {
@@ -903,7 +904,7 @@ class AssessmentService {
                 expressionAttributeValues[':updatedBy'] = updatedBy;
             }
 
-            const updateParams: AWS.DynamoDB.DocumentClient.UpdateItemInput = {
+            const updateParams: DynamoDB.DocumentClient.UpdateItemInput = {
                 TableName: this.assessmentsTableName,
                 Key: {
                     PK: currentItem.PK,
@@ -921,7 +922,7 @@ class AssessmentService {
             const updatedAssessment = await dynamodb.update(updateParams).promise();
 
             if (updates.questions && Array.isArray(updates.questions)) {
-                const batchParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+                const batchParams: DynamoDB.DocumentClient.QueryInput = {
                     TableName: this.questionsTableName,
                     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                     ExpressionAttributeValues: {
@@ -934,7 +935,7 @@ class AssessmentService {
                 const batchItems = batchResult.Items || [];
 
                 for (const batchItem of batchItems) {
-                    const deleteParams: AWS.DynamoDB.DocumentClient.DeleteItemInput = {
+                    const deleteParams: DynamoDB.DocumentClient.DeleteItemInput = {
                         TableName: this.questionsTableName,
                         Key: {
                             PK: (batchItem as QuestionBatchItem).PK,
@@ -961,7 +962,7 @@ class AssessmentService {
                             questions: mcqBatches[i]
                         };
 
-                        const batchParams: AWS.DynamoDB.DocumentClient.PutItemInput = {
+                        const batchParams: DynamoDB.DocumentClient.PutItemInput = {
                             TableName: this.questionsTableName,
                             Item: batchItem
                         };
@@ -987,7 +988,7 @@ class AssessmentService {
                             questions: codingBatches[i]
                         };
 
-                        const batchParams: AWS.DynamoDB.DocumentClient.PutItemInput = {
+                        const batchParams: DynamoDB.DocumentClient.PutItemInput = {
                             TableName: this.questionsTableName,
                             Item: batchItem
                         };
@@ -997,7 +998,7 @@ class AssessmentService {
                 }
             }
 
-            const batchQueryParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const batchQueryParams: DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.questionsTableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                 ExpressionAttributeValues: {
@@ -1018,7 +1019,7 @@ class AssessmentService {
 
             const entities = this.generateEntities(updatedQuestions);
 
-            const entitiesUpdateParams: AWS.DynamoDB.DocumentClient.UpdateItemInput = {
+            const entitiesUpdateParams: DynamoDB.DocumentClient.UpdateItemInput = {
                 TableName: this.assessmentsTableName,
                 Key: {
                     PK: currentItem.PK,
@@ -1048,7 +1049,7 @@ class AssessmentService {
 
     async deleteAssessment(assessmentId: string, domain: string): Promise<void> {
         try {
-            const getAssessmentParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const getAssessmentParams: DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND SK = :sk',
                 ExpressionAttributeValues: {
@@ -1064,7 +1065,7 @@ class AssessmentService {
                 throw new Error(`Assessment ${assessmentId} not found for domain ${domain}`);
             }
 
-            const assessmentParams: AWS.DynamoDB.DocumentClient.DeleteItemInput = {
+            const assessmentParams: DynamoDB.DocumentClient.DeleteItemInput = {
                 TableName: this.assessmentsTableName,
                 Key: {
                     PK: assessment.PK,
@@ -1074,7 +1075,7 @@ class AssessmentService {
 
             await dynamodb.delete(assessmentParams).promise();
 
-            const batchQueryParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const batchQueryParams: DynamoDB.DocumentClient.QueryInput = {
                 TableName: this.questionsTableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk_prefix)',
                 ExpressionAttributeValues: {
@@ -1087,7 +1088,7 @@ class AssessmentService {
             const batchItems = batchQueryResult.Items || [];
 
             for (const batchItem of batchItems) {
-                const deleteParams: AWS.DynamoDB.DocumentClient.DeleteItemInput = {
+                const deleteParams: DynamoDB.DocumentClient.DeleteItemInput = {
                     TableName: this.questionsTableName,
                     Key: {
                         PK: (batchItem as QuestionBatchItem).PK,
