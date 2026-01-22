@@ -172,52 +172,7 @@ const AssessmentTaking: React.FC = () => {
     };
   }, []);
 
-  // Fullscreen toggle function
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      // Enter fullscreen mode
-      const element = document.documentElement;
-      if (element.requestFullscreen) {
-        element.requestFullscreen();
-      } else if ((element as any).webkitRequestFullscreen) {
-        (element as any).webkitRequestFullscreen();
-      } else if ((element as any).msRequestFullscreen) {
-        (element as any).msRequestFullscreen();
-      }
-      setIsFullscreen(true);
-    } else {
-      // Exit fullscreen mode
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if ((document as any).webkitExitFullscreen) {
-        (document as any).webkitExitFullscreen();
-      } else if ((document as any).msExitFullscreen) {
-        (document as any).msExitFullscreen();
-      }
-      setIsFullscreen(false);
-    }
-  };
-
-  // Listen for fullscreen changes
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-    };
-  }, []);
-
-
+  // Other component logic...
 
   // State for timer
   const [timeLeft, setTimeLeft] = useState<number>(0); // Start with 0, will be set by assessment config
