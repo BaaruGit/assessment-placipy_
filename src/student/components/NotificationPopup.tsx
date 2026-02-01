@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, AlertCircle, CheckCircle, Megaphone, Clock } from 'lucide-react';
 import type { Notification } from '../../services/notification.service';
+import '../styles/Notifications.css';
 
 interface NotificationPopupProps {
     notification: Notification;
@@ -11,142 +12,121 @@ interface NotificationPopupProps {
 const NotificationPopup: React.FC<NotificationPopupProps> = ({ notification, onClose }) => {
     const navigate = useNavigate();
     const [isVisible, setIsVisible] = useState(true);
+    const [isClosing, setIsClosing] = useState(false);
 
-    // Auto-hide after 3 seconds
+    // Auto-hide after 4 seconds (slightly longer to read)
     useEffect(() => {
         const timer = setTimeout(() => {
-            setIsVisible(false);
-            setTimeout(onClose, 300); // Wait for fade out animation
-        }, 3000);
+            handleClose();
+        }, 4000);
 
         return () => clearTimeout(timer);
-    }, [onClose]);
+    }, []);
 
-    // Get priority colors
+    const handleClose = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setIsClosing(true);
+        setTimeout(() => {
+            setIsVisible(false);
+            onClose();
+        }, 300); // Match CSS animation duration
+    };
+
+    const handleClick = () => {
+        if (notification.link) {
+            navigate(notification.link);
+            onClose();
+        }
+    };
+
+    // Get priority styles
     const getPriorityStyles = () => {
         switch (notification.priority) {
             case 'high':
                 return {
-                        borderColor: '#EF4444',
-                    iconColor: '#EF4444'
+                    color: 'var(--priority-high)',
+                    bg: 'var(--priority-high-bg)'
                 };
             case 'medium':
                 return {
-                        borderColor: '#F59E0B',
-                    iconColor: '#F59E0B'
+                    color: 'var(--priority-medium)',
+                    bg: 'var(--priority-medium-bg)'
                 };
             case 'low':
                 return {
-                        borderColor: '#3B82F6',
-                    iconColor: '#3B82F6'
+                    color: 'var(--priority-low)',
+                    bg: 'var(--priority-low-bg)'
                 };
             default:
                 return {
-                        borderColor: '#6B7280',
-                    iconColor: '#6B7280'
+                    color: 'var(--priority-default)',
+                    bg: 'var(--priority-default-bg)'
                 };
-        }
-    };
-
-    // Get icon based on type
-    const getIcon = () => {
-        switch (notification.type) {
-            case 'assessment_published':
-                return <AlertCircle size={20} color={getPriorityStyles().iconColor} />;
-            case 'result_published':
-                return <CheckCircle size={20} color={getPriorityStyles().iconColor} />;
-            case 'reminder':
-                return <Clock size={20} color={getPriorityStyles().iconColor} />;
-
-            case 'announcement':
-                return <Megaphone size={20} color={getPriorityStyles().iconColor} />;
-            default:
-                return <AlertCircle size={20} color={getPriorityStyles().iconColor} />;
         }
     };
 
     const styles = getPriorityStyles();
 
-    const handleClick = () => {
-        if (notification.link) {
-            navigate(notification.link);
+    // Get icon based on type
+    const getIcon = () => {
+        const iconSize = 20;
+        const color = styles.color;
+        
+        switch (notification.type) {
+            case 'assessment_published':
+                return <AlertCircle size={iconSize} color={color} />;
+            case 'result_published':
+                return <CheckCircle size={iconSize} color={color} />;
+            case 'reminder':
+                return <Clock size={iconSize} color={color} />;
+            case 'announcement':
+                return <Megaphone size={iconSize} color={color} />;
+            default:
+                return <AlertCircle size={iconSize} color={color} />;
         }
-        onClose();
     };
 
+    if (!isVisible) return null;
+
     return (
-        <div
-            style={{
-                position: 'fixed',
-                bottom: '20px',
-                right: '20px',
-                width: '350px',
-                maxWidth: '90vw',
-                border: `2px solid ${styles.borderColor}`,
-                borderRadius: '12px',
-                padding: '16px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                zIndex: 10000,
-                opacity: isVisible ? 1 : 0,
-                transform: isVisible ? 'translateY(0)' : 'translateY(100px)',
-                transition: 'all 0.3s ease',
-                cursor: notification.link ? 'pointer' : 'default'
-            }}
-            onClick={handleClick}
-        >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <div style={{ flexShrink: 0, marginTop: '2px' }}>
+        <div className="notification-popup-container">
+            <div 
+                className={`notification-popup ${isClosing ? 'slide-out' : ''}`}
+                onClick={handleClick}
+                style={{ borderLeftColor: styles.color }}
+            >
+                <div 
+                    className="notification-popup-icon"
+                    style={{ backgroundColor: styles.bg }}
+                >
                     {getIcon()}
                 </div>
-                <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <h4 style={{ 
-                            margin: 0, 
-                            fontSize: '16px', 
-                            fontWeight: 600, 
-                            color: '#111827' 
-                        }}>
+                
+                <div className="notification-popup-body">
+                    <div className="notification-popup-header">
+                        <h4 className="notification-popup-title">
                             {notification.title}
                         </h4>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsVisible(false);
-                                setTimeout(onClose, 300);
-                            }}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                borderRadius: '4px',
-                                transition: 'background-color 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0,0,0,0.1)';
-                            }}
-                            onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
-                            }}
+                        <button 
+                            className="notification-popup-close"
+                            onClick={handleClose}
+                            aria-label="Close notification"
                         >
-                            <X size={16} color="#6B7280" />
+                            <X size={16} />
                         </button>
                     </div>
-                    <p style={{ 
-                        margin: 0, 
-                        fontSize: '14px', 
-                        color: '#374151',
-                        lineHeight: '1.5'
-                    }}>
+                    
+                    <p className="notification-popup-message">
                         {notification.message}
                     </p>
+                    
                     {notification.link && (
-                        <div style={{ marginTop: '8px', fontSize: '12px', color: styles.iconColor, fontWeight: 500 }}>
-                            Click to view →
-                        </div>
+                        <span 
+                            className="notification-popup-link"
+                            style={{ color: styles.color }}
+                        >
+                            View Details →
+                        </span>
                     )}
                 </div>
             </div>

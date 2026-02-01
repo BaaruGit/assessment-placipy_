@@ -126,8 +126,6 @@ const DashboardHome: React.FC = () => {
 
         // Frontend notifications: Today assessments and upcoming reminders
         try {
-          const sessionId = localStorage.getItem('notif_session_id') || String(Date.now());
-          localStorage.setItem('notif_session_id', sessionId);
           const upcoming: Array<{ assessmentId: string; scheduledAt: string }> = [];
           interface AssessmentItem {
             [key: string]: unknown;
@@ -144,10 +142,15 @@ const DashboardHome: React.FC = () => {
             const start = a?.scheduling?.startDate || a?.createdAt;
             const aid = a?.assessmentId || a?.id;
             if (!aid || !start) return;
-            if (a.status === 'ACTIVE' && isToday(start)) {
-              const flagKey = `notif_today_${aid}_${sessionId}`;
+
+            // Check for Today's Active Assessments
+            // We use user.email to ensure we track 'seen' status per user
+            // We remove 'sessionId' so this persists across logins for the same user
+            if (user?.email && a.status === 'ACTIVE' && isToday(start)) {
+              const flagKey = `notif_shown_${user.email}_${aid}`;
+
               if (!localStorage.getItem(flagKey)) {
-                localStorage.setItem(flagKey, '1');
+                localStorage.setItem(flagKey, 'true');
                 addNotification({
                   type: 'assessment_published',
                   title: 'New Assessment Today',

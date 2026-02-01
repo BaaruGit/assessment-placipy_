@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle, CheckCircle, Clock, Megaphone, Inbox } from 'lucide-react';
 
 import { useNotifications } from '../../contexts/useNotifications';
 import type { Notification } from '../../services/notification.service';
 import Pagination from './Pagination';
+import '../styles/Notifications.css';
 
 type TabKey = 'all' | 'assessments' | 'results' | 'reminders' | 'general';
 
@@ -15,15 +17,48 @@ const Notifications: React.FC = () => {
   const [removedNotifications, setRemovedNotifications] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
-  const getPriorityColor = (priority: Notification['priority']) => {
+  const getPriorityStyles = (priority: Notification['priority']) => {
     switch (priority) {
       case 'high':
-        return '#EF4444';
+        return {
+          color: 'var(--priority-high)',
+          bg: 'var(--priority-high-bg)',
+          borderColor: 'var(--priority-high)'
+        };
       case 'medium':
-        return '#F59E0B';
+        return {
+          color: 'var(--priority-medium)',
+          bg: 'var(--priority-medium-bg)',
+          borderColor: 'var(--priority-medium)'
+        };
       case 'low':
+        return {
+          color: 'var(--priority-low)',
+          bg: 'var(--priority-low-bg)',
+          borderColor: 'var(--priority-low)'
+        };
       default:
-        return '#6B7280';
+        return {
+          color: 'var(--priority-default)',
+          bg: 'var(--priority-default-bg)',
+          borderColor: 'var(--priority-default)'
+        };
+    }
+  };
+
+  const getIcon = (type: string, color: string) => {
+    const size = 24;
+    switch (type) {
+      case 'assessment_published':
+        return <AlertCircle size={size} color={color} />;
+      case 'result_published':
+        return <CheckCircle size={size} color={color} />;
+      case 'reminder':
+        return <Clock size={size} color={color} />;
+      case 'announcement':
+        return <Megaphone size={size} color={color} />;
+      default:
+        return <AlertCircle size={size} color={color} />;
     }
   };
 
@@ -57,7 +92,7 @@ const Notifications: React.FC = () => {
     else if (activeTab === 'reminders') {
       filtered = notifications.filter((n) => n.type === 'reminder');
     }
-    
+
     // Filter out removed notifications
     return filtered.filter(notification => {
       const id = notification.SK ? String(notification.SK).replace('NOTIF#', '') : notification.createdAt;
@@ -82,7 +117,6 @@ const Notifications: React.FC = () => {
   };
 
   const [currentPage, setCurrentPage] = useState(1);
-
   const totalItems = filteredNotifications.length;
   const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -93,150 +127,125 @@ const Notifications: React.FC = () => {
   );
 
   return (
-    <div className="notifications-page">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px',
-        }}
-      >
+    <div className="notifications-page-container">
+      <div className="notifications-header">
         <h2>Notifications</h2>
         {notifications.length > 0 && (
           <button
-            className="mark-read-btn"
-          onClick={handleMarkAllAsRead}
-            style={{ padding: '6px 12px', fontSize: '14px' }}
+            className="mark-all-btn"
+            onClick={handleMarkAllAsRead}
           >
             Mark all as read
           </button>
         )}
       </div>
 
-      <div className="tabs">
-        <button
-          className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
-          onClick={() => setActiveTab('all')}
-        >
-          All
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'assessments' ? 'active' : ''}`}
-          onClick={() => setActiveTab('assessments')}
-        >
-          Assessments
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'results' ? 'active' : ''}`}
-          onClick={() => setActiveTab('results')}
-        >
-          Results
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'reminders' ? 'active' : ''}`}
-          onClick={() => setActiveTab('reminders')}
-        >
-          Reminders
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'general' ? 'active' : ''}`}
-          onClick={() => setActiveTab('general')}
-        >
-          General
-        </button>
+      <div className="notifications-tabs">
+        {(['all', 'assessments', 'results', 'reminders', 'general'] as TabKey[]).map((tab) => (
+          <button
+            key={tab}
+            className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab(tab);
+              setCurrentPage(1);
+            }}
+          >
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
       </div>
 
-      <div className="tab-content">
+      <div className="notifications-content">
         {loading && (
-          <div className="notifications-list">
-            <div className="notification-item">
-              <div className="notification-content">
-                <p>Loading notifications...</p>
-              </div>
-            </div>
+          <div className="notifications-empty">
+            <div className="spinner">Loading...</div>
           </div>
         )}
 
         {!loading && filteredNotifications.length === 0 && (
-          <div className="notifications-list">
-            <div className="notification-item">
-              <div className="notification-content">
-                <p>No notifications found in this category.</p>
-              </div>
-            </div>
+          <div className="notifications-empty">
+            <Inbox className="empty-icon" />
+            <p>No notifications found in this category.</p>
           </div>
         )}
 
         {!loading && filteredNotifications.length > 0 && (
-          <>
-            <div className="notifications-list">
+          <div className="notifications-grid">
             {paginatedNotifications.map((notification, index) => {
-              const borderColor = getPriorityColor(notification.priority);
               const isUnread = !notification.isRead;
-            
+              const priorityStyles = getPriorityStyles(notification.priority);
+              const id = notification.SK || notification.createdAt;
+
               return (
                 <div
-                  key={`${notification.SK || notification.createdAt}-${notification.title}-${index}`}
-                  className={`notification-item ${isUnread ? 'unread' : ''}`}
-                  style={
-                    {
-                      borderLeft: `4px solid ${borderColor}`,
-                      display: 'flex',
-                      gap: '12px',
-                      alignItems: 'flex-start',
-                    }
-                  }
+                  key={`${id}-${index}`}
+                  className={`notification-card ${isUnread ? 'unread' : ''}`}
+                  // Use inline style for dynamic border color only for unread
+                  style={isUnread ? { borderColor: 'transparent' } : {}}
                 >
-                  <div className="notification-content" style={{ flex: 1 }}>
-                    <h4 style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>{notification.title}</span>
-                      {isUnread && (
-                        <span className="unread-indicator" style={{ fontSize: '11px' }}>
-                          Unread
-                        </span>
-                      )}
-                    </h4>
-                    <p style={{ marginTop: 0, marginBottom: '4px' }}>{notification.message}</p>
-                    <div
-                      className="notification-meta"
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    >
-                      <span className="time">{getRelativeTime(notification.createdAt)}</span>
-                      <div className="notification-actions" style={{ display: 'flex', gap: '8px' }}>
+                  {isUnread && (
+                    <style>{`
+                                            .notification-card.unread:before {
+                                                background-color: ${priorityStyles.borderColor};
+                                            }
+                                        `}</style>
+                  )}
+
+                  <div
+                    className="notification-icon-wrapper"
+                    style={{ backgroundColor: priorityStyles.bg }}
+                  >
+                    {getIcon(notification.type, priorityStyles.color)}
+                  </div>
+
+                  <div className="notification-content">
+                    <div className="notification-header-row">
+                      <h4 className="notification-title">
+                        {notification.title}
+                        {isUnread && <span className="unread-dot" style={{ backgroundColor: priorityStyles.borderColor }} />}
+                      </h4>
+                      <span className="notification-time">
+                        {getRelativeTime(notification.createdAt)}
+                      </span>
+                    </div>
+
+                    <p className="notification-message">
+                      {notification.message}
+                    </p>
+
+                    <div className="notification-actions">
+                      {notification.link && (
                         <button
-                          className="mark-read-btn"
+                          className="action-btn action-btn-primary"
                           onClick={() => handleView(notification)}
-                          style={{ padding: '4px 10px', fontSize: '13px' }}
+                          style={{ color: priorityStyles.color, backgroundColor: priorityStyles.bg }}
                         >
-                          View
+                          View Details
                         </button>
-                        {isUnread && (
-                          <button
-                            className="mark-read-btn"
-                            onClick={() => handleMarkAsRead(notification)}
-                            style={{ padding: '4px 10px', fontSize: '13px' }}
-                          >
-                            Mark as read
-                          </button>
-                        )}
-                      </div>
+                      )}
+                      {isUnread && (
+                        <button
+                          className="action-btn action-btn-secondary"
+                          onClick={() => handleMarkAsRead(notification)}
+                        >
+                          Mark as read
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
+        )}
 
+        {!loading && totalItems > PAGE_SIZE && (
           <Pagination
             currentPage={safeCurrentPage}
             totalItems={totalItems}
             pageSize={PAGE_SIZE}
             onPageChange={setCurrentPage}
           />
-          </>
         )}
       </div>
     </div>
