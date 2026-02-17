@@ -1,9 +1,8 @@
 // @ts-nocheck
-const jwt = require('jsonwebtoken');
-const jwkToPem = require('jwk-to-pem');
-const axios = require('axios');
-const crypto = require('crypto');
-const {
+import jwt from 'jsonwebtoken';
+import axios from 'axios';
+import crypto from 'crypto';
+import {
     CognitoIdentityProviderClient,
     SignUpCommand,
     InitiateAuthCommand,
@@ -13,8 +12,8 @@ const {
     AdminGetUserCommand,  // Add this for getting user attributes
     AdminCreateUserCommand,  // Add this for admin user creation
     AdminSetUserPasswordCommand  // Add this for setting permanent password
-} = require("@aws-sdk/client-cognito-identity-provider");
-const { fromEnv } = require("@aws-sdk/credential-providers");
+} from "@aws-sdk/client-cognito-identity-provider";
+import { fromEnv } from "@aws-sdk/credential-providers";
 
 // Configure AWS Cognito client with proper error handling
 let cognitoClient;
@@ -28,7 +27,7 @@ function initializeCognitoClient() {
             console.error('ERROR:', errorMsg);
             throw new Error(errorMsg);
         }
-        
+
         if (!process.env.COGNITO_CLIENT_ID) {
             const errorMsg = 'COGNITO_CLIENT_ID is not set in environment variables. Please set it in your .env file.';
             console.error('ERROR:', errorMsg);
@@ -36,16 +35,16 @@ function initializeCognitoClient() {
         }
 
         cognitoRegion = process.env.COGNITO_REGION || process.env.AWS_REGION;
-        
+
         console.log(`Initializing Cognito client for region: ${cognitoRegion}`);
         console.log(`COGNITO_USER_POOL_ID: ${process.env.COGNITO_USER_POOL_ID ? 'Set' : 'Missing'}`);
         console.log(`COGNITO_CLIENT_ID: ${process.env.COGNITO_CLIENT_ID ? 'Set' : 'Missing'}`);
-        
+
         cognitoClient = new CognitoIdentityProviderClient({
             region: cognitoRegion,
             credentials: fromEnv()
         });
-        
+
         console.log('Cognito client initialized successfully');
         return true;
     } catch (error) {
@@ -236,7 +235,7 @@ async function loginUser(username, password, newPassword = null, session = null)
             ].join('\n');
             throw new Error(errorMsg + '\n' + suggestions + '\n\nOriginal error: ' + error.message);
         }
-        
+
         // Re-throw the error to be handled by the calling function
         throw error;
     }
@@ -396,7 +395,7 @@ async function adminCreateUser(username, password, email, temporary = false) {
                 Password: password,
                 Permanent: true
             };
-            
+
             const setPasswordCommand = new AdminSetUserPasswordCommand(setPasswordParams);
             await cognitoClient.send(setPasswordCommand);
         }
@@ -408,7 +407,7 @@ async function adminCreateUser(username, password, email, temporary = false) {
     }
 }
 
-module.exports = {
+export {
     registerUser,
     loginUser,
     addUserToGroup,

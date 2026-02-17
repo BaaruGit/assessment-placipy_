@@ -1,16 +1,34 @@
 // @ts-nocheck
-const AWS = require('aws-sdk');
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import {
+    CognitoIdentityProviderClient,
+    AdminCreateUserCommand,
+    AdminAddUserToGroupCommand,
+    AdminSetUserPasswordCommand,
+    AdminGetUserCommand,
+    AdminDeleteUserCommand
+} from "@aws-sdk/client-cognito-identity-provider";
+import { fromEnv } from "@aws-sdk/credential-providers";
 
-const dynamodb = new AWS.DynamoDB.DocumentClient({
-    region: process.env.AWS_REGION
+const dbClient = new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    credentials: fromEnv()
+});
+
+const dynamodb = DynamoDBDocument.from(dbClient, {
+    marshallOptions: {
+        removeUndefinedValues: true
+    }
 });
 
 // Initialize Cognito Identity Provider
-const cognito = new AWS.CognitoIdentityServiceProvider({
-    region: process.env.COGNITO_REGION
+const cognito = new CognitoIdentityProviderClient({
+    region: process.env.COGNITO_REGION || process.env.AWS_REGION,
+    credentials: fromEnv()
 });
 
-class StudentService {
+export class StudentService {
     private tableName: string;
     private clientPK: string;
     private userPoolId: string;
@@ -57,12 +75,12 @@ class StudentService {
             console.log('=== COGNITO USER CREATION STARTED ===');
             console.log('Creating Cognito user for:', email);
             console.log('User name:', name);
-            
+
             // Default password for all students - meets Cognito requirements
             // Must have uppercase, lowercase, numbers, and special characters
             const defaultPassword = 'Pyplaci#25Student';
             console.log('Using default password: Pyplaci#25Student');
-            
+
             // Create user with temporary password first
             const params = {
                 UserPoolId: this.userPoolId,
@@ -86,18 +104,20 @@ class StudentService {
             };
 
             console.log('AdminCreateUser params:', JSON.stringify(params, null, 2));
-            
-            const result = await cognito.adminCreateUser(params).promise();
+
+            const command = new AdminCreateUserCommand(params);
+            const result = await cognito.send(command);
             console.log('AdminCreateUser result:', JSON.stringify(result, null, 2));
-            
+
             // Add user to 'student' group
             try {
                 console.log('Adding user to student group...');
-                await cognito.adminAddUserToGroup({
+                const groupCommand = new AdminAddUserToGroupCommand({
                     UserPoolId: this.userPoolId,
                     Username: email,
                     GroupName: 'student'
-                }).promise();
+                });
+                await cognito.send(groupCommand);
                 console.log('Successfully added user to student group');
             } catch (groupError) {
                 console.warn('Warning: Could not add user to student group:', groupError.message);
@@ -106,20 +126,22 @@ class StudentService {
 
             // Set permanent password (this makes the password permanent)
             console.log('Setting permanent password...');
-            await cognito.adminSetUserPassword({
+            const passwordCommand = new AdminSetUserPasswordCommand({
                 UserPoolId: this.userPoolId,
                 Username: email,
                 Password: defaultPassword,
                 Permanent: true
-            }).promise();
+            });
+            await cognito.send(passwordCommand);
             console.log('Successfully set permanent password');
-            
+
             // Verify user state
             console.log('Verifying user state...');
-            const userStatus = await cognito.adminGetUser({
+            const getUserCommand = new AdminGetUserCommand({
                 UserPoolId: this.userPoolId,
                 Username: email
-            }).promise();
+            });
+            const userStatus = await cognito.send(getUserCommand);
             console.log('User status:', JSON.stringify(userStatus, null, 2));
 
             console.log('=== COGNITO USER CREATION COMPLETED ===');
@@ -149,7 +171,7 @@ class StudentService {
         try {
             // Set client PK based on email domain
             this.setClientPK(email);
-            
+
             const params = {
                 TableName: this.tableName,
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
@@ -159,7 +181,7 @@ class StudentService {
                 }
             };
 
-            const result = await dynamodb.query(params).promise();
+            const result = await dynamodb.query(params);
             return result.Items || [];
         } catch (error) {
             throw new Error('Failed to fetch students: ' + error.message);
@@ -169,26 +191,26 @@ class StudentService {
     /**
      * Get student by email
      */
-async getStudentByEmail(email: string) {
-    try {
-        // Always use student's domain
-        this.setClientPK(email);
+    async getStudentByEmail(email: string) {
+        try {
+            // Always use student's domain
+            this.setClientPK(email);
 
-        const params = {
-            TableName: this.tableName,
-            Key: {
-                PK: this.clientPK,
-                SK: `STUDENT#${email}`
-            }
-        };
+            const params = {
+                TableName: this.tableName,
+                Key: {
+                    PK: this.clientPK,
+                    SK: `STUDENT#${email}`
+                }
+            };
 
-        const result = await dynamodb.get(params).promise();
-        return result.Item || null;
+            const result = await dynamodb.get(params);
+            return result.Item || null;
 
-    } catch (error) {
-        throw new Error('Failed to fetch student: ' + error.message);
+        } catch (error) {
+            throw new Error('Failed to fetch student: ' + error.message);
+        }
     }
-}
 
     /**
      * Create or update student (Upsert)
@@ -198,15 +220,15 @@ async getStudentByEmail(email: string) {
             // Extract domains from emails
             const studentDomain = this.getDomainFromEmail(studentData.email);
             const creatorDomain = this.getDomainFromEmail(createdByEmail);
-            
+
             // Restrict PTS users to only add students from their own domain
             if (studentDomain !== creatorDomain) {
                 throw new Error(`You can only add students from your own domain (${creatorDomain}). Cannot add student from domain ${studentDomain}.`);
             }
-            
+
             // Set client PK based on student's email domain
             this.setClientPK(studentData.email);
-            
+
             // Validate email domain
             if (!this.validateEmail(studentData.email)) {
                 throw new Error('Email must be from a valid domain');
@@ -237,8 +259,8 @@ async getStudentByEmail(email: string) {
                 Item: student
             };
 
-            await dynamodb.put(params).promise();
-            
+            await dynamodb.put(params);
+
             // If this is a new student, create Cognito user
             if (!existingStudent) {
                 try {
@@ -270,15 +292,15 @@ async getStudentByEmail(email: string) {
             // Extract domains from emails
             const studentDomain = this.getDomainFromEmail(email);
             const updaterDomain = this.getDomainFromEmail(updatedByEmail);
-            
+
             // Restrict PTS users to only update students from their own domain
             if (studentDomain !== updaterDomain) {
                 throw new Error(`You can only update students from your own domain (${updaterDomain}). Cannot update student from domain ${studentDomain}.`);
             }
-            
+
             // Set client PK based on updater's email domain
             this.setClientPK(updatedByEmail);
-            
+
             const student = await this.getStudentByEmail(email, updatedByEmail);
             if (!student) {
                 throw new Error('Student not found');
@@ -304,7 +326,7 @@ async getStudentByEmail(email: string) {
                 ReturnValues: 'ALL_NEW'
             };
 
-            const result = await dynamodb.update(params).promise();
+            const result = await dynamodb.update(params);
             return result.Attributes;
         } catch (error) {
             console.error('Error in updateStudentStatus:', error);
@@ -320,15 +342,15 @@ async getStudentByEmail(email: string) {
             // Extract domains from emails
             const studentDomain = this.getDomainFromEmail(email);
             const requesterDomain = this.getDomainFromEmail(requesterEmail);
-            
+
             // Restrict PTS users to only delete students from their own domain
             if (studentDomain !== requesterDomain) {
                 throw new Error(`You can only delete students from your own domain (${requesterDomain}). Cannot delete student from domain ${studentDomain}.`);
             }
-            
+
             // Set client PK based on requester's email domain
             this.setClientPK(requesterEmail);
-            
+
             const params = {
                 TableName: this.tableName,
                 Key: {
@@ -337,21 +359,22 @@ async getStudentByEmail(email: string) {
                 }
             };
 
-            await dynamodb.delete(params).promise();
-            
+            await dynamodb.delete(params);
+
             // Delete from Cognito as well
             try {
-                await cognito.adminDeleteUser({
+                const deleteUserCommand = new AdminDeleteUserCommand({
                     UserPoolId: this.userPoolId,
                     Username: email
-                }).promise();
+                });
+                await cognito.send(deleteUserCommand);
                 console.log(`Successfully deleted user ${email} from Cognito`);
             } catch (cognitoError) {
                 console.error(`Error deleting user ${email} from Cognito:`, cognitoError.message);
                 // Don't throw error here as DynamoDB deletion was successful
                 // The user may not exist in Cognito but still be in DynamoDB
             }
-            
+
             return { message: 'Student deleted successfully' };
         } catch (error) {
             throw new Error('Failed to delete student: ' + error.message);
@@ -359,4 +382,4 @@ async getStudentByEmail(email: string) {
     }
 }
 
-module.exports = new StudentService(process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy');
+export default new StudentService(process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy');

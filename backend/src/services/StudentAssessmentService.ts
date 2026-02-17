@@ -1,14 +1,23 @@
 // @ts-nocheck
-const DynamoDB = require('aws-sdk/clients/dynamodb');
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import { fromEnv } from "@aws-sdk/credential-providers";
 
-const dynamodb = new DynamoDB.DocumentClient({
-    region: process.env.AWS_REGION
+const dbClient = new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    credentials: fromEnv()
+});
+
+const dynamodb = DynamoDBDocument.from(dbClient, {
+    marshallOptions: {
+        removeUndefinedValues: true
+    }
 });
 
 // Import ResultsService to check for previous attempts
-const dynamoDBService = require('./DynamoDBService').instance;
+import { instance as dynamoDBService } from './DynamoDBService';
 
-class StudentAssessmentService {
+export class StudentAssessmentService {
     private assessmentsTableName: string;
     private questionsTableName: string;
 
@@ -102,30 +111,28 @@ class StudentAssessmentService {
                 throw new Error('Invalid requester email format');
             }
 
-            const queryParams: AWS.DynamoDB.DocumentClient.QueryInput = {
+            const queryParams = {
                 TableName: this.assessmentsTableName,
                 KeyConditionExpression: 'PK = :pk AND SK = :sk',
                 ExpressionAttributeValues: {
                     ':pk': `CLIENT#${domain}`,
-                    ':sk': `ASSESSMENT#${assessmentId}`
+                    ':sk': `ASSESSMENT#${assessmentId}`,
+                    ':typeValue': 'DEPARTMENT_WISE'
                 },
-                FilterExpression: '#type = :typeValue' // Always filter by DEPARTMENT_WISE type
+                FilterExpression: '#type = :typeValue', // Always filter by DEPARTMENT_WISE type
+                ExpressionAttributeNames: {
+                    '#type': 'type'
+                }
             };
-
-            const expressionAttributeNames: Record<string, string> = {
-                '#type': 'type'
-            };
-            queryParams.ExpressionAttributeValues[':typeValue'] = 'DEPARTMENT_WISE';
 
             if (department) {
                 queryParams.FilterExpression += ' AND #dept = :department';
-                expressionAttributeNames['#dept'] = 'department';
+                queryParams.ExpressionAttributeNames['#dept'] = 'department';
                 queryParams.ExpressionAttributeValues[':department'] = department;
             }
-            queryParams.ExpressionAttributeNames = expressionAttributeNames;
 
             console.log('Querying assessment with params:', JSON.stringify(queryParams, null, 2));
-            const result = await dynamodb.query(queryParams).promise();
+            const result = await dynamodb.query(queryParams);
             console.log('Assessment query result:', JSON.stringify(result, null, 2));
 
             if (result.Items && result.Items.length > 0) {
@@ -183,7 +190,7 @@ class StudentAssessmentService {
             };
 
             console.log('Querying questions with params:', JSON.stringify(queryParams, null, 2));
-            const queryResult = await dynamodb.query(queryParams).promise();
+            const queryResult = await dynamodb.query(queryParams);
             console.log('Questions query result:', JSON.stringify(queryResult, null, 2));
 
             let allQuestions: any[] = [];
@@ -244,4 +251,4 @@ class StudentAssessmentService {
     }
 }
 
-module.exports = new StudentAssessmentService();
+export default new StudentAssessmentService();

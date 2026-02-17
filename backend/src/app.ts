@@ -1,28 +1,28 @@
 // @ts-nocheck
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 console.log('Loading routes...');
 
 // Import routes
-const userRoutes = require('./routes/user.routes');
-const assessmentRoutes = require('./routes/assessment.routes');
-const analyticsRoutes = require('./routes/analytics.routes');
-const studentRoutes = require('./routes/student.routes');
-const adminRoutes = require('./routes/admin.routes');
-const ptoRoutes = require('./routes/pto.routes');
-const codeEvaluationRoutes = require('./routes/codeEvaluation.routes');
-const resultsRoutes = require('./routes/results.routes');
-const studentAssessmentRoutes = require('./routes/student.assessment.routes');
-const studentSubmissionRoutes = require('./routes/student.submission.routes');
+import userRoutes from './routes/user.routes';
+import assessmentRoutes from './routes/assessment.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import studentRoutes from './routes/student.routes';
+import adminRoutes from './routes/admin.routes';
+import ptoRoutes from './routes/pto.routes';
+import codeEvaluationRoutes from './routes/codeEvaluation.routes';
+import resultsRoutes from './routes/results.routes';
+import studentAssessmentRoutes from './routes/student.assessment.routes';
+import studentSubmissionRoutes from './routes/student.submission.routes';
 
 console.log('Routes loaded successfully');
 
 // Import middleware
-const { authenticateToken, authorizeRole } = require('./auth/auth.middleware');
+import { authenticateToken, authorizeRole } from './auth/auth.middleware';
 
 dotenv.config();
 
@@ -33,7 +33,7 @@ const PORT = process.env.PORT || 3005;
 app.use(helmet());
 // CORS configuration
 app.use(cors({
-    origin:process.env.CLIENT_URL ,
+    origin: process.env.CLIENT_URL,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
@@ -47,9 +47,9 @@ const limiter = rateLimit({
 });
 
 // Explicitly disable rate limiting in development environment
-const isDevelopment = process.env.NODE_ENV === 'development' || 
-                     process.env.NODE_ENV === 'dev' || 
-                     !process.env.NODE_ENV;
+const isDevelopment = process.env.NODE_ENV === 'development' ||
+    process.env.NODE_ENV === 'dev' ||
+    !process.env.NODE_ENV;
 
 if (!isDevelopment) {
     app.use(limiter);
@@ -101,4 +101,4 @@ app.use((req, res) => {
     });
 });
 
-module.exports = app;
+export default app;

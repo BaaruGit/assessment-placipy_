@@ -1,5 +1,5 @@
 // @ts-nocheck
-const dotenv = require('dotenv');
+import dotenv from 'dotenv';
 
 // Load environment variables first
 dotenv.config();
@@ -16,7 +16,7 @@ console.log('AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'Set' 
 console.log('DYNAMODB_TABLE_NAME:', process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy (default)');
 console.log('==========================');
 
-const app = require('./app');
+import app from './app';
 
 // Use port from environment or default to 3005
 const PORT = process.env.PORT || 3005;

@@ -1,12 +1,21 @@
 // @ts-nocheck
-const DynamoDB = require('aws-sdk/clients/dynamodb');
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import { fromEnv } from "@aws-sdk/credential-providers";
 
-const dynamodb = new DynamoDB.DocumentClient({
-    region: process.env.AWS_REGION
+const dbClient = new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    credentials: fromEnv()
+});
+
+const dynamodb = DynamoDBDocument.from(dbClient, {
+    marshallOptions: {
+        removeUndefinedValues: true
+    }
 });
 
 
-class ResultsService {
+export class ResultsService {
     private resultsTableName: string;
     private studentsTableName: string;
 
@@ -119,7 +128,7 @@ class ResultsService {
             console.log('SK:', resultItem.SK);
             console.log('Params:', JSON.stringify(params, null, 2));
 
-            const putResult = await dynamodb.put(params).promise();
+            const putResult = await dynamodb.put(params);
 
             console.log('DynamoDB PUT operation completed successfully');
             console.log('Put result:', JSON.stringify(putResult, null, 2));
@@ -184,7 +193,7 @@ class ResultsService {
             };
 
             console.log('Query params:', JSON.stringify(params, null, 2));
-            const result = await dynamodb.query(params).promise();
+            const result = await dynamodb.query(params);
             console.log('Query result:', JSON.stringify(result, null, 2));
             return result.Items || [];
         } catch (error) {
@@ -224,7 +233,7 @@ class ResultsService {
             };
 
             console.log('Get params:', JSON.stringify(params, null, 2));
-            const result = await dynamodb.get(params).promise();
+            const result = await dynamodb.get(params);
 
             console.log('DynamoDB GET result:', JSON.stringify(result, null, 2));
 
@@ -282,7 +291,7 @@ class ResultsService {
             };
 
             console.log('Scan params:', JSON.stringify(params, null, 2));
-            const result = await dynamodb.scan(params).promise();
+            const result = await dynamodb.scan(params);
             console.log('Scan result count:', result.Count);
 
             return result.Items || [];
@@ -437,7 +446,7 @@ class ResultsService {
             };
 
             console.log('Get params:', JSON.stringify(params, null, 2));
-            const result = await dynamodb.get(params).promise();
+            const result = await dynamodb.get(params);
 
             if (!result.Item) {
                 console.log('Student not found for email:', email);
@@ -492,7 +501,7 @@ class ResultsService {
             };
 
             console.log('Querying students for domain:', `CLIENT#${requesterDomain}`);
-            const studentResult = await dynamodb.query(studentParams).promise();
+            const studentResult = await dynamodb.query(studentParams);
             const studentList = studentResult.Items || [];
             console.log('Found students in Student Management:', studentList.length);
 
@@ -510,7 +519,7 @@ class ResultsService {
             };
 
             console.log('Query params for results:', JSON.stringify(resultsParams, null, 2));
-            const resultsResult = await dynamodb.query(resultsParams).promise();
+            const resultsResult = await dynamodb.query(resultsParams);
             const allResults = resultsResult.Items || [];
             console.log('Found all results:', allResults.length);
 
@@ -677,4 +686,4 @@ class ResultsService {
     }
 }
 
-module.exports = new ResultsService();
+export default new ResultsService();

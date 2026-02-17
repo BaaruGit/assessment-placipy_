@@ -1,12 +1,21 @@
 // @ts-nocheck
-const DynamoDB = require('aws-sdk/clients/dynamodb');
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import { fromEnv } from "@aws-sdk/credential-providers";
 
 // Configure AWS DynamoDB
-const dynamodb = new DynamoDB.DocumentClient({
-    region: process.env.AWS_REGION
+const client = new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    credentials: fromEnv()
 });
 
-class DynamoDBService {
+const dynamodb = DynamoDBDocument.from(client, {
+    marshallOptions: {
+        removeUndefinedValues: true
+    }
+});
+
+export class DynamoDBService {
     private tableName: string;
 
     constructor(tableName: string) {
@@ -36,7 +45,7 @@ class DynamoDBService {
                     }
                 };
 
-                const adminResult = await dynamodb.get(adminParams).promise();
+                const adminResult = await dynamodb.get(adminParams);
                 if (adminResult.Item) {
                     return adminResult.Item;
                 }
@@ -62,7 +71,7 @@ class DynamoDBService {
                 };
 
                 try {
-                    const result = await dynamodb.get(params).promise();
+                    const result = await dynamodb.get(params);
                     if (result.Item) {
                         return result.Item;
                     }
@@ -84,7 +93,7 @@ class DynamoDBService {
                 }
             };
 
-            const scanResult = await dynamodb.scan(scanParams).promise();
+            const scanResult = await dynamodb.scan(scanParams);
             if (scanResult.Items && scanResult.Items.length > 0) {
                 return scanResult.Items[0];
             }
@@ -176,7 +185,7 @@ class DynamoDBService {
                 ReturnValues: 'ALL_NEW'
             };
 
-            const result = await dynamodb.update(params).promise();
+            const result = await dynamodb.update(params);
             return result.Attributes;
         } catch (error) {
             if (error.code === 'CredentialsError' || error.message.includes('credentials')) {
@@ -193,7 +202,7 @@ class DynamoDBService {
                 TableName: this.tableName,
                 ...params
             };
-            return await dynamodb.scan(scanParams).promise();
+            return await dynamodb.scan(scanParams);
         } catch (error) {
             console.error('Error scanning table:', error);
             throw error;
@@ -206,7 +215,7 @@ class DynamoDBService {
                 TableName: this.tableName,
                 ...params
             };
-            return await dynamodb.query(queryParams).promise();
+            return await dynamodb.query(queryParams);
         } catch (error) {
             console.error('Error querying table:', error);
             throw error;
@@ -219,7 +228,7 @@ class DynamoDBService {
                 TableName: this.tableName,
                 Item: item
             };
-            return await dynamodb.put(params).promise();
+            return await dynamodb.put(params);
         } catch (error) {
             console.error('Error putting item:', error);
             throw error;
@@ -232,7 +241,7 @@ class DynamoDBService {
                 TableName: this.tableName,
                 ...params
             };
-            return await dynamodb.get(getParams).promise();
+            return await dynamodb.get(getParams);
         } catch (error) {
             console.error('Error getting item:', error);
             throw error;
@@ -245,7 +254,7 @@ class DynamoDBService {
                 TableName: this.tableName,
                 ...params
             };
-            return await dynamodb.update(updateParams).promise();
+            return await dynamodb.update(updateParams);
         } catch (error) {
             console.error('Error updating item:', error);
             throw error;
@@ -258,7 +267,7 @@ class DynamoDBService {
                 TableName: this.tableName,
                 ...params
             };
-            return await dynamodb.delete(deleteParams).promise();
+            return await dynamodb.delete(deleteParams);
         } catch (error) {
             console.error('Error deleting item:', error);
             throw error;
@@ -280,7 +289,7 @@ class DynamoDBService {
                         [this.tableName]: chunk
                     }
                 };
-                const result = await dynamodb.batchWrite(params).promise();
+                const result = await dynamodb.batchWrite(params);
                 results.push(result);
             }
             return results;
@@ -292,6 +301,6 @@ class DynamoDBService {
 }
 
 // Export both the class and a singleton instance
-module.exports = DynamoDBService;
-module.exports.DynamoDBService = DynamoDBService;
-module.exports.instance = new DynamoDBService(process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy');
+// Export both the class and a singleton instance
+export default DynamoDBService;
+export const instance = new DynamoDBService(process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy');

@@ -1,13 +1,22 @@
 // @ts-nocheck
-const express = require('express');
-const authMiddleware = require('../auth/auth.middleware');
-const DynamoDB = require('aws-sdk/clients/dynamodb');
-const resultsService = require('../services/ResultsService');
-const { getUserAttributes } = require('../auth/cognito');
+import express from 'express';
+import { authenticateToken } from '../auth/auth.middleware';
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import { fromEnv } from "@aws-sdk/credential-providers";
+import resultsService from '../services/ResultsService';
+import { getUserAttributes } from '../auth/cognito';
 
 const router = express.Router();
-const dynamodb = new DynamoDB.DocumentClient({
-    region: process.env.AWS_REGION
+
+const dbClient = new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    credentials: fromEnv()
+});
+const dynamodb = DynamoDBDocument.from(dbClient, {
+    marshallOptions: {
+        removeUndefinedValues: true
+    }
 });
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy';
@@ -66,7 +75,7 @@ async function getEmailFromRequest(req) {
 }
 
 // Get student analytics
-router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
+router.get('/students', authenticateToken, async (req, res) => {
     try {
         console.log('=== Getting Student Analytics ===');
         console.log('Request object:', JSON.stringify(req.user, null, 2));
@@ -109,7 +118,7 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
         };
 
         console.log('Querying students for domain:', `CLIENT#${requesterDomain}`, 'owned by:', requesterEmail);
-        const studentResult = await dynamodb.query(studentParams).promise();
+        const studentResult = await dynamodb.query(studentParams);
         const studentList = studentResult.Items || [];
         console.log('Found students owned by requester:', studentList.length);
 
@@ -133,7 +142,7 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
         };
 
         console.log('Query params for results:', JSON.stringify(resultsParams, null, 2));
-        const resultsResult = await dynamodb.query(resultsParams).promise();
+        const resultsResult = await dynamodb.query(resultsParams);
         const allResultsFromDB = resultsResult.Items || [];
         console.log('Found all results:', allResultsFromDB.length);
 
@@ -147,7 +156,7 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
         };
 
         console.log('Querying assessments for domain:', `CLIENT#${requesterDomain}`);
-        const assessmentResult = await dynamodb.query(assessmentParams).promise();
+        const assessmentResult = await dynamodb.query(assessmentParams);
         const assessments = assessmentResult.Items || [];
 
         // Filter to only include assessments created by the current user
@@ -405,7 +414,7 @@ router.get('/students', authMiddleware.authenticateToken, async (req, res) => {
 });
 
 // Get department statistics
-router.get('/departments', authMiddleware.authenticateToken, async (req, res) => {
+router.get('/departments', authenticateToken, async (req, res) => {
     try {
         // Get all students
         const studentsParams = {
@@ -416,7 +425,7 @@ router.get('/departments', authMiddleware.authenticateToken, async (req, res) =>
             }
         };
 
-        const studentsResult = await dynamodb.scan(studentsParams).promise();
+        const studentsResult = await dynamodb.scan(studentsParams);
         const students = studentsResult.Items || [];
 
         // Group by department
@@ -453,7 +462,7 @@ router.get('/departments', authMiddleware.authenticateToken, async (req, res) =>
 });
 
 // Get assessment analytics
-router.get('/assessments', authMiddleware.authenticateToken, async (req, res) => {
+router.get('/assessments', authenticateToken, async (req, res) => {
     try {
         // Get all assessments
         const params = {
@@ -464,7 +473,7 @@ router.get('/assessments', authMiddleware.authenticateToken, async (req, res) =>
             }
         };
 
-        const result = await dynamodb.scan(params).promise();
+        const result = await dynamodb.scan(params);
         const assessments = result.Items || [];
 
         // Filter only assessment items (PK starts with ASSESSMENT#)
@@ -490,7 +499,7 @@ router.get('/assessments', authMiddleware.authenticateToken, async (req, res) =>
 });
 
 // Get comprehensive analytics data for PTS dashboard
-router.get('/pts-overview', authMiddleware.authenticateToken, async (req, res) => {
+router.get('/pts-overview', authenticateToken, async (req, res) => {
     try {
         console.log('=== Getting PTS Overview Analytics ===');
         console.log('Request object:', JSON.stringify(req.user, null, 2));
@@ -522,4 +531,4 @@ router.get('/pts-overview', authMiddleware.authenticateToken, async (req, res) =
     }
 });
 
-module.exports = router;
+export default router;

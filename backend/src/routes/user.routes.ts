@@ -1,9 +1,23 @@
 // @ts-nocheck
-const express = require('express');
-const userController = require('../auth/auth.controller');
-const authMiddleware = require('../auth/auth.middleware');
+import express from 'express';
+import * as userController from '../auth/auth.controller';
+import { authenticateToken } from '../auth/auth.middleware';
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import { fromEnv } from "@aws-sdk/credential-providers";
 
 const router = express.Router();
+
+const dbClient = new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    credentials: fromEnv()
+});
+const dynamodb = DynamoDBDocument.from(dbClient, {
+    marshallOptions: {
+        removeUndefinedValues: true
+    }
+});
+
 
 // Public routes
 router.post('/register', userController.register);
@@ -13,12 +27,12 @@ router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password', userController.resetPassword);
 
 // Protected routes
-router.get('/profile', authMiddleware.authenticateToken, userController.getProfile);
+router.get('/profile', authenticateToken, userController.getProfile);
 
 // Profile Management Endpoints
-router.put('/profile', authMiddleware.authenticateToken, userController.updateProfile);
+router.put('/profile', authenticateToken, userController.updateProfile);
 
-router.put('/profile/password', authMiddleware.authenticateToken, async (req, res) => {
+router.put('/profile/password', authenticateToken, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
         const email = req.user.email;
@@ -40,7 +54,7 @@ router.put('/profile/password', authMiddleware.authenticateToken, async (req, re
     }
 });
 
-router.put('/profile/preferences', authMiddleware.authenticateToken, async (req, res) => {
+router.put('/profile/preferences', authenticateToken, async (req, res) => {
     try {
         const email = req.user.email;
         const role = req.user.role || 'PTS';
@@ -62,11 +76,6 @@ router.put('/profile/preferences', authMiddleware.authenticateToken, async (req,
         const SK = role === 'PTS' ? `PTS#${employeeId}` : `PTO#${employeeId}`;
 
         // Save preferences to DynamoDB
-        const DynamoDB = require('aws-sdk/clients/dynamodb');
-        const dynamodb = new DynamoDB.DocumentClient({
-            region: process.env.AWS_REGION
-        });
-
         const params = {
             TableName: process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy',
             Key: { PK, SK },
@@ -87,7 +96,7 @@ router.put('/profile/preferences', authMiddleware.authenticateToken, async (req,
             ReturnValues: 'ALL_NEW'
         };
 
-        await dynamodb.update(params).promise();
+        await dynamodb.update(params);
 
         res.json({
             success: true,
@@ -113,7 +122,7 @@ router.put('/profile/preferences', authMiddleware.authenticateToken, async (req,
     }
 });
 
-router.get('/profile/preferences', authMiddleware.authenticateToken, async (req, res) => {
+router.get('/profile/preferences', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
 
@@ -141,7 +150,7 @@ router.get('/profile/preferences', authMiddleware.authenticateToken, async (req,
     }
 });
 
-router.put('/profile/security', authMiddleware.authenticateToken, async (req, res) => {
+router.put('/profile/security', authenticateToken, async (req, res) => {
     try {
         const email = req.user.email;
         const role = req.user.role || 'PTS';
@@ -158,11 +167,6 @@ router.put('/profile/security', authMiddleware.authenticateToken, async (req, re
         const SK = role === 'PTS' ? `PTS#${employeeId}` : `PTO#${employeeId}`;
 
         // Update security settings in DynamoDB
-        const DynamoDB = require('aws-sdk/clients/dynamodb');
-        const dynamodb = new DynamoDB.DocumentClient({
-            region: process.env.AWS_REGION
-        });
-
         const params = {
             TableName: process.env.DYNAMODB_TABLE_NAME || 'Assesment_placipy',
             Key: { PK, SK },
@@ -178,7 +182,7 @@ router.put('/profile/security', authMiddleware.authenticateToken, async (req, re
             ReturnValues: 'ALL_NEW'
         };
 
-        await dynamodb.update(params).promise();
+        await dynamodb.update(params);
 
         res.json({
             success: true,
@@ -199,7 +203,7 @@ router.put('/profile/security', authMiddleware.authenticateToken, async (req, re
     }
 });
 
-router.get('/profile/security', authMiddleware.authenticateToken, async (req, res) => {
+router.get('/profile/security', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
 
@@ -223,7 +227,7 @@ router.get('/profile/security', authMiddleware.authenticateToken, async (req, re
     }
 });
 
-router.put('/profile/picture', authMiddleware.authenticateToken, async (req, res) => {
+router.put('/profile/picture', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
         const { profilePictureUrl } = req.body;
@@ -259,4 +263,4 @@ router.put('/profile/picture', authMiddleware.authenticateToken, async (req, res
     }
 });
 
-module.exports = router;
+export default router;

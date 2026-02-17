@@ -1,6 +1,6 @@
 // @ts-nocheck
-const { registerUser, loginUser, addUserToGroup, getUserAttributes } = require('./cognito');
-const dynamoDBService = require('../services/DynamoDBService').instance;
+import { registerUser, loginUser, addUserToGroup, getUserAttributes } from './cognito';
+import { instance as dynamoDBService } from '../services/DynamoDBService';
 
 /**
  * Register a new user
@@ -255,26 +255,26 @@ const getProfile = async (req, res) => {
 
         // Get user data from DynamoDB - first try the regular user data
         let userData = await dynamoDBService.getUserDataByEmail(email);
-        
+
         // If not found, try looking for staff data created by PTO
         if (!userData) {
             // Extract domain from email to determine the client partition
             const domain = email.split('@')[1];
             const clientPK = `CLIENT#${domain}`;
-            
+
             // Try to find user as staff (PTS) - check both PTS# and STAFF# prefixes
             try {
                 const ptsUserData = await dynamoDBService.getItem({
                     Key: { PK: clientPK, SK: `PTS#${email}` }
                 });
-                
+
                 if (ptsUserData && ptsUserData.Item) {
                     userData = ptsUserData.Item;
                 } else {
                     const staffUserData = await dynamoDBService.getItem({
                         Key: { PK: clientPK, SK: `STAFF#${email}` }
                     });
-                    
+
                     if (staffUserData && staffUserData.Item) {
                         userData = staffUserData.Item;
                     }
@@ -301,7 +301,7 @@ const getProfile = async (req, res) => {
                 lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
             }
         }
-        
+
         // Return user profile with role information
         return res.status(200).json({
             message: 'User profile retrieved successfully',
@@ -439,26 +439,26 @@ const updateProfile = async (req, res) => {
 
         // Get user data from DynamoDB to check if user exists - first try the regular user data
         let existingUserData = await dynamoDBService.getUserDataByEmail(email);
-        
+
         // If not found, try looking for staff data created by PTO
         if (!existingUserData) {
             // Extract domain from email to determine the client partition
             const domain = email.split('@')[1];
             const clientPK = `CLIENT#${domain}`;
-            
+
             // Try to find user as staff (PTS) - check both PTS# and STAFF# prefixes
             try {
                 const ptsUserData = await dynamoDBService.getItem({
                     Key: { PK: clientPK, SK: `PTS#${email}` }
                 });
-                
+
                 if (ptsUserData && ptsUserData.Item) {
                     existingUserData = ptsUserData.Item;
                 } else {
                     const staffUserData = await dynamoDBService.getItem({
                         Key: { PK: clientPK, SK: `STAFF#${email}` }
                     });
-                    
+
                     if (staffUserData && staffUserData.Item) {
                         existingUserData = staffUserData.Item;
                     }
@@ -492,7 +492,7 @@ const updateProfile = async (req, res) => {
                             // Check if we have both firstName and lastName in the request
                             const firstName = req.body.firstName || existingUserData.firstName || '';
                             const lastName = req.body.lastName || existingUserData.lastName || '';
-                            
+
                             if (req.body.firstName && req.body.lastName) {
                                 // Both are provided in the request, combine them
                                 updates['name'] = `${req.body.firstName.trim()} ${req.body.lastName.trim()}`.trim();
@@ -564,11 +564,11 @@ const updateProfile = async (req, res) => {
 
         // Update user data in DynamoDB - check if this is a regular user or staff member
         let updatedUserData;
-        
+
         // Check if the original user was a staff member (PTS/STAFF) or regular user
         const domain = email.split('@')[1];
         const clientPK = `CLIENT#${domain}`;
-        
+
         if (existingUserData.SK && (existingUserData.SK.startsWith('PTS#') || existingUserData.SK.startsWith('STAFF#'))) {
             // This is a staff member created by PTO, update using the specific key
             try {
@@ -579,7 +579,7 @@ const updateProfile = async (req, res) => {
                     ExpressionAttributeValues: {},
                     ReturnValues: 'ALL_NEW'
                 };
-                
+
                 const updateExpressionParts = [];
                 for (const [key, value] of Object.entries(updates)) {
                     updateExpressionParts.push(`#${key} = :${key}`);
@@ -587,7 +587,7 @@ const updateProfile = async (req, res) => {
                     updateParams.ExpressionAttributeValues[`:${key}`] = value;
                 }
                 updateParams.UpdateExpression += ` ${updateExpressionParts.join(', ')}`;
-                
+
                 const result = await dynamoDBService.updateItem(updateParams);
                 updatedUserData = result.Attributes;
             } catch (error) {
@@ -612,7 +612,7 @@ const updateProfile = async (req, res) => {
                 lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
             }
         }
-        
+
         // Return updated user profile
         return res.status(200).json({
             message: 'User profile updated successfully',
@@ -647,7 +647,7 @@ const updateProfile = async (req, res) => {
     }
 };
 
-module.exports = {
+export {
     register,
     login,
     respondToNewPasswordChallenge,
