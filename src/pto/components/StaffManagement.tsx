@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as XLSX from '@e965/xlsx';
-import { FaUser, FaTrash, FaUserPlus, FaBuilding, FaEdit } from 'react-icons/fa';
+import { FaUser, FaTrash, FaUserPlus, FaBuilding, FaEdit, FaSync } from 'react-icons/fa';
 import PTOService, { type StaffMember as StaffDto } from '../../services/pto.service';
 import { useUser } from '../../contexts/UserContext';
 
@@ -24,37 +24,36 @@ const StaffManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useUser();
 
+  const fetchStaffData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await PTOService.getStaff();
+      const filtered = data.filter((s: StaffDto) => String(s.id || '').includes('@'));
+      const mapped: StaffMember[] = filtered.map((s: StaffDto) => ({
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        phone: s.phone || '',
+        designation: s.designation || '',
+        department: s.department || '',
+        permissions: {
+          createAssessments: (s.permissions || []).includes('createAssessments'),
+          editAssessments: (s.permissions || []).includes('editAssessments'),
+          viewReports: (s.permissions || []).includes('viewReports')
+        }
+      }));
+      setStaff(mapped);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to load staff';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await PTOService.getStaff();
-        const filtered = data.filter((s: StaffDto) => String(s.id || '').includes('@'));
-        const mapped: StaffMember[] = filtered.map((s: StaffDto) => ({
-          id: s.id,
-          name: s.name,
-          email: s.email,
-          phone: s.phone || '',
-          designation: s.designation || '',
-          department: s.department || '',
-          permissions: {
-            createAssessments: (s.permissions || []).includes('createAssessments'),
-            editAssessments: (s.permissions || []).includes('editAssessments'),
-            viewReports: (s.permissions || []).includes('viewReports')
-          }
-        }));
-        setStaff(mapped);
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Failed to load staff';
-        setError(msg);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-    const i = setInterval(load, 10000);
-    return () => clearInterval(i);
+    fetchStaffData();
   }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -268,6 +267,9 @@ const StaffManagement: React.FC = () => {
       <div className="action-buttons-section" style={{ display: 'flex', gap: '10px' }}>
         <button className="primary-btn" onClick={() => setIsAddModalOpen(true)}>
           <FaUserPlus /> Create Staff Account
+        </button>
+        <button className="secondary-btn" onClick={fetchStaffData} title="Refresh Staff List">
+          <FaSync className={loading ? 'fa-spin' : ''} /> Refresh
         </button>
         <button className="secondary-btn" onClick={async () => {
           try {
