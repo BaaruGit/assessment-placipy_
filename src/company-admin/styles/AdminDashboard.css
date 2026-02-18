@@ -333,6 +333,10 @@
 .admin-stat-icon {
   font-size: 3rem;
   line-height: 1;
+  color: #9768E1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .admin-stat-content {
@@ -395,6 +399,55 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  gap: 20px;
+}
+
+.admin-search-bar-with-icon {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+.admin-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #A4878D;
+  pointer-events: none;
+}
+
+.admin-search-bar-with-icon .admin-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 44px;
+  border: 1px solid #D0BFE7;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #523C48;
+  background-color: #ffffff !important;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.admin-search-bar-with-icon .admin-search-input:focus {
+  outline: none;
+  border-color: #9768E1;
+  box-shadow: 0 0 0 3px rgba(151, 104, 225, 0.1);
+}
+
+.admin-search-bar-with-icon .admin-search-input::placeholder {
+  color: #A4878D;
+}
+
+.admin-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-header-actions button {
+  display: flex;
+  align-items: center;
 }
 
 .admin-page-title {
@@ -659,6 +712,43 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   border: 1px solid #E4D5F8;
   animation: modalSlideIn 0.3s ease-out;
+}
+
+/* PTS Modal - auto width to fit table content */
+.admin-modal-content.pts-modal {
+  max-width: none;
+  width: auto;
+  min-width: 600px;
+}
+
+.admin-modal-content.pts-modal .admin-modal-body {
+  padding: 20px;
+  overflow-x: visible;
+}
+
+.admin-modal-content.pts-modal .pts-popup-table {
+  width: auto;
+  min-width: auto;
+  white-space: nowrap;
+}
+
+/* View button for PTS - styled like active status badge */
+.admin-btn-view {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: none;
+}
+
+.admin-btn-view:hover {
+  background-color: #2e7d32;
+  color: white;
 }
 
 @keyframes modalSlideIn {
@@ -1036,8 +1126,21 @@
 
   .admin-page-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 15px;
+  }
+
+  .admin-search-bar-with-icon {
+    max-width: 100%;
+  }
+
+  .admin-header-actions {
+    width: 100%;
+  }
+
+  .admin-header-actions button {
+    flex: 1;
+    justify-content: center;
   }
 
   .admin-export-buttons {
@@ -2133,5 +2236,144 @@
   .admin-tab.active {
     border-bottom: 1px solid #e9ecef;
     border-left-color: #9768E1;
+  }
+}
+
+/* Officers Management Table Styles */
+.college-main-row {
+  background: linear-gradient(135deg, #FBFAFB 0%, #ffffff 100%);
+  transition: all 0.2s ease;
+}
+
+.college-main-row:hover {
+  background: linear-gradient(135deg, #E4D5F8 0%, #FBFAFB 100%);
+}
+
+.college-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.expand-arrow {
+  transition: transform 0.3s ease;
+  color: #9768E1;
+  flex-shrink: 0;
+}
+
+.expand-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.college-name {
+  font-weight: 600;
+  color: #523C48;
+}
+
+.no-data {
+  color: #A4878D;
+  font-style: italic;
+}
+
+.pts-count-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #E4D5F8;
+  color: #523C48;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.pts-expanded-row {
+  background: #FBFAFB;
+}
+
+.pts-expanded-row td {
+  padding: 0;
+  border-bottom: 2px solid #D0BFE7;
+}
+
+.pts-table-wrapper {
+  padding: 16px 20px 20px 50px;
+}
+
+.pts-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pts-table thead {
+  background-color: #E4D5F8;
+}
+
+.pts-table th {
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: 600;
+  color: #523C48;
+  font-size: 0.85rem;
+  border-bottom: 2px solid #D0BFE7;
+}
+
+.pts-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #E4D5F8;
+  color: #523C48;
+  font-size: 0.85rem;
+}
+
+.pts-table tbody tr:hover {
+  background-color: #FBFAFB;
+}
+
+.pts-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.department-cell {
+  background-color: #F5F0FA;
+  font-weight: 600;
+  color: #523C48;
+  vertical-align: top;
+  border-right: 2px solid #E4D5F8;
+}
+
+/* Small button variant */
+.admin-btn-sm {
+  background-color: #9768E1;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.8rem;
+}
+
+.admin-btn-sm:hover {
+  background-color: #7a54c4;
+}
+
+/* Responsive for officers table */
+@media (max-width: 768px) {
+  .pts-table-wrapper {
+    padding: 10px;
+    overflow-x: auto;
+  }
+  
+  .pts-table {
+    min-width: 600px;
+  }
+  
+  .admin-table th,
+  .admin-table td {
+    padding: 10px;
+    font-size: 0.8rem;
   }
 }
