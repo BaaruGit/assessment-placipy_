@@ -732,23 +732,55 @@
   white-space: nowrap;
 }
 
-/* View button for PTS - styled like active status badge */
+/* View button for PTS */
 .admin-btn-view {
   display: inline-block;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
-  background-color: #e8f5e9;
-  color: #2e7d32;
-  border: none;
+  background-color: white;
+  color: #9768E1;
+  border: 1px solid #9768E1;
+  text-decoration: none;
+}
+
+table tbody tr td .admin-btn-view {
+  display: inline-block !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  background-color: white !important;
+  color: #9768E1 !important;
+  border: 1px solid #9768E1 !important;
+  text-decoration: none !important;
+  min-width: 60px !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+  line-height: 1.4 !important;
 }
 
 .admin-btn-view:hover {
-  background-color: #2e7d32;
+  background-color: #9768E1;
   color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(151, 104, 225, 0.3);
+}
+
+table tbody tr td .admin-btn-view:hover {
+  background-color: #9768E1 !important;
+  color: white !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 8px rgba(151, 104, 225, 0.3) !important;
+  text-decoration: none !important;
 }
 
 @keyframes modalSlideIn {
@@ -1349,6 +1381,8 @@
 .admin-tab-btn:hover {
   background-color: #FBFAFB;
   color: #523C48;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(151, 104, 225, 0.2);
 }
 
 .admin-tab-btn.active {

@@ -135,6 +135,10 @@ const Colleges: React.FC = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    await loadColleges();
+  };
+
   return (
     <AdminSkeletonWrapper loading={loading} type="admin-table">
       <div className="admin-page-container">
@@ -162,13 +166,17 @@ const Colleges: React.FC = () => {
             />
           </div>
           <div className="admin-header-actions">
-            <button className="admin-btn-secondary" onClick={loadColleges}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '6px' }}>
-                <path d="M23 4V10H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M1 20V14H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M3.51 9.00001C4.01717 7.56457 4.87913 6.28639 6.01574 5.27543C7.15236 4.26447 8.52827 3.55124 10.0153 3.19555C11.5023 2.83986 13.0546 2.85303 14.5348 3.23349C16.015 3.61396 17.3762 4.34974 18.49 5.38001L23 10M1 14L5.51 18.62C6.62379 19.6503 7.985 20.386 9.46516 20.7665C10.9453 21.147 12.4977 21.1602 13.9847 20.8045C15.4717 20.4488 16.8476 19.7355 17.9843 18.7246C19.1209 17.7136 19.9828 16.4354 20.49 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <button 
+              className="admin-btn-secondary" 
+              onClick={handleRefresh}
+              disabled={loading}
+              style={{ marginRight: '10px' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '6px', transform: loading ? 'rotate(180deg)' : 'none', transition: 'transform 0.5s' }}>
+                <path d="M23 4L23 10L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M20.49 15C19.2625 17.425 16.875 19 14.145 19C10.235 19 7 15.865 7 12C7 8.135 10.235 5 14.145 5C15.3725 5 16.5 5.315 17.5 5.875" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Refresh
+              {loading ? 'Refreshing...' : 'Refresh'}
             </button>
             <button className="admin-btn-primary" onClick={handleAddNew}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '6px' }}>

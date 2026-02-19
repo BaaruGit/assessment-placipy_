@@ -45,6 +45,16 @@
 .ad-tab.ad-btn-primary {
     background-color: #9768E1;
     color: white;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 1px solid #9768E1;
+}
+
+.ad-tab.ad-btn-primary:hover {
+    background-color: #7d52c9;
+    border-color: #7d52c9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(151, 104, 225, 0.3);
 }
 
 .ad-tab.ad-btn-secondary {
@@ -55,6 +65,8 @@
 .ad-tab.ad-btn-secondary:hover {
     background-color: #F3F4F6;
     color: #1F2937;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(151, 104, 225, 0.2);
 }
 
 /* Header Profile Container (Dashboard) */

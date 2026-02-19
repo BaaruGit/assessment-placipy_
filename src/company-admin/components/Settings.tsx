@@ -30,10 +30,7 @@ interface SettingsData {
   allowedFileTypes?: string[];
 }
 
-type TabType = 'profile';
-
 const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,174 +198,168 @@ Placement Training Team`
   };
 
   const renderTabContent = () => {
-    switch (activeTab) {
-      case 'profile':
-        return (
-          <div className="pts-fade-in">
-            <div className="pts-form-container">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '30px', marginBottom: '30px', padding: '20px', background: '#f8f9fa', borderRadius: '8px' }}>
-                <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: '#9768E1', border: '3px solid #9768E1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '40px' }}>
-                  {profile.firstName?.charAt(0).toUpperCase() || 'A'}
-                </div>
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0', color: '#523C48', fontSize: '1.5rem' }}>{profile.firstName} {profile.lastName}</h3>
-                  <p style={{ margin: '0', color: '#A4878D', fontSize: '0.95rem' }}>{profile.email}</p>
-                </div>
-              </div>
-
-              {!isEditingProfile ? (
-                <div>
-                  <div className="pts-form-grid">
-                    <div>
-                      <label className="pts-form-label">Full Name</label>
-                      <div className="pts-form-display">{profile.firstName} {profile.lastName}</div>
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Email</label>
-                      <div className="pts-form-display">{profile.email}</div>
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Phone</label>
-                      <div className="pts-form-display">{profile.phone || 'N/A'}</div>
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Designation</label>
-                      <div className="pts-form-display">{profile.designation}</div>
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Department</label>
-                      <div className="pts-form-display">{profile.department}</div>
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Joining Date</label>
-                      <div className="pts-form-display">{profile.joiningDate}</div>
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label className="pts-form-label">Bio</label>
-                      <div className="pts-form-display">{profile.bio || 'N/A'}</div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="pts-form-grid">
-                    <div>
-                      <label className="pts-form-label">First Name *</label>
-                      <input
-                        type="text"
-                        value={profile.firstName}
-                        onChange={(e) => updateProfile('firstName', e.target.value)}
-                        className="pts-form-input"
-                        placeholder="Enter your first name"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Last Name *</label>
-                      <input
-                        type="text"
-                        value={profile.lastName}
-                        onChange={(e) => updateProfile('lastName', e.target.value)}
-                        className="pts-form-input"
-                        placeholder="Enter your last name"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Email (Read-only)</label>
-                      <input
-                        type="email"
-                        value={profile.email}
-                        className="pts-form-input"
-                        disabled
-                        readOnly
-                      />
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Phone</label>
-                      <input
-                        type="tel"
-                        value={profile.phone}
-                        onChange={(e) => updateProfile('phone', e.target.value)}
-                        className="pts-form-input"
-                        placeholder="Enter your phone number"
-                      />
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Designation</label>
-                      <input
-                        type="text"
-                        value={profile.designation}
-                        onChange={(e) => updateProfile('designation', e.target.value)}
-                        className="pts-form-input"
-                        placeholder="Enter your designation"
-                      />
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Department</label>
-                      <input
-                        type="text"
-                        value={profile.department}
-                        onChange={(e) => updateProfile('department', e.target.value)}
-                        className="pts-form-input"
-                        placeholder="Enter your department"
-                      />
-                    </div>
-                    <div>
-                      <label className="pts-form-label">Joining Date</label>
-                      <input
-                        type="date"
-                        value={profile.joiningDate}
-                        onChange={(e) => updateProfile('joiningDate', e.target.value)}
-                        className="pts-form-input"
-                      />
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label className="pts-form-label">Bio</label>
-                      <textarea
-                        value={profile.bio}
-                        onChange={(e) => updateProfile('bio', e.target.value)}
-                        className="pts-form-textarea"
-                        placeholder="Tell us about yourself"
-                        rows={4}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                    <button
-                      type="button"
-                      onClick={handleProfileUpdate}
-                      className="pts-btn-primary"
-                      disabled={saving}
-                    >
-                      {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsEditingProfile(false);
-                        loadAllData(); // Reload original data
-                      }}
-                      className="pts-btn-secondary"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+    return (
+      <div className="pts-fade-in">
+        <div className="pts-form-container">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '30px', marginBottom: '30px', padding: '20px', background: '#f8f9fa', borderRadius: '8px' }}>
+            <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: '#9768E1', border: '3px solid #9768E1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '40px' }}>
+              {profile.firstName?.charAt(0).toUpperCase() || 'A'}
+            </div>
+            <div>
+              <h3 style={{ margin: '0 0 8px 0', color: '#523C48', fontSize: '1.5rem' }}>{profile.firstName} {profile.lastName}</h3>
+              <p style={{ margin: '0', color: '#A4878D', fontSize: '0.95rem' }}>{profile.email}</p>
             </div>
           </div>
-        );
 
-      default:
-        return null;
-    }
+          {!isEditingProfile ? (
+            <div>
+              <div className="pts-form-grid">
+                <div>
+                  <label className="pts-form-label">Full Name</label>
+                  <div className="pts-form-display">{profile.firstName} {profile.lastName}</div>
+                </div>
+                <div>
+                  <label className="pts-form-label">Email</label>
+                  <div className="pts-form-display">{profile.email}</div>
+                </div>
+                <div>
+                  <label className="pts-form-label">Phone</label>
+                  <div className="pts-form-display">{profile.phone || 'N/A'}</div>
+                </div>
+                <div>
+                  <label className="pts-form-label">Designation</label>
+                  <div className="pts-form-display">{profile.designation}</div>
+                </div>
+                <div>
+                  <label className="pts-form-label">Department</label>
+                  <div className="pts-form-display">{profile.department}</div>
+                </div>
+                <div>
+                  <label className="pts-form-label">Joining Date</label>
+                  <div className="pts-form-display">{profile.joiningDate}</div>
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="pts-form-label">Bio</label>
+                  <div className="pts-form-display">{profile.bio || 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="pts-form-grid">
+                <div>
+                  <label className="pts-form-label">First Name *</label>
+                  <input
+                    type="text"
+                    value={profile.firstName}
+                    onChange={(e) => updateProfile('firstName', e.target.value)}
+                    className="pts-form-input"
+                    placeholder="Enter your first name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="pts-form-label">Last Name *</label>
+                  <input
+                    type="text"
+                    value={profile.lastName}
+                    onChange={(e) => updateProfile('lastName', e.target.value)}
+                    className="pts-form-input"
+                    placeholder="Enter your last name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="pts-form-label">Email (Read-only)</label>
+                  <input
+                    type="email"
+                    value={profile.email}
+                    className="pts-form-input"
+                    disabled
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <label className="pts-form-label">Phone</label>
+                  <input
+                    type="tel"
+                    value={profile.phone}
+                    onChange={(e) => updateProfile('phone', e.target.value)}
+                    className="pts-form-input"
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+                <div>
+                  <label className="pts-form-label">Designation</label>
+                  <input
+                    type="text"
+                    value={profile.designation}
+                    onChange={(e) => updateProfile('designation', e.target.value)}
+                    className="pts-form-input"
+                    placeholder="Enter your designation"
+                  />
+                </div>
+                <div>
+                  <label className="pts-form-label">Department</label>
+                  <input
+                    type="text"
+                    value={profile.department}
+                    onChange={(e) => updateProfile('department', e.target.value)}
+                    className="pts-form-input"
+                    placeholder="Enter your department"
+                  />
+                </div>
+                <div>
+                  <label className="pts-form-label">Joining Date</label>
+                  <input
+                    type="date"
+                    value={profile.joiningDate}
+                    onChange={(e) => updateProfile('joiningDate', e.target.value)}
+                    className="pts-form-input"
+                  />
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="pts-form-label">Bio</label>
+                  <textarea
+                    value={profile.bio}
+                    onChange={(e) => updateProfile('bio', e.target.value)}
+                    className="pts-form-textarea"
+                    placeholder="Tell us about yourself"
+                    rows={4}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button
+                  type="button"
+                  onClick={handleProfileUpdate}
+                  className="pts-btn-primary"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingProfile(false);
+                    loadAllData(); // Reload original data
+                  }}
+                  className="pts-btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="ad-profile-page">
       <div className="ad-page-header">
-        <h2 className="ad-page-title">Settings</h2>
+        
       </div>
 
       {error && (
@@ -391,26 +382,9 @@ Placement Training Team`
           <p>Loading settings...</p>
         </div>
       ) : (
-        <>
-          {/* Tab Navigation */}
-          <div className="ad-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            <button
-              className={`ad-tab ${activeTab === 'profile' ? 'ad-btn-primary' : 'ad-btn-secondary'}`}
-              onClick={() => setActiveTab('profile')}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-              </svg>
-              Profile Management
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="ad-tab-content">
-            {renderTabContent()}
-          </div>
-        </>
+        <div className="ad-tab-content">
+          {renderTabContent()}
+        </div>
       )}
     </div>
   );
